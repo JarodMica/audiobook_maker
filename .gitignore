@@ -1,0 +1,9 @@
+*.wav
+*.pkl
+*.exe
+*.pth
+*.pt
+
+tort.yaml
+__pycache__/
+.venv/

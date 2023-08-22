@@ -1,0 +1,20 @@
+delimiter : "\n"
+emotion : "None"
+custom_emotion : ""
+voice_name : "insert_trained_name"
+audio_file : ""
+voice_chunks : 0
+candidates : 1
+seed : 0
+samples : 4
+iterations : 32
+temperature : .3
+diffusion_sampler: "P"
+pause_size : 8
+cvvp_weight : 0
+top_p : 0.8
+diffusion_temp : 1
+length_penalty : 6
+repetition_penalty : 6
+conditioning_free_k : 2
+experimental_flags : ["Half Precision", "Conditioning-Free"]
