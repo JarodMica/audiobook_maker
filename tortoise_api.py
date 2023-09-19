@@ -37,7 +37,7 @@ class Tortoise_API:
     
         while True:
             try:
-                print(f"Calling API with sentence: {sentence}")
+                print(f"Calling API with sentence: <{sentence}>")
                 response = requests.post("http://127.0.0.1:7860/run/generate", json={
                     "data": [
                         f"{sentence}", #prompt
@@ -138,6 +138,10 @@ def filter_paragraph(paragraph, sentence_len = 130):
     current_sentence = ""
 
     for sentence in sentences:
+        cleaned_sentence = sentence.strip()
+        if len(cleaned_sentence) < 2 or cleaned_sentence == '.':
+            continue  # Skip short sentences or ones that are just a period
+
         if len(current_sentence + sentence) <= sentence_len:
             current_sentence += sentence + '. '
         else:
@@ -149,6 +153,23 @@ def filter_paragraph(paragraph, sentence_len = 130):
         filtered_list.append(current_sentence.strip())
 
     return filtered_list
+
+def load_sentences(file_path) -> list:
+    '''
+    Utility function for toroise to load sentences from a text file path
+
+    Args:
+        file_path(str) : path to some text file
+
+    '''
+    with open(file_path, 'r', encoding='utf-8') as file:
+        content = file.read()
+        paragraphs = content.split('\n\n')  # Split content into paragraphs
+        filtered_sentences = []
+        for paragraph in paragraphs:
+            filtered_list = filter_paragraph(paragraph)
+            filtered_sentences.extend(filtered_list)
+    return filtered_sentences
 
 def read_paragraph_from_file(file_path):
     with open(file_path, 'r') as file:

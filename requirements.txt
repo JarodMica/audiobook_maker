@@ -1,0 +1,5 @@
+sounddevice
+soundfile
+pydub
+requests
+pyyaml
