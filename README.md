@@ -5,12 +5,19 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 
 ## Features:
 :heavy_check_mark: Sentence generation using Tortoise -> RVC
+
 :heavy_check_mark: RVC AI Voice model compatibility (V1 & V2 as well as 40k & 48k trained models)
+
 :heavy_check_mark: Generation of an entire text file with some basic sentence parsers and sorters
+
 :heavy_check_mark: Selectively playback sentences by clicking and choosing them
+
 :heavy_check_mark: Selectively regenerate audio for sentences by clicking and choosing them
+
 :heavy_check_mark: Progress saving and continuing for audiobook generation in case of a crash or want to continue later
+
 :heavy_check_mark: Audiobook loading from previous generations
+
 :heavy_check_mark: Export of Audiobooks to a single wave file
 
 ## To-do:
@@ -40,19 +47,25 @@ cd audiobook_maker
 python -m venv venv
 venv\Scripts\activate
 ```
-3. Install pytorch from https://pytorch.org/get-started/locally/ or use the command below
+3. Install pytorch from https://pytorch.org/get-started/locally/ or use the command below:
+
 ```pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117```
-4. Install requirements
+
+4. Install requirements:
+
 ```pip install -r requirements.txt```
+
 ```pip install -e git+https://github.com/JarodMica/rvc.git#egg=rvc```
+
 ```pip install -e git+https://github.com/JarodMica/rvc-tts-pipeline.git#egg=rvc_tts_pipe```
+
 5. Download and place rmvpe.pt and hubert_base.pt in audiobook_maker
-- You can get them at my huggingface here: https://huggingface.co/Jmica/rvc_base_models/tree/main
-- OR you can get them from the RVC huggingface: https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main
+    - You can get them at my huggingface here: https://huggingface.co/Jmica/rvc_base_models/tree/main
+    - OR you can get them from the RVC huggingface: https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main
 6. Download and install ffmpeg: https://ffmpeg.org/download.html
-- Place ffmpeg.exe and ffprobe.exe inside of audiobook_maker OR make sure they are in your environment path variable
+    - Place ffmpeg.exe and ffprobe.exe inside of audiobook_maker OR make sure they are in your environment path variable
 7. Place whatever RVC AI voices (.pth) files into the voice_models directory.
-- Index files are currently not supportedm, but I will be building this into the GUI eventually
+    - Index files are currently not supportedm, but I will be building this into the GUI eventually
 
 ## Acknowledgements
 I am able to build these tools thanks to all of the fantastic open source repos out there, borrowing from different projects to get this all frankensteined and hashed together.  Without these, it wouldn't be possible for me to have gotten the functionality needed to create such a fantastic tool:
