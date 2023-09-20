@@ -16,7 +16,7 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 ## To-do:
 - [ ] Add additional languages (limited to only English ATM)
 - [ ] Simpler installation, making it into release
-- [ ] 
+- [ ] Need to add a "modify audiobook text" so that you could add more sentences to the end of a file and continue generating
 
 ## Prerequisites:
 - **NVidia GPU:** I say this is a requirement as I've only developed testing with Nvidia.  The lowest I've tested is an RTX 3060 12B which is more than sufficient, so I reckon that 10 & 20 series cards should still be fine as well.
@@ -43,7 +43,7 @@ venv\Scripts\activate
 3. Install pytorch from https://pytorch.org/get-started/locally/ or use the command below
 ```pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117```
 4. Install requirements
-```pip install -r requirements.text```
+```pip install -r requirements.txt```
 ```pip install -e git+https://github.com/JarodMica/rvc.git#egg=rvc```
 ```pip install -e git+https://github.com/JarodMica/rvc-tts-pipeline.git#egg=rvc_tts_pipe```
 5. Download and place rmvpe.pt and hubert_base.pt in audiobook_maker
