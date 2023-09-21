@@ -76,4 +76,16 @@ I am able to build these tools thanks to all of the fantastic open source repos 
 - mrq's AI Voice Cloning / Tortoise branch: https://git.ecker.tech/mrq/ai-voice-cloning
 - Retrieval Based Voice Conversion: https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
 
-And of course, this goes without saying, but ChatGPT has guided and helped me form my ideas into implementation.  The amount of time saved from using such a tool is unparalleled to any tool that I've ever used up until this point and the ability of it to turn sheer ideas into reality is absolutely mind boggling.  
+And of course, this goes without saying, but ChatGPT has guided and helped me form my ideas into implementation.  The amount of time saved from using such a tool is unparalleled to any tool that I've ever used up until this point and the ability of it to turn sheer ideas into reality is absolutely mind boggling. 
+
+
+## Star History
+
+<a href="https://star-history.com/#JarodMica/audiobook_maker&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=JarodMica/audiobook_maker&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=JarodMica/audiobook_maker&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=JarodMica/audiobook_maker&type=Date" />
+  </picture>
+</a>
+
