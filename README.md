@@ -37,6 +37,10 @@ To get this going is relatively installation heavy, but at this stage, I lack th
     - Audio generation MUST be working as we will be calling tortoise via an API
 
 ## Installation:
+**NEEDED BUT NOT MENTIONED IN VIDEO**
+
+Microsoft c++ build tools needs to be installed on your PC or else you will run into issues when installing the rvc package. This tutorial is quick and shows how it needs to get done: https://youtu.be/rcI1_e38BWs?si=tlbs5xniFo1UOVVU
+
 1. Open a powershell/cmd window, clone, and then cd into the repo:
 ```
 git clone https://github.com/JarodMica/audiobook_maker.git
