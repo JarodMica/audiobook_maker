@@ -119,38 +119,43 @@ def load_config():
 
     return tort_conf
 
-def filter_paragraph(paragraph, sentence_len = 130):
+def filter_paragraph(paragraph):
     '''
-    Filters a large body of text into a list of strings to reduce the load
-    sent over to the API.  Is needed to make the API calls faster and used for Tortoise
+    Processes the given paragraph to return a list of sentences, 
+    merging lines that end with commas with subsequent lines and 
+    ensuring each sentence ends with a period.
 
     Args:
         paragraph (str) : Any body of text
-        sentence_len (int) : minimum length of sentence
 
     Returns:
         filtered_list (tuple) :  A list of sentences 
 
     '''
-    paragraph = paragraph.replace('\n', ' ')  # Replace new lines with spaces
-    sentences = paragraph.split('. ')
+    lines = paragraph.strip().split('\n')
+    
     filtered_list = []
-    current_sentence = ""
+    i = 0
+    while i < len(lines):
+        # Split lines that might have multiple sentences.
+        split_sentences = lines[i].split('. ')
+        for part_sentence in split_sentences:
+            if not part_sentence:  # skip empty splits
+                continue
 
-    for sentence in sentences:
-        cleaned_sentence = sentence.strip()
-        if len(cleaned_sentence) < 2 or cleaned_sentence == '.':
-            continue  # Skip short sentences or ones that are just a period
+            line = part_sentence.strip()
 
-        if len(current_sentence + sentence) <= sentence_len:
-            current_sentence += sentence + '. '
-        else:
-            if current_sentence.strip():  # Check if the current sentence is not just spaces
-                filtered_list.append(current_sentence.strip())
-            current_sentence = sentence + '. '
+            # Keep appending subsequent lines while current line ends with a comma
+            while line.endswith(",") and (i + 1) < len(lines):
+                i += 1
+                line += " " + lines[i].split('. ')[0].strip()
 
-    if current_sentence.strip():  # Check if the current sentence is not just spaces
-        filtered_list.append(current_sentence.strip())
+            if not line.endswith('.'):
+                line += '.'
+
+            filtered_list.append(line)
+
+        i += 1
 
     return filtered_list
 
