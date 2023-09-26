@@ -72,7 +72,7 @@ class AudiobookMaker(QMainWindow):
         self.book_layout.addWidget(self.book_name_input)
         left_layout.addLayout(self.book_layout)
 
-        # Voice widgets
+        # -- Voice Name Combo Box
         self.voice_name_layout = QHBoxLayout()
         self.voice_name_label = QLabel("Voice Model: ")
         self.voice_models_combo = QComboBox()
@@ -81,13 +81,72 @@ class AudiobookMaker(QMainWindow):
         self.get_voice_models()
         left_layout.addLayout(self.voice_name_layout)
 
+        # -- Voice Index Combo Box
+        self.voice_index_layout = QHBoxLayout()
+        self.voice_index_label = QLabel("Voice Index: ")
+        self.voice_index_combo = QComboBox()
+        self.voice_index_layout.addWidget(self.voice_index_label)
+        self.voice_index_layout.addWidget(self.voice_index_combo,1)
+        self.get_voice_indexes()
+        left_layout.addLayout(self.voice_index_layout)
+
+        # -- Voice Index Slider
+        index=0
+        self.voice_index_value_label = QLabel(f"{index/100}")  # 0 is the initial value of the slider
+        max_index_str = "1"  # the maximum value the label will show
+        estimated_width = len(max_index_str) * 50
+
+        self.voice_index_value_label.setFixedWidth(estimated_width)
+        self.voice_index_layout = QHBoxLayout()
+        self.voice_index_label = QLabel("Index Effect: ")
+        self.voice_index_slider = QSlider(Qt.Horizontal)
+        self.voice_index_slider.setMinimum(0)
+        self.voice_index_slider.setMaximum(100)
+        self.voice_index_slider.setValue(index)
+        self.voice_index_slider.setTickPosition(QSlider.TicksBelow)
+        self.voice_index_slider.setTickInterval(1)
+
+        self.voice_index_slider.valueChanged.connect(self.updateVoiceIndexLabel)
+
+        self.voice_index_layout.addWidget(self.voice_index_label)
+        self.voice_index_layout.addWidget(self.voice_index_slider)
+        self.voice_index_layout.addWidget(self.voice_index_value_label)  # Step 3: Add the value label to the layout
+
+        left_layout.addLayout(self.voice_index_layout)
+
+        # -- Voice Pitch Slider
+        self.voice_pitch_value_label = QLabel("0")  # 0 is the initial value of the slider
+        max_value_str = "16"  # the maximum value the label will show
+        estimated_width = len(max_value_str) * 20
+
+        self.voice_pitch_value_label.setFixedWidth(estimated_width)
+        self.voice_pitch_layout = QHBoxLayout()
+        self.voice_pitch_label = QLabel("Voice Pitch: ")
+        self.voice_pitch_slider = QSlider(Qt.Horizontal)
+        self.voice_pitch_slider.setMinimum(-16)
+        self.voice_pitch_slider.setMaximum(16)
+        self.voice_pitch_slider.setValue(0)
+        self.voice_pitch_slider.setTickPosition(QSlider.TicksBelow)
+        self.voice_pitch_slider.setTickInterval(1)
+
+        self.voice_pitch_slider.valueChanged.connect(self.updateVoicePitchLabel)
+
+        self.voice_pitch_layout.addWidget(self.voice_pitch_label)
+        self.voice_pitch_layout.addWidget(self.voice_pitch_slider)
+        self.voice_pitch_layout.addWidget(self.voice_pitch_value_label)  # Step 3: Add the value label to the layout
+
+        left_layout.addLayout(self.voice_pitch_layout)
+
+        # -- Start Audiobook Button
         self.generate_button = QPushButton("Start Audiobook Generation", self)
         self.generate_button.clicked.connect(self.start_generation)
         left_layout.addWidget(self.generate_button)
 
+        # -- Play Audio Button
         self.play_button = QPushButton("Play Audio", self)
         self.play_button.clicked.connect(self.play_selected_audio)
 
+        # -- Pause Audio Button
         self.pause_button = QPushButton("Pause", self)
         self.pause_button.clicked.connect(self.pause_audio)
 
@@ -97,18 +156,22 @@ class AudiobookMaker(QMainWindow):
         self.play_pause_layout.addWidget(self.pause_button)
         left_layout.addLayout(self.play_pause_layout)
 
+        # -- Play All Audio Button
         self.play_all_button = QPushButton("Play All from Selected", self)
         self.play_all_button.clicked.connect(self.play_all_from_selected)
         left_layout.addWidget(self.play_all_button)
 
+        # -- Regen Audio Button
         self.regenerate_button = QPushButton("Regenerate Audio", self)
         self.regenerate_button.clicked.connect(self.regenerate_audio_for_sentence)
         left_layout.addWidget(self.regenerate_button)
 
+        # -- Load Audiobook Button
         self.load_audiobook_button = QPushButton("Load Existing Audiobook", self)
         self.load_audiobook_button.clicked.connect(self.load_existing_audiobook)
         left_layout.addWidget(self.load_audiobook_button)
 
+        # -- Export Audiobook Button
         self.export_audiobook_button = QPushButton("Export Audiobook", self)
         self.export_audiobook_button.clicked.connect(self.export_audiobook)
         left_layout.addWidget(self.export_audiobook_button)
@@ -152,7 +215,7 @@ class AudiobookMaker(QMainWindow):
 
         # Window settings
         self.setWindowTitle("Audiobook Maker")
-        self.setGeometry(100, 100, 600, 600)
+        self.setGeometry(100, 100, 750, 600)
 
         self.current_sentence_idx = 0
 
@@ -161,6 +224,12 @@ class AudiobookMaker(QMainWindow):
         if os.path.exists(self.voice_folder_path) and os.path.isdir(self.voice_folder_path):
             voice_model_files = [file for file in os.listdir(self.voice_folder_path) if file.endswith(".pth")]
             self.voice_models_combo.addItems(voice_model_files)
+
+    def get_voice_indexes(self):
+        self.index_folder_path = "voice_indexes"
+        if os.path.exists(self.index_folder_path) and os.path.isdir(self.index_folder_path):
+            voice_index_files = [file for file in os.listdir(self.index_folder_path) if file.endswith(".index")]
+            self.voice_index_combo.addItems(voice_index_files)
 
     def load_stylesheet(self, font_size="14pt"):
         # Load the base stylesheet
@@ -174,6 +243,13 @@ class AudiobookMaker(QMainWindow):
     def update_font_size_from_slider(self):
         font_size = str(self.font_slider.value()) + "pt"
         self.setStyleSheet(self.load_stylesheet(font_size))
+
+    def updateVoicePitchLabel(self, value):
+        self.voice_pitch_value_label.setText(str(value))
+    
+    def updateVoiceIndexLabel(self, value):
+        value = (self.voice_index_slider.value() / 100)
+        self.voice_index_value_label.setText(str(value))
 
     def update_metadata(self, directory_path, idx, status):
         meta_path = os.path.join(directory_path, "metadata.txt")
@@ -189,8 +265,18 @@ class AudiobookMaker(QMainWindow):
     def generate_audio(self, sentence):
         audio_path = self.tortoise.call_api(sentence)
         selected_voice = self.voice_models_combo.currentText()
+        selected_index = self.voice_index_combo.currentText()
         voice_model_path = os.path.join(self.voice_folder_path, selected_voice)
-        audio_path = rvc_convert(model_path=voice_model_path, resample_sr=0, input_path=audio_path)
+        voice_index_path = os.path.join(self.index_folder_path, selected_index)
+        
+        f0_pitch = self.voice_pitch_slider.value()
+        index_rate = (self.voice_index_slider.value()/100)
+        audio_path = rvc_convert(model_path=voice_model_path, 
+                                 f0_up_key=f0_pitch, 
+                                 resample_sr=0, 
+                                 file_index=voice_index_path,
+                                 index_rate=index_rate,
+                                 input_path=audio_path)
         if audio_path:
             return audio_path
         else:
