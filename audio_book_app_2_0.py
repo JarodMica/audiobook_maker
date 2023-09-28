@@ -1,6 +1,7 @@
 import sys
 import os
 import shutil
+import json
 from pydub import AudioSegment
 
 from PyQt5.QtWidgets import QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QLabel, QWidget, QMessageBox, QMenuBar, QAction, QInputDialog, QProgressBar, QHBoxLayout
@@ -176,6 +177,10 @@ class AudiobookMaker(QMainWindow):
         self.export_audiobook_button.clicked.connect(self.export_audiobook)
         left_layout.addWidget(self.export_audiobook_button)
 
+        self.update_audiobook_button = QPushButton("Update Audiobook", self)
+        self.update_audiobook_button.clicked.connect(self.update_audiobook)
+        left_layout.addWidget(self.update_audiobook_button)
+
         self.progress_bar = QProgressBar(self)
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
@@ -258,9 +263,21 @@ class AudiobookMaker(QMainWindow):
 
 
     def save_sentences_list(self, directory_path, sentences):
+        s_list_dir = os.path.join(directory_path, "sentences_list.txt")
+        if os.path.exists(s_list_dir):
+            os.remove(s_list_dir)
         with open(os.path.join(directory_path, "sentences_list.txt"), 'w', encoding="utf-8") as file:
             for sentence in sentences:
                 file.write(sentence + '\n')
+
+    def save_text_audio_map(self, directory_path):
+        # Specify the path for the text_audio_map file
+        map_file_path = os.path.join(directory_path, "text_audio_map.json")
+
+        # Open the file in write mode (this will overwrite the file if it already exists)
+        with open(map_file_path, 'w', encoding="utf-8") as map_file:
+            # Convert the text_audio_map dictionary to a JSON string and write it to the file
+            json.dump(self.text_audio_map, map_file, ensure_ascii=False, indent=4)
 
     def generate_audio(self, sentence):
         audio_path = self.tortoise.call_api(sentence)
@@ -282,14 +299,31 @@ class AudiobookMaker(QMainWindow):
         else:
             QMessageBox.warning(self, "Warning", "Failed to generate audio for the sentence: " + sentence)
 
+    # def generate_audio_for_sentence_threaded(self, directory_path, sentence, idx):
+    #     audio_path = self.generate_audio(sentence)
+    #     if audio_path:
+    #         new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
+    #         os.rename(audio_path, new_audio_path)
+    #         self.text_audio_map[sentence] = new_audio_path
+    #         self.sentences_list.addItem(sentence)
+    #         self.update_metadata(directory_path, idx, "generated")
+
+    #         # Save text_audio_map to a file
+    #         self.save_text_audio_map(directory_path)
+    #     else:
+    #         self.update_metadata(directory_path, idx, "failed")
+
     def generate_audio_for_sentence_threaded(self, directory_path, sentence, idx):
         audio_path = self.generate_audio(sentence)
         if audio_path:
             new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
             os.rename(audio_path, new_audio_path)
-            self.text_audio_map[sentence] = new_audio_path
+            self.text_audio_map[str(idx)] = {"sentence": sentence, "audio_path": new_audio_path}
             self.sentences_list.addItem(sentence)
             self.update_metadata(directory_path, idx, "generated")
+
+            # Save text_audio_map to a file
+            self.save_text_audio_map(directory_path)
         else:
             self.update_metadata(directory_path, idx, "failed")
 
@@ -300,7 +334,7 @@ class AudiobookMaker(QMainWindow):
             if not book_name:
                 QMessageBox.warning(self, "Error", "Please enter a book name before proceeding.")
                 return
-            directory_path = os.path.join(os.getcwd(), "audiobooks", book_name)
+            directory_path = os.path.join("audiobooks", book_name)
             if os.path.exists(directory_path):
                 reply = QMessageBox.warning(self, 'Overwrite Existing Audiobook', "An audiobook with this name already exists. Do you want to overwrite it?", 
                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
@@ -430,6 +464,7 @@ class AudiobookMaker(QMainWindow):
         except:
             QMessageBox.warning(self, "Error", "The selected directory is not a valid Audiobook Directory.")
 
+
     def play_selected_audio(self):
         try:
             selected_sentence = self.sentences_list.currentItem().text()
@@ -516,6 +551,76 @@ class AudiobookMaker(QMainWindow):
             
             # Copy new audio to old audio path
             shutil.copy(new_audio_path, old_audio_path)
+
+    def update_audiobook(self):
+        if self.filepath:    
+            self.sentences_list.clear()
+            self.text_audio_map.clear()
+            sentence_list = load_sentences(self.filepath)
+        else:
+            QMessageBox.warning(self, "Error", "Please pick a text file before generating audio.")
+            return
+        
+        reply = QMessageBox.warning(self, 'Update Existing Audiobook', "This will delete audio for existing sentences if they have been modified as well. Do you want to proceed?", 
+                                            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            pass
+        else:
+            return
+        
+        directory_path = QFileDialog.getExistingDirectory(self, "Select an Audiobook Directory")
+        if not directory_path:  # User cancelled the dialog
+            return
+        
+        dir_basename = os.path.basename(directory_path)
+        audiobook_path = os.path.join("audiobooks",dir_basename)
+        audio_map_path = os.path.join(directory_path, 'text_audio_map.json')
+        new_audio_map_path = os.path.join(directory_path, 'text_audio_map_new.json')
+        sentences_list_path = os.path.join(directory_path, 'sentences_list.txt')
+        self.save_sentences_list(audiobook_path, sentence_list)
+    
+
+        # Step 1: Load existing text_audio_map
+        with open(audio_map_path, 'r', encoding='utf-8') as file:
+            text_audio_map = json.load(file)
+
+        reverse_map = {item['sentence']: idx for idx, item in text_audio_map.items()}
+
+        # Step 2: Load new sentences list
+        with open(sentences_list_path, 'r', encoding='utf-8') as file:
+            sentences_list = [line.strip() for line in file.readlines() if line.strip()]
+        
+        # Step 3: Generate updated map
+        new_text_audio_map = {}
+        deleted_sentences = set(text_audio_map.keys())  # Initialize with all old indices
+        for new_idx, sentence in enumerate(sentences_list):
+            if sentence in reverse_map:  # Sentence exists in old map
+                old_idx = reverse_map[sentence]
+                new_text_audio_map[str(new_idx)] = text_audio_map[old_idx]
+                deleted_sentences.discard(old_idx)  # Remove index from set of deleted sentences
+            else:  # New sentence
+                audio_path = self.generate_audio(sentence)
+                if audio_path:
+                    idx = 0
+                    base_filename = f"audio_{idx}"
+                    extension = ".wav"
+                    
+                    while os.path.exists(os.path.join(directory_path, f"{base_filename}{extension}")):
+                        idx += 1
+                        base_filename = f"audio_{idx}"
+                    new_audio_path = os.path.join(audiobook_path, f"{base_filename}{extension}")
+                    os.rename(audio_path, new_audio_path)
+                new_text_audio_map[str(new_idx)] = {"sentence": sentence, "audio_path": new_audio_path}
+
+        # Step 4: Handle deleted sentences and their audio files
+        for old_idx in deleted_sentences:
+            old_audio_path = text_audio_map[old_idx]['audio_path']
+            if os.path.exists(old_audio_path):
+                os.remove(old_audio_path)  # Delete the audio file
+        
+        # Step 5: Save updated text_audio_map
+        with open(new_audio_map_path, 'w', encoding='utf-8') as file:
+            json.dump(new_text_audio_map, file, ensure_ascii=False, indent=4)
 
     def disable_buttons(self):
         buttons = [self.regenerate_button, 
