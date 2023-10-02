@@ -17,15 +17,14 @@ QPushButton:hover {
     background-color: #777;
 }
 
-QLabel, QLineEdit, QListWidget, QMenuBar, QMenu::item, QProgressBar, QComboBox {
+QLabel, QLineEdit, QListWidget, QMenuBar, QMenu::item, QProgressBar, QComboBox, QTableWidget {
     color: #eee;
 }
 
-QListWidget::item:selected, QListWidget::item:hover {
-    background-color: white;
-    color: #333;
+QListWidget::item:selected, QListWidget::item:hover, QTableWidget::item:selected, QTableWidget::item:hover {
+    background-color: #555;
+    color: #eee;
 }
-
 
 QMenuBar::item {
     background-color: transparent;
@@ -41,3 +40,13 @@ QComboBox QAbstractItemView {
     color: #eee
 }
 
+QHeaderView::section {
+    background-color: #333;
+    color: #eee;
+    padding: 4px;
+    border: 1px solid #555;
+}
+
+QMenu::item:disabled {
+    color: #A9A9A9;
+}
