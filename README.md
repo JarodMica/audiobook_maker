@@ -24,6 +24,7 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 - [ ] Add additional languages (limited to only English ATM)
 - [ ] Simpler installation, making it into release
 - [ ] Need to add a "modify audiobook text" so that you could add more sentences to the end of a file and continue generating
+- [ ] Add an option to convert audiobook to another voice 
 
 ## Prerequisites:
 - **NVidia GPU:** I say this is a requirement as I've only developed testing with Nvidia.  The lowest I've tested is an RTX 3060 12B which is more than sufficient, so I reckon that 10 & 20 series cards should still be fine as well.
