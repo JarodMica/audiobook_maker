@@ -20,10 +20,11 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 
 :heavy_check_mark: Export of Audiobooks to a single wave file
 
+:heavy_check_mark: Audiobook can be updated with a new text file in case sentences need to be changed or order adjusted
+
 ## To-do:
 - [ ] Add additional languages (limited to only English ATM)
 - [ ] Simpler installation, making it into release
-- [ ] Need to add a "modify audiobook text" so that you could add more sentences to the end of a file and continue generating
 - [ ] Add an option to convert audiobook to another voice 
 
 ## Prerequisites:
@@ -31,13 +32,16 @@ To get this going is relatively installation heavy, but at this stage, I lack th
     - I don't have MAC or AMD so it would be a lot of guess-work for me to get this going and emulation won't work.
 - CUDA 11.7
     - I believe even if you have CUDA 12.1, it might still be fine as long as you get the correct pytorch version 
-- Python 3.9/3.10: https://www.python.org/downloads/release/python-31011/ 
+- Python 3.10: https://www.python.org/downloads/release/python-31011/ 
 - git: https://git-scm.com/downloads 
 - mrq's Tortoise Fork: https://git.ecker.tech/mrq/ai-voice-cloning/wiki/Installation
     - YouTube video guide: https://youtu.be/6sTsqSQYIzs?si=0NYteSephE1ePiFg
     - Audio generation MUST be working as we will be calling tortoise via an API
 
-## Installation:
+# Automatic Installation
+TBD
+
+## Manual Installation:
 **NEEDED BUT NOT MENTIONED IN VIDEO**
 
 Microsoft c++ build tools needs to be installed on your PC or else you will run into issues when installing the rvc package. This tutorial is quick and shows how it needs to get done: https://youtu.be/rcI1_e38BWs?si=tlbs5xniFo1UOVVU
@@ -70,7 +74,6 @@ venv\Scripts\activate
 6. Download and install ffmpeg: https://ffmpeg.org/download.html
     - Place ffmpeg.exe and ffprobe.exe inside of audiobook_maker OR make sure they are in your environment path variable
 7. Place whatever RVC AI voices (.pth) files into the voice_models directory.
-    - Index files are currently not supportedm, but I will be building this into the GUI eventually
 
 ## Acknowledgements
 I am able to build these tools thanks to all of the fantastic open source repos out there, borrowing from different projects to get this all frankensteined and hashed together.  Without these, it wouldn't be possible for me to have gotten the functionality needed to create such a fantastic tool:
