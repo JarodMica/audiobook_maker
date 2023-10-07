@@ -9,10 +9,13 @@ from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtCore import QUrl, QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QFont
 
+# Get the directory of the currently executed script
+script_directory = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(script_directory)
 
 from tortoise_api import Tortoise_API
 from tortoise_api import load_sentences
-from rvc_infer import rvc_convert
+from rvc_pipe.rvc_infer import rvc_convert
 
 class AudioGenerationWorker(QThread):
     progress_signal = pyqtSignal(int)

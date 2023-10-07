@@ -26,9 +26,10 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 - [ ] Add additional languages (limited to only English ATM)
 - [ ] Simpler installation, making it into release
 - [ ] Add an option to convert audiobook to another voice 
+- [ ] Find a way to do "multiple speakers" for dialogue in the book
 
 ## Prerequisites:
-- **NVidia GPU:** I say this is a requirement as I've only developed testing with Nvidia.  The lowest I've tested is an RTX 3060 12B which is more than sufficient, so I reckon that 10 & 20 series cards should still be fine as well.
+- **NVidia GPU:** I say this is a requirement as I've only developed testing with Nvidia.  The lowest I've tested is an RTX 3060 12B which is more than sufficient, but I reckon that 10 & 20 series cards should still be fine as well.
     - I don't have MAC or AMD so it would be a lot of guess-work for me to get this going and emulation won't work.
 - CUDA 11.7
     - I believe even if you have CUDA 12.1, it might still be fine as long as you get the correct pytorch version 
@@ -37,43 +38,49 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 - mrq's Tortoise Fork: https://git.ecker.tech/mrq/ai-voice-cloning/wiki/Installation
     - YouTube video guide: https://youtu.be/6sTsqSQYIzs?si=0NYteSephE1ePiFg
     - Audio generation MUST be working as we will be calling tortoise via an API
+- 7zip extractor
+    - Download from here: https://www.7-zip.org/
 
-# Automatic Installation
+# Package Installation
 TBD
 
 ## Manual Installation:
-**NEEDED BUT NOT MENTIONED IN VIDEO**
-
-Microsoft c++ build tools needs to be installed on your PC or else you will run into issues when installing the rvc package. This tutorial is quick and shows how it needs to get done: https://youtu.be/rcI1_e38BWs?si=tlbs5xniFo1UOVVU
 
 1. Open a powershell/cmd window, clone, and then cd into the repo:
 ```
 git clone https://github.com/JarodMica/audiobook_maker.git
 cd audiobook_maker
 ```
-2. Set-up and activate virtual environment
+
+2. Download and extract rvc to the audiobook_maker folder:
+    - Link: https://huggingface.co/Jmica/rvc/resolve/main/rvc_lightweight.7z
+        - Extract and double-click into ```rvc_lightweight```, and then copy the ```rvc``` folder into the ```audiobook_maker``` folder 
+        - It should look like ```audiobook_maker/rvc``` and NOT like ```audiobook_maker\rvc_lightweight```
+    - You can delete rvc_lightweight.7z and the folder once the copy is finished
+
+3. Set-up and activate virtual environment
 ```
 python -m venv venv
 venv\Scripts\activate
 ```
-3. Install pytorch from https://pytorch.org/get-started/locally/ or use the command below:
+4. Install pytorch using command below (recommended) or get from https://pytorch.org/get-started/locally/:
 
 ```pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117```
 
-4. Install requirements:
+5. Install requirements:
 
 ```pip install -r requirements.txt```
 
-```pip install -e git+https://github.com/JarodMica/rvc.git#egg=rvc```
+```pip install -r rvc/requirements.txt``` (if you get an error here, check to make sure you copied the rvc folder correctly)
 
-```pip install -e git+https://github.com/JarodMica/rvc-tts-pipeline.git#egg=rvc_tts_pipe```
+```pip install https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.2-cp310-cp310-win_amd64.whl```
 
-5. Download and place rmvpe.pt and hubert_base.pt in audiobook_maker
-    - You can get them at my huggingface here: https://huggingface.co/Jmica/rvc_base_models/tree/main
-    - OR you can get them from the RVC huggingface: https://huggingface.co/lj1995/VoiceConversionWebUI/tree/main
+```pip install git+https://github.com/JarodMica/rvc-tts-pipeline.git@lightweight#egg=rvc_tts_pipe```
+
 6. Download and install ffmpeg: https://ffmpeg.org/download.html
     - Place ffmpeg.exe and ffprobe.exe inside of audiobook_maker OR make sure they are in your environment path variable
-7. Place whatever RVC AI voices (.pth) files into the voice_models directory.
+
+7. Place whatever RVC AI voices (.pth) you want into the ```voice_models``` directory and indexes into ```voice_indexes```
 
 ## Acknowledgements
 I am able to build these tools thanks to all of the fantastic open source repos out there, borrowing from different projects to get this all frankensteined and hashed together.  Without these, it wouldn't be possible for me to have gotten the functionality needed to create such a fantastic tool:

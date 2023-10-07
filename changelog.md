@@ -1,5 +1,21 @@
 # Changelog & thoughts
 
+# 10/7/2023
+Preparing for a distributable Nvidia-Windows release
+- Added a small addition to include directory of running script for sys.path so that the package version can see the tortoise module
+- Added some batch files for quicker python installation
+    - setup_cuda.bat still requires you download rvc manually
+- Updated the way ```rvc_infer``` is called due to updates in rvc-tts-pipe @ lightweight, now it requires accessing the module ```rvc_pipe``` for the full import of ```from rvc_pipe.rvc_infer import rvc_convert```
+
+## Notes for myself:
+- Worked on getting things all "packaged" up, venv files are not distributable as previously known, so the way around this is by creating a portable python instllation via the embeddable packages, for example at the bottom: https://www.python.org/downloads/release/python-31011/
+    - Once downloaded and extracted, you have to set up everything inside of any folder (aka: runtime), so all installations will be here.
+    - The first thing you need is to get pip installed which can be found here: https://github.com/pypa/get-pip and go get it on the bootstrap page
+        - Can then install with something like .\python.exe get-pip.py
+    - After you have pip installed, you can then install everything into the runtime, by using pip as a module
+    - One important note is that you need to also uncomment import site inside of the python310._pth file in order for site-packages to work correctly
+    
+
 # 10/1/2023
 LOTS of refactoring in the code, just about every method has been updated to accomodate the new data structure and renewed logic in how everything interacts.  I can't outline everything, but basically, a majority of the changes revolve around correctly grabbing the mapping of audio to sentence so that it plays, regenerates, loads, updates, and continues much more dynamically than before, with everything contained in the text_audio_map.json
 - Add a "generated" key inside of the idx value dictionary to determine whether or not a sentence has been generated already

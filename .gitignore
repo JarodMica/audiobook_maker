@@ -2,10 +2,13 @@
 *.pkl
 *.exe
 *.pt
+*.whl
 
+rvc/
 tort.yaml
 __pycache__/
 .venv/
 venv/
 audiobooks/
 output/
+

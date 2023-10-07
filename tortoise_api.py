@@ -34,51 +34,67 @@ class Tortoise_API:
             audio_path (str) : Path of the audio to be played
         '''
         tort_conf = load_config()
-    
-        while True:
-            try:
-                print(f"Calling API with sentence: <{sentence}>")
-                response = requests.post("http://127.0.0.1:7860/run/generate", json={
-                    "data": [
-                        f"{sentence}", #prompt
-                        tort_conf['delimiter'], #delimter
-                        tort_conf['emotion'], #emotion
-                        tort_conf['custom_emotion'], #custom emotion
-                        tort_conf['voice_name'], #voice name
-                        {"name": tort_conf['audio_file'],"data":"data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="},
-                        tort_conf['voice_chunks'], #voice chunks
-                        tort_conf['candidates'], #candidates
-                        tort_conf['seed'], #seed
-                        tort_conf['samples'], #samples
-                        tort_conf['iterations'], #iterations
-                        tort_conf['temperature'], #temp
-                        tort_conf['diffusion_sampler'],
-                        tort_conf['pause_size'],
-                        tort_conf['cvvp_weight'],
-                        tort_conf['top_p'],
-                        tort_conf['diffusion_temp'],
-                        tort_conf['length_penalty'],
-                        tort_conf['repetition_penalty'],
-                        tort_conf['conditioning_free_k'],
-                        tort_conf['experimental_flags'],
-                        False,
-                        False,
-                    ]
-                }).json()
+        max_retries = 5
+        
+        for attempt in range(max_retries):
+            for port in range(7860, 7866):
+                try:
+                    url = f"http://127.0.0.1:{port}/run/generate"
+                    print(f"Calling API with sentence: <{sentence}>")
+                    response = requests.post(url, json={
+                        "data": [
+                            f"{sentence}", #prompt
+                            tort_conf['delimiter'], #delimter
+                            tort_conf['emotion'], #emotion
+                            tort_conf['custom_emotion'], #custom emotion
+                            tort_conf['voice_name'], #voice name
+                            {"name": tort_conf['audio_file'],"data":"data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="},
+                            tort_conf['voice_chunks'], #voice chunks
+                            tort_conf['candidates'], #candidates
+                            tort_conf['seed'], #seed
+                            tort_conf['samples'], #samples
+                            tort_conf['iterations'], #iterations
+                            tort_conf['temperature'], #temp
+                            tort_conf['diffusion_sampler'],
+                            tort_conf['pause_size'],
+                            tort_conf['cvvp_weight'],
+                            tort_conf['top_p'],
+                            tort_conf['diffusion_temp'],
+                            tort_conf['length_penalty'],
+                            tort_conf['repetition_penalty'],
+                            tort_conf['conditioning_free_k'],
+                            tort_conf['experimental_flags'],
+                            False,
+                            False,
+                        ]
+                    }).json()
 
-                audio_path = response['data'][2]['choices'][0]
-                print(f"API response received with audio path: {audio_path}")
-                break
-            except:
-                # add something to error after x amount of tries
-                print("tortoise failed, trying again")
-                continue
+                    audio_path = response['data'][2]['choices'][0]
+                    print(f"API response received with audio path: {audio_path}")
 
-        if is_queue:
-            slot = self.free_slots.get()
-            self.audio_queue.put((audio_path, slot))
-        else:
-            return audio_path
+                    if is_queue:
+                        slot = self.free_slots.get()
+                        self.audio_queue.put((audio_path, slot))
+                    else:
+                        return audio_path
+
+                except requests.ConnectionError:
+                    print(f"Failed to connect to port {port}, trying next port")
+                except requests.Timeout:
+                    print(f"Request timed out on port {port}, trying next port")
+                except requests.RequestException as e:  # Catch any other requests exceptions
+                    print(f"An error occurred on port {port}: {e}")
+                except Exception as e:  # Catch non-requests exceptions
+                    print(f"An unexpected error occurred: {e}")
+            
+            print(f"Attempt {attempt + 1} failed, retrying...")  # Log the retry attempt
+            import time
+            time.sleep(1)  # Optional: add a delay between retries
+        
+        print(f"Failed to connect after {max_retries} attempts")
+        return None
+
+            
 
     def play_audio_from_queue(self):
         while True:
