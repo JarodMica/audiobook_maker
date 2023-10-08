@@ -1,5 +1,11 @@
 # Changelog & thoughts
 
+# 10/8/2023
+Had some people try out the package and found an issue that was caused due to python for some reason still accessing the user's local installation of python.  This was leading to conflicting package issues between global and runtime packages.
+- Added logic that checks if a runtime folder is located in the parent directory of the audiobook maker
+    - If runtime is found, removes global and user from sys.path and then adds the runtime package to sys.path
+        - This resolved the issue the user was experiencing so that the embedded python package is run in isolation
+
 # 10/7/2023
 Preparing for a distributable Nvidia-Windows release
 - Added a small addition to include directory of running script for sys.path so that the package version can see the tortoise module

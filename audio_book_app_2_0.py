@@ -1,9 +1,24 @@
 import sys
 import os
+script_dir = os.path.dirname(os.path.abspath(__file__))
+runtime_dir = os.path.join(script_dir, 'runtime')
+if os.path.exists(runtime_dir):
+    import site
+    user_site = site.getusersitepackages()
+    global_sites = site.getsitepackages()
+    sys.path = [p for p in sys.path if p != user_site and p not in global_sites]
+
+    # Append local packages
+    local_sites = [os.path.join(os.path.dirname(os.path.abspath(__file__)), 'runtime','lib', 'site-packages'),
+                os.path.join(os.path.dirname(os.path.abspath(__file__)), 'runtime')]
+
+    for sites in local_sites:
+        if sites not in sys.path:
+            sys.path.append(sites)
 import shutil
 import json
-from pydub import AudioSegment
 
+from pydub import AudioSegment
 from PyQt5.QtWidgets import QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QLabel, QWidget, QMessageBox, QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QAction
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtCore import QUrl, QThread, pyqtSignal, Qt
@@ -186,20 +201,6 @@ class AudiobookMaker(QMainWindow):
         self.regenerate_button = QPushButton("Regenerate Audio", self)
         self.regenerate_button.clicked.connect(self.regenerate_audio_for_sentence)
         left_layout.addWidget(self.regenerate_button)
-
-        # # -- Load Audiobook Button
-        # self.load_audiobook_button = QPushButton("Load Existing Audiobook", self)
-        # self.load_audiobook_button.clicked.connect(self.load_existing_audiobook)
-        # left_layout.addWidget(self.load_audiobook_button)
-
-        # # -- Export Audiobook Button
-        # self.export_audiobook_button = QPushButton("Export Audiobook", self)
-        # self.export_audiobook_button.clicked.connect(self.export_audiobook)
-        # left_layout.addWidget(self.export_audiobook_button)
-
-        # self.update_audiobook_button = QPushButton("Update Audiobook Sentences", self)
-        # self.update_audiobook_button.clicked.connect(self.update_audiobook)
-        # left_layout.addWidget(self.update_audiobook_button)
 
         self.continue_audiobook_button = QPushButton("Continue Audiobook Generation", self)
         self.continue_audiobook_button.clicked.connect(self.continue_audiobook_generation)

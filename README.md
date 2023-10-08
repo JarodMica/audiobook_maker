@@ -42,9 +42,21 @@ To get this going is relatively installation heavy, but at this stage, I lack th
     - Download from here: https://www.7-zip.org/
 
 # Package Installation
-TBD
+**Make sure you have Tortoise installed and working as stated in prerequisites**
+
+1. Head over to the releases tab and download the audiobook maker 7zip folder from my HuggingFace Repo: 
+
+2. Unzip using 7zip (or your preferred 7zip unpacker)
+
+3. Inside of the audiobook maker folder, right click and edit tort.yaml with a voice that is working in Tortoise TTS (more details in video)
+
+4. Run the ```start_package.bat```
+
+5. Before generating an audio, make sure that Tortoise TTS is also running in the background so that it can generate audio.
 
 ## Manual Installation:
+
+**Make sure you have Tortoise installed and working as stated in prerequisites**
 
 1. Open a powershell/cmd window, clone, and then cd into the repo:
 ```

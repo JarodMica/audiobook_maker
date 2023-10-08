@@ -1,5 +1,5 @@
-QWidget, QMenu {
-    background-color: #333;
+QWidget, QMenu  {
+    background-color: rgba(51, 51, 51, 0.2);
 }
 
 QWidget {
@@ -7,14 +7,14 @@ QWidget {
 }
 
 QPushButton {
-    background-color: #555;
+    background-color: rgba(85, 85, 85, 1.0); 
     color: #eee;
     padding: 5px 15px;
     border-radius: 5px;
 }
 
 QPushButton:hover {
-    background-color: #777;
+    background-color: rgba(119, 119, 119, 1.0);  
 }
 
 QLabel, QLineEdit, QListWidget, QMenuBar, QMenu::item, QProgressBar, QComboBox, QTableWidget {
@@ -22,7 +22,7 @@ QLabel, QLineEdit, QListWidget, QMenuBar, QMenu::item, QProgressBar, QComboBox, 
 }
 
 QListWidget::item:selected, QListWidget::item:hover, QTableWidget::item:selected, QTableWidget::item:hover {
-    background-color: #555;
+    background-color: rgba(85, 85, 85, 1.0); 
     color: #eee;
 }
 
@@ -31,17 +31,17 @@ QMenuBar::item {
 }
 
 QMenuBar::item:selected, QMenu::item:selected {
-    background-color: #555;
+    background-color: rgba(85, 85, 85, 1.0);  
 }
 
 QComboBox QAbstractItemView {
     border: 2px solid darkgray;
-    background-color: #333;
+    background-color: rgba(51, 51, 51, 1.0);  
     color: #eee
 }
 
 QHeaderView::section {
-    background-color: #333;
+    background-color: rgba(51, 51, 51, 1.0);  
     color: #eee;
     padding: 4px;
     border: 1px solid #555;

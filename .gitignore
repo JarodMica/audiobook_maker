@@ -4,6 +4,7 @@
 *.pt
 *.whl
 
+settings.json
 rvc/
 tort.yaml
 __pycache__/
