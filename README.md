@@ -41,7 +41,7 @@ To get this going is relatively installation heavy, but at this stage, I lack th
 - 7zip extractor
     - Download from here: https://www.7-zip.org/
 
-# Package Installation
+## Package Installation
 **Make sure you have Tortoise installed and working as stated in prerequisites**
 
 1. Head over to the releases tab and download the audiobook maker 7zip folder from my HuggingFace Repo: 

@@ -5,6 +5,8 @@ Had some people try out the package and found an issue that was caused due to py
 - Added logic that checks if a runtime folder is located in the parent directory of the audiobook maker
     - If runtime is found, removes global and user from sys.path and then adds the runtime package to sys.path
         - This resolved the issue the user was experiencing so that the embedded python package is run in isolation
+- Added feature to save the settings used in the previous generation of an audiobook, the value is saved in generation_setting.json
+- Added ability to add a background image to the GUI just because I want one
 
 # 10/7/2023
 Preparing for a distributable Nvidia-Windows release

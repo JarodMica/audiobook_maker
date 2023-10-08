@@ -1,5 +1,9 @@
 QWidget, QMenu  {
-    background-color: rgba(51, 51, 51, 0.2);
+    background-color: rgba(51, 51, 51, 0.3);
+}
+
+QMenuBar {
+    background-color: rgba(51, 51, 51, 1.0);
 }
 
 QWidget {
@@ -50,3 +54,4 @@ QHeaderView::section {
 QMenu::item:disabled {
     color: #A9A9A9;
 }
+

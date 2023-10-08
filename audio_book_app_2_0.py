@@ -19,10 +19,12 @@ import shutil
 import json
 
 from pydub import AudioSegment
-from PyQt5.QtWidgets import QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QLabel, QWidget, QMessageBox, QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QAction
+from PyQt5.QtWidgets import QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QLabel, QWidget, QMessageBox, QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QAction, QDesktopWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtCore import QUrl, QThread, pyqtSignal, Qt
 from PyQt5.QtGui import QFont
+from PyQt5.QtGui import QPixmap, QPalette, QBrush
+
 
 # Get the directory of the currently executed script
 script_directory = os.path.dirname(os.path.realpath(__file__))
@@ -50,13 +52,26 @@ class AudiobookMaker(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        # Create a background label widget and set it up
+        self.background_label = QLabel(self)
+        self.background_label.setGeometry(0, 0, self.width(), self.height())
+        self.background_label.lower()  # Lower the background so it's behind other widgets
 
+        # Load user settings
+        if os.path.exists('settings.json'):
+            with open('settings.json', 'r') as json_file:
+                settings = json.load(json_file)
+                background_image = settings.get('background_image')
+                if background_image and os.path.exists(background_image):
+                    self.set_background(background_image)
+                    
         self.text_audio_map = {}
         self.setStyleSheet(self.load_stylesheet())
+
         self.media_player = QMediaPlayer()
 
         self.init_ui()
-
+        
         self.tortoise = Tortoise_API()
 
     def init_ui(self):
@@ -277,9 +292,33 @@ class AudiobookMaker(QMainWindow):
         # Add slider to the font_menu in the menu bar
         self.font_menu.addAction(slider_action)
 
+        self.background_menu = self.menu.addMenu("Background")
+
+        # Add Set Background Image action to File menu
+        self.set_background_action = QAction("Set Background Image", self)
+        self.set_background_action.triggered.connect(self.set_background_image)
+        self.background_menu.addAction(self.set_background_action)
+
+         # Clear Background Image action to File menu
+        self.set_background_clear_action = QAction("Clear Background Image", self)
+        self.set_background_clear_action.triggered.connect(self.set_background_clear_image)
+        self.background_menu.addAction(self.set_background_clear_action)
+
+
         # Window settings
         self.setWindowTitle("Audiobook Maker")
-        self.setGeometry(100, 100, 1000, 600)
+        screen = QDesktopWidget().screenGeometry()  # Get the screen geometry
+        target_ratio = 16 / 9
+
+        width = screen.width() * 0.8
+        height = width / target_ratio  # calculate height based on the target aspect ratio
+
+        if height > screen.height():
+            height = screen.height() * 0.8 
+            width = height * target_ratio  # calculate width based on the target aspect ratio
+
+        # Set the calculated geometry for the window
+        self.setGeometry(100, 100, int(width), int(height))
 
         self.current_sentence_idx = 0
 
@@ -319,7 +358,9 @@ class AudiobookMaker(QMainWindow):
             self.text_audio_map.clear()
             sentence_list = load_sentences(self.filepath)
             text_audio_map_path = os.path.join(directory_path, "text_audio_map.json")
+            generation_settings_path = os.path.join(directory_path, "generation_settings.json")
             self.create_audio_text_map(text_audio_map_path, sentence_list)
+            self.create_generation_settings(generation_settings_path)
 
             self.worker = AudioGenerationWorker(self.generate_audio_for_sentence_threaded, directory_path)
 
@@ -403,6 +444,10 @@ class AudiobookMaker(QMainWindow):
 
         selected_sentence = self.text_audio_map[map_key]['sentence']
         old_audio_path = self.text_audio_map[map_key]['audio_path']
+        audio_path_parent = os.path.dirname(old_audio_path)
+        generation_settings_path = os.path.join(audio_path_parent, "generation_settings.json")
+        self.create_generation_settings(generation_settings_path)
+
         new_audio_path = self.generate_audio(selected_sentence)
         if not new_audio_path:
             QMessageBox.warning(self, "Error", "Failed to generate new audio.")
@@ -432,6 +477,7 @@ class AudiobookMaker(QMainWindow):
         self.audiobook_label.setText(f"{book_name}")
 
         map_file_path = os.path.join(directory_path, "text_audio_map.json")
+        generation_settings_path = os.path.join(directory_path, "generation_settings.json")
 
         # Check if text_audio_map.json exists in the selected directory
         if not os.path.exists(map_file_path):
@@ -442,6 +488,8 @@ class AudiobookMaker(QMainWindow):
             # Load text_audio_map.json
             with open(map_file_path, 'r', encoding="utf-8") as file:
                 text_audio_map = json.load(file)
+
+            self.load_and_set_generation_settings(generation_settings_path)
 
             # Clear existing items in the table widget and text_audio_map
             self.tableWidget.setRowCount(0)
@@ -460,6 +508,7 @@ class AudiobookMaker(QMainWindow):
 
                 # Update text_audio_map
                 self.text_audio_map[idx_str] = item
+
 
         except Exception as e:
             # Handle other exceptions (e.g., JSON decoding errors)
@@ -549,7 +598,7 @@ class AudiobookMaker(QMainWindow):
         if not os.path.exists(audio_map_path):
             QMessageBox.warning(self, "Error", "The selected directory is not a valid Audiobook Directory. Start by generating an audio book first before updating.")
             return
-        # Step 1: Load existing text_audio_map
+        # Load existing text_audio_map
         with open(audio_map_path, 'r', encoding='utf-8') as file:
             text_audio_map = json.load(file)
 
@@ -574,16 +623,28 @@ class AudiobookMaker(QMainWindow):
                 generated = False
                 new_audio_path = ""
                 new_text_audio_map[str(new_idx)] = {"sentence": sentence, "audio_path": new_audio_path, "generated": generated}
-                self.save_map(audio_map_path, new_text_audio_map)
+                self.save_json(audio_map_path, new_text_audio_map)
 
         # Handle deleted sentences and their audio files
         for old_idx in deleted_sentences:
             old_audio_path = text_audio_map[old_idx]['audio_path']
             if os.path.exists(old_audio_path):
                 os.remove(old_audio_path)  # Delete the audio file
-        self.save_map(audio_map_path, new_text_audio_map)
+        self.save_json(audio_map_path, new_text_audio_map)
 
         if generate_new_audio_reply == QMessageBox.Yes:
+            use_old_settings_reply = QMessageBox.question(self, 
+                                    'Use Previouis Settings', 
+                                    "Do you want to use the same settings from the previous generation of this audiobook?", 
+                                    QMessageBox.Yes | QMessageBox.No, 
+                                    QMessageBox.No  # Default is 'No'
+                                )
+            generation_settings_path = os.path.join(directory_path, "generation_settings.json")
+            if use_old_settings_reply == QMessageBox.Yes:
+                self.load_and_set_generation_settings(generation_settings_path)
+            else:
+                self.create_generation_settings(generation_settings_path)
+
             self.worker = AudioGenerationWorker(self.generate_audio_for_sentence_threaded, audiobook_path)
 
             self.worker.started.connect(self.disable_buttons)
@@ -611,6 +672,19 @@ class AudiobookMaker(QMainWindow):
         audiobook_path = os.path.join('audiobooks', dir_name)
         self.audiobook_label.setText(f"{dir_name}")
 
+        use_old_settings_reply = QMessageBox.question(self, 
+                                    'Use Previouis Settings', 
+                                    "Do you want to use the same settings from the previous generation of this audiobook?", 
+                                    QMessageBox.Yes | QMessageBox.No, 
+                                    QMessageBox.No  # Default is 'No'
+                                )
+        
+        generation_settings_path = os.path.join(directory_path, "generation_settings.json")
+        if use_old_settings_reply == QMessageBox.Yes:
+            self.load_and_set_generation_settings(generation_settings_path)
+        else:
+            self.create_generation_settings(generation_settings_path)
+
         self.worker = AudioGenerationWorker(self.generate_audio_for_sentence_threaded, audiobook_path)
 
         self.worker.started.connect(self.disable_buttons)
@@ -619,6 +693,40 @@ class AudiobookMaker(QMainWindow):
 
         self.worker.progress_signal.connect(self.progress_bar.setValue)
         self.worker.start()
+
+
+    def set_background_image(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        file_name, _ = QFileDialog.getOpenFileName(self,"", "","Image Files (*.png *.jpg *.jpeg);;All Files (*)", options=options)
+        if file_name:
+            if not os.path.exists('image_backgrounds'):
+                os.makedirs('image_backgrounds')
+            image_name = os.path.basename(file_name)
+            destination_path = os.path.join('image_backgrounds', image_name)
+            if os.path.abspath(file_name) != os.path.abspath(destination_path):
+                shutil.copy2(file_name, destination_path)
+            self.set_background(destination_path)
+            with open('settings.json', 'w') as json_file:
+                json.dump({"background_image": destination_path}, json_file)
+
+    def set_background_clear_image(self):
+        # Reset the background pixmap attribute
+        if hasattr(self, 'background_pixmap'):
+            del self.background_pixmap
+        
+        self.background_label.clear()  # Clear the existing pixmap on the label
+
+        # Update settings.json to remove the background image setting
+        if os.path.exists('settings.json'):
+            with open('settings.json', 'w') as json_file:
+                json.dump({"background_image": None}, json_file)
+                
+        self.update_background()
+
+
+
+
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Audio Generation Utilities
@@ -769,7 +877,7 @@ class AudiobookMaker(QMainWindow):
             # Convert the text_audio_map dictionary to a JSON string and write it to the file
             json.dump(self.text_audio_map, map_file, ensure_ascii=False, indent=4)
 
-    def save_map(self, audio_map_path, new_text_audio_map):
+    def save_json(self, audio_map_path, new_text_audio_map):
         with open(audio_map_path, 'w', encoding='utf-8') as file:
             json.dump(new_text_audio_map, file, ensure_ascii=False, indent=4)
 
@@ -779,7 +887,58 @@ class AudiobookMaker(QMainWindow):
             generated = False
             audio_path = ""
             new_text_audio_map[str(idx)] = {"sentence": sentence, "audio_path": audio_path, "generated": generated}
-            self.save_map(audio_map_path, new_text_audio_map)
+            self.save_json(audio_map_path, new_text_audio_map)
+
+    def create_generation_settings(self, generation_settings_path):
+        selected_voice = self.voice_models_combo.currentText()
+        selected_index = self.voice_index_combo.currentText()
+        f0_pitch = self.voice_pitch_slider.value()
+        index_rate = self.voice_index_slider.value()
+        generation_settings = {"selected_voice":selected_voice, "selected_index":selected_index, "f0_pitch":f0_pitch, "index_rate":index_rate}
+        self.save_json(generation_settings_path, generation_settings)
+
+    def load_and_set_generation_settings(self, generation_settings_path):
+        try:
+            with open(generation_settings_path, 'r') as file:
+                data = json.load(file)
+                selected_voice = data.get('selected_voice', '')
+                selected_index = data.get('selected_index', '')
+                f0_pitch = data.get('f0_pitch', 0)
+                index_rate = data.get('index_rate', 0)
+                
+                index_voice = self.voice_models_combo.findText(selected_voice)
+                if index_voice >= 0:
+                    self.voice_models_combo.setCurrentIndex(index_voice)
+        
+                index_index = self.voice_index_combo.findText(selected_index)
+                if index_index >= 0:
+                    self.voice_index_combo.setCurrentIndex(index_index)
+        
+                self.voice_pitch_slider.setValue(f0_pitch)
+                self.voice_index_slider.setValue(index_rate)
+        except FileNotFoundError:
+            print(f"{generation_settings_path} not found.")
+        except json.JSONDecodeError:
+            print(f"{generation_settings_path} is not a valid JSON file.")
+    
+    def set_background(self, file_path):
+        # Set the pixmap for the background label
+        pixmap = QPixmap(file_path)
+        self.background_pixmap = pixmap  # Save the pixmap as an attribute
+        self.update_background()
+
+    def resizeEvent(self, event):
+        # Update background label geometry when window is resized
+        self.background_label.setGeometry(0, 0, self.width(), self.height())
+        self.update_background()  # Update the background pixmap scaling
+        super().resizeEvent(event)  # Call the superclass resize event method
+
+    def update_background(self):
+        # Check if background pixmap is set, then scale and set it
+        if hasattr(self, 'background_pixmap'):
+            scaled_pixmap = self.background_pixmap.scaled(self.background_label.size(), Qt.KeepAspectRatioByExpanding)
+            self.background_label.setPixmap(scaled_pixmap)
+            self.background_label.show()
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   GUI Utilites
@@ -823,9 +982,6 @@ class AudiobookMaker(QMainWindow):
     def disable_buttons(self):
         buttons = [self.regenerate_button, 
                 self.generate_button, 
-                # self.load_audiobook_button,
-                # self.export_audiobook_button,
-                # self.update_audiobook_button,
                 self.continue_audiobook_button]
         actions = [self.load_audiobook_action,
                 self.export_audiobook_action,
@@ -841,9 +997,6 @@ class AudiobookMaker(QMainWindow):
     def enable_buttons(self):
         buttons = [self.regenerate_button, 
                 self.generate_button, 
-                # self.load_audiobook_button,
-                # self.export_audiobook_button,
-                # self.update_audiobook_button,
                 self.continue_audiobook_button]
         actions = [self.load_audiobook_action,
                 self.export_audiobook_action,
