@@ -7,6 +7,7 @@ Had some people try out the package and found an issue that was caused due to py
         - This resolved the issue the user was experiencing so that the embedded python package is run in isolation
 - Added feature to save the settings used in the previous generation of an audiobook, the value is saved in generation_setting.json
 - Added ability to add a background image to the GUI just because I want one
+- Adjusted filter paragraphs in tortoise to handle the sentence list better, removing non-alphabetic sentences
 
 # 10/7/2023
 Preparing for a distributable Nvidia-Windows release
