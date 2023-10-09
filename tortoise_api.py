@@ -6,6 +6,7 @@ import os
 import sounddevice as sd
 import soundfile as sf
 import yaml
+import re
 
 class Tortoise_API:
     '''
@@ -89,7 +90,7 @@ class Tortoise_API:
             
             print(f"Attempt {attempt + 1} failed, retrying...")  # Log the retry attempt
             import time
-            time.sleep(1)  # Optional: add a delay between retries
+            # time.sleep(1)  # Optional: add a delay between retries
         
         print(f"Failed to connect after {max_retries} attempts")
         return None
@@ -135,45 +136,36 @@ def load_config():
 
     return tort_conf
 
+import re
+
 def filter_paragraph(paragraph):
-    '''
-    Processes the given paragraph to return a list of sentences, 
-    merging lines that end with commas with subsequent lines and 
-    ensuring each sentence ends with a period.
-
-    Args:
-        paragraph (str) : Any body of text
-
-    Returns:
-        filtered_list (tuple) :  A list of sentences 
-
-    '''
     lines = paragraph.strip().split('\n')
     
     filtered_list = []
     i = 0
     while i < len(lines):
-        # Split lines that might have multiple sentences.
         split_sentences = lines[i].split('. ')
         for part_sentence in split_sentences:
-            if not part_sentence:  # skip empty splits
+            if not part_sentence:
                 continue
 
             line = part_sentence.strip()
 
-            # Keep appending subsequent lines while current line ends with a comma
             while line.endswith(",") and (i + 1) < len(lines):
                 i += 1
                 line += " " + lines[i].split('. ')[0].strip()
 
-            if not line.endswith('.'):
-                line += '.'
+            # Remove square brackets and strip the line again
+            line = re.sub(r'\[|\]', '', line).strip()
 
-            filtered_list.append(line)
+            # Only append lines that contain at least one alphabetic character
+            if line and any(c.isalpha() for c in line):
+                filtered_list.append(line)
 
         i += 1
 
     return filtered_list
+
 
 def load_sentences(file_path) -> list:
     '''

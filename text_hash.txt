@@ -1,4 +1,61 @@
-Narration of rezero using text to speech, Marine edition
-―This is really bad.
+---- Test 1 ----
+This is a simple test. It should work without any issues.
+-- Expected Output --
+["This is a simple test.", "It should work without any issues."]
 
+---- Test 2 ----
+Although I went to the store, I forgot to buy milk. Next time, I’ll make a list.
+-- Expected Output --
+["Although I went to the store, I forgot to buy milk.", "Next time, I’ll make a list."]
 
+---- Test 3 ----
+Hello World!! What's happening?? #excited.
+-- Expected Output --
+["Hello World!!", "What's happening??", "#excited."]
+
+---- Test 4 ----
+This is a weird case.. It happens sometimes..
+-- Expected Output --
+["This is a weird case.", "It happens sometimes."]
+
+---- Test 5 ----
+I went to the store, bought milk. Then, went to the park, enjoyed the day.
+-- Expected Output --
+["I went to the store, bought milk.", "Then, went to the park, enjoyed the day."]
+
+---- Test 6 ----
+
+-- Expected Output --
+[]
+
+---- Test 7 ----
+###!!!
+-- Expected Output --
+[]
+
+---- Test 8 ----
+    This is a test.
+
+....?????##
+$$%^#$@
+!@#$!@%%
+@@@
+!!
+...
+....////\\][[]]
+
+It should return two sentences.   
+-- Expected Output --
+["This is a test.", "It should return two sentences."]
+
+---- Test 9 ----
+Although I went to the store,
+I forgot to buy milk.
+Next time, I’ll make a list.
+-- Expected Output --
+["Although I went to the store, I forgot to buy milk.", "Next time, I’ll make a list."]
+
+---- Test 10 ----
+Is this real?? Or #fantasy... Caught in a landslide, no escape...
+-- Expected Output --
+["Is this real??", "Or #fantasy.", "Caught in a landslide, no escape..."]
