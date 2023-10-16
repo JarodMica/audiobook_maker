@@ -139,32 +139,43 @@ def load_config():
 import re
 
 def filter_paragraph(paragraph):
-    lines = paragraph.strip().split('\n')
+
+    import nltk
+    if not os.path.exists('./assets'):
+        os.makedirs('./assets')
+    nltk.download('punkt', download_dir='./assets')
+    nltk.data.path.append('./assets')
+
+    # Split the paragraph into lines and process each line separately
+    lines = paragraph.split("\n")
     
     filtered_list = []
-    i = 0
-    while i < len(lines):
-        split_sentences = lines[i].split('. ')
-        for part_sentence in split_sentences:
-            if not part_sentence:
-                continue
+    for line in lines:
+        # Tokenize sentences in the current line using nltk
+        sentences = nltk.sent_tokenize(line.strip())
 
-            line = part_sentence.strip()
+        # Helper function to check if a sentence ends with abbreviation followed by lowercase word
+        def ends_with_abbreviation(sentence):
+            return re.search(r'\b[A-Z](?:\.[A-Z])+[\.]?$', sentence)
 
-            while line.endswith(",") and (i + 1) < len(lines):
-                i += 1
-                line += " " + lines[i].split('. ')[0].strip()
+        i = 0
+        while i < len(sentences):
+            # Remove square brackets and strip the sentence
+            line_content = re.sub(r'\[|\]', '', sentences[i]).strip()
 
-            # Remove square brackets and strip the line again
-            line = re.sub(r'\[|\]', '', line).strip()
+            # Check for abbreviation and merge with the next sentence if required
+            if i < len(sentences) - 1 and ends_with_abbreviation(line_content) and sentences[i+1][0].islower():
+                line_content += " " + sentences[i+1]
+                i += 1  # Skip next sentence
 
             # Only append lines that contain at least one alphabetic character
-            if line and any(c.isalpha() for c in line):
-                filtered_list.append(line)
+            if line_content and any(c.isalpha() for c in line_content):
+                filtered_list.append(line_content)
 
-        i += 1
+            i += 1
 
     return filtered_list
+
 
 
 def load_sentences(file_path) -> list:

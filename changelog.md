@@ -1,5 +1,8 @@
 # Changelog & thoughts
 
+# 10/16/2023
+Needed a more robust way to parse sentences in the audiobook maker, as it was messing up on sentences: https://github.com/JarodMica/audiobook_maker/issues/15.  Instead of manually defining splits, found that there is a python library and model that can help called nltk https://github.com/nltk/nltk.  Incoporated this into the tortoise_api.py and should add to the robustness of the code to handle more text.
+
 # 10/8/2023
 Had some people try out the package and found an issue that was caused due to python for some reason still accessing the user's local installation of python.  This was leading to conflicting package issues between global and runtime packages.
 - Added logic that checks if a runtime folder is located in the parent directory of the audiobook maker

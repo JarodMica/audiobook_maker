@@ -304,7 +304,6 @@ class AudiobookMaker(QMainWindow):
         self.set_background_clear_action.triggered.connect(self.set_background_clear_image)
         self.background_menu.addAction(self.set_background_clear_action)
 
-
         # Window settings
         self.setWindowTitle("Audiobook Maker")
         screen = QDesktopWidget().screenGeometry()  # Get the screen geometry

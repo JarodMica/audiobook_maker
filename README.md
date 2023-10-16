@@ -23,9 +23,15 @@ There are two ways to install this, via Package or Manually.  If you don't have 
 :heavy_check_mark: Audiobook can be updated with a new text file in case sentences need to be changed or order adjusted
 
 ## To-do:
-- [ ] Add additional languages (limited to only English ATM)
+- [ ] Add additional languages (limited to only English ATM)SS
 - [ ] Add an option to convert audiobook to another voice 
-- [ ] Find a way to do "multiple speakers" for dialogue in the book
+- [ ] Add a stop generation button
+- [ ] Add a Timer
+- [ ] Add more advanced playback and regeneration tools
+    - [ ] Highlight sentences for generation later (will need to do some type of edit to the json structure so that even if you close out, they are still highlighted)
+    - [ ] Find a way to do "multiple speakers" for dialogue in the book (might involve a new tab where users can select sentences to regenerate)
+    - [ ] Auto sentence regeneration and comparison using whisper (https://github.com/maxbachmann/RapidFuzz/) 
+
 
 ## Prerequisites:
 - **NVidia GPU:** I say this is a requirement as I've only developed testing with Nvidia.  The lowest I've tested is an RTX 3060 12B which is more than sufficient, but I reckon that 10 & 20 series cards should still be fine as well.
