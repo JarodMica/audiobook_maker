@@ -4,7 +4,6 @@
 *.pt
 *.whl
 
-assets/
 settings.json
 rvc/
 tort.yaml

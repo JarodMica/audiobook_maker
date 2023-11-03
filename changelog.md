@@ -1,5 +1,9 @@
 # Changelog & thoughts
 
+# 10/17/2023
+Bug fixes for next patch
+- Fixed hardcoded path in lightweight rvc package under configs.py for nvidia cards under 4GB
+
 # 10/16/2023
 Needed a more robust way to parse sentences in the audiobook maker, as it was messing up on sentences: https://github.com/JarodMica/audiobook_maker/issues/15.  Instead of manually defining splits, found that there is a python library and model that can help called nltk https://github.com/nltk/nltk.  Incoporated this into the tortoise_api.py and should add to the robustness of the code to handle more text.
 
