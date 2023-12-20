@@ -1,3 +1,5 @@
+> **Project is currently on hold as of 12/20/2023, but this is one I'll be coming back to in a little bit.**
+
 # Audiobook Maker
 This repo utilizes SOTA AI voice generation tools such as Tortoise and RVC to generate the audio required to make an audiobook.  To my knowledge, Tortoise and RVC combined replicates speech in a way that is currently unparalleled to anything else that exists out there that is open-sourced and able to be ran locally. *Eleven labs is absolutely fantastic... one of the best IMO, but it's not "free" and it's not open-source*
 
