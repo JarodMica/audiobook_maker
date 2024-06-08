@@ -441,7 +441,7 @@ class AudiobookMaker(QMainWindow):
             QMessageBox.warning(self, "Error", f'No audio path found, generate sentences with "Continue Audiobook" first before regenerating. This may have occured if you updated the audiobook and did not opt to generate new sentences')
             return
 
-        selected_sentence = self.text_audio_map[map_key]['sentence']
+        selected_sentence = self.text_audio_map[map_key]['sentence']['text']
         old_audio_path = self.text_audio_map[map_key]['audio_path']
         audio_path_parent = os.path.dirname(old_audio_path)
         generation_settings_path = os.path.join(audio_path_parent, "generation_settings.json")
@@ -496,7 +496,7 @@ class AudiobookMaker(QMainWindow):
 
             # Insert sentences and update text_audio_map
             for idx_str, item in text_audio_map.items():
-                sentence = item['sentence']
+                sentence = item['sentence']['text']
 
                 # Add item to QTableWidget
                 sentence_item = QTableWidgetItem(sentence)
@@ -548,14 +548,28 @@ class AudiobookMaker(QMainWindow):
         # Sort the keys (converted to int), then get the corresponding audio paths
         sorted_audio_paths = [text_audio_map[key]['audio_path'] for key in sorted(text_audio_map, key=lambda k: int(k))]
         
+        #sort the keys, then get the variable to know if it starts a paragraph
+        First_Sentence = [text_audio_map[key]['sentence']['StartParagraph'] for key in sorted(text_audio_map, key=lambda k: int(k))]
+        FSsilence = AudioSegment.silent(duration=500)
+
         combined_audio = AudioSegment.empty()  # Create an empty audio segment
 
         pause_length = (self.export_pause_slider.value()/10) * 1000 # convert to milliseconds
         silence = AudioSegment.silent(duration=pause_length)  # Create a silent audio segment of pause_length
 
-        for audio_path in sorted_audio_paths:
+        # Iterate over sorted_audio_paths and First_Sentence simultaneously
+        for audio_path, is_start_paragraph in zip(sorted_audio_paths, First_Sentence):
             audio_segment = AudioSegment.from_wav(audio_path)
-            combined_audio += audio_segment + silence  # Append the audio segment followed by silence
+            
+            if is_start_paragraph:  # Check if the flag for StartParagraph is true
+                combined_audio += FSsilence + audio_segment + silence   
+            else:
+                combined_audio += audio_segment + silence  # Append the audio segment followed by silence
+#        for audio_path in sorted_audio_paths:
+#            audio_segment = AudioSegment.from_wav(audio_path)
+#            combined_audio += audio_segment + silence  # Append the audio segment followed by silence
+#           if First_Sentence ==True:
+#               combined_audio = FSsilence + combined_audio
 
         # If you don't want silence after the last segment, you might need to trim it
         if pause_length > 0:
@@ -742,7 +756,7 @@ class AudiobookMaker(QMainWindow):
 
         # Iterate through each entry in the map
         for idx, entry in text_audio_map.items():
-            sentence = entry['sentence']
+            sentence = entry['sentence']['text']
             new_audio_path = entry['audio_path']
             generated = entry['generated']
             
