@@ -142,7 +142,7 @@ import nltk #ADDED
 import enchant #ADDED
 
 def filter_paragraph(paragraph):
-
+    
     import nltk
     if not os.path.exists('./assets'):
         os.makedirs('./assets')
@@ -157,18 +157,28 @@ def filter_paragraph(paragraph):
     lines = paragraph.split("\n")
 
     filtered_list = []
-    for line in lines:
+    for idx, line in enumerate(lines):
+    #for line in lines:
         # Tokenize sentences in the current line using nltk
         sentences = nltk.sent_tokenize(line.strip())
 
         # Helper function to check if a sentence ends with abbreviation followed by lowercase word
         def ends_with_abbreviation(sentence):
             return re.search(r'\b[A-Z](?:\.[A-Z])+[\.]?["\']?$', sentence)
-
+        
+        Short_Trigger = False
         i = 0
         while i < len(sentences):
+            
+            #set variable
+            StartParagraph = False
+            
             # Remove square brackets and strip the sentence
             line_content = re.sub(r'\[|\]', '', sentences[i]).strip()
+
+            # remove elipses or other consecutive periods
+            line_content = re.sub(r'\.{2,}|\. \.', '.', line_content)
+            #line_content = line_content.replace('..', '.').replace('. .', '.')
 
             # Check for abbreviation and merge with the next sentence if required
             if i < len(sentences) - 1 and ends_with_abbreviation(line_content) and sentences[i+1][0].islower():
@@ -183,17 +193,35 @@ def filter_paragraph(paragraph):
 
             # Replace sequences of consecutive capital letters without periods with spaces only if not spelled correctly
             line_content = re.sub(r'\b((?:[A-Z]+)+)\b', lambda match: match.group(1).replace('', ' ') if not spell_checker.check(match.group(1)) else match.group(1), line_content)
+           
+            #testing
+            #line_content = f"{i}: {line}"  # Add the index to the line content
+            
+            if i == 0:  # If it's the first line in the paragraph
+                #if line_content and any(c.isalpha() for c in line_content):
+                StartParagraph = True
 
+            if i == 1 and Short_Trigger == True:  # If it's the first line in the paragraph and a short sentence
+                #if line_content and any(c.isalpha() for c in line_content):
+                StartParagraph = True
+                Short_Trigger = False
 
-            # Check if the sentence is shorter than 3 words, add " [end]." 
-            if len(line_content.split()) < 3:
-                line_content += " [end]."
+            # Check if the sentence is shorter than 7 words, add " [lengthen a few words]." 
+            if len(line_content.split()) < 7:
+                if i + 1 < len(sentences):
+                    sentences[i+1] = line_content + " " + sentences[i+1]
+                    line_content = " "
+                    Short_Trigger = True
+                else:
+                    if line_content and any(c.isalpha() for c in line_content):
+                        line_content += " [lengthen a few words]"
+
 
             # Check if the sentence is longer than 20 words
             if len(line_content.split()) > 20:
             
                 line_content = line_content.replace('—', ', ')
-                # Split the line at commas occurring after more than 10 words
+                # Split the line at commas occurring after more than 20 words
                 words = line_content.split()
                 new_line = []
                 word_count = 0
@@ -201,19 +229,25 @@ def filter_paragraph(paragraph):
                     new_line.append(word)
                     word_count += 1
                     if word.endswith(',') and word_count > 10:
-                        new_line.append(" [end].") #less chance of studders, shortens break
-                        filtered_list.append(' '.join(new_line))
+                        #new_line.append(" [end].") #less chance of studders, shortens break
+                        filtered_list.append({"text": ' '.join(new_line), "StartParagraph": StartParagraph})
                         new_line = []
-                        #word_count = 0
+                        StartParagraph = False
+                        word_count = 0
                 if new_line:
-                    filtered_list.append(' '.join(new_line))
+                    if word_count < 7:
+                        new_line.append(" [lengthen a few words]")
+                    
+                    filtered_list.append({"text": ' '.join(new_line), "StartParagraph": StartParagraph})
                 #deletes original line
                 line_content = " "
-
-
+   
             # Only append lines that contain at least one alphabetic character
             if line_content and any(c.isalpha() for c in line_content):
-                filtered_list.append(line_content)
+                if StartParagraph == True:
+                    filtered_list.append({"text": line_content, "StartParagraph": StartParagraph})
+                else:
+                    filtered_list.append({"text": line_content, "StartParagraph": StartParagraph})
 
             i += 1
 
