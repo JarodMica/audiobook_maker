@@ -30,8 +30,8 @@ from PyQt5.QtGui import QPixmap, QPalette, QBrush
 script_directory = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(script_directory)
 
-from tortoise_api import Tortoise_API
-from tortoise_api import load_sentences
+from tortoise_api.tortoise_api import load_sentences, load_config, call_api
+
 from rvc_pipe.rvc_infer import rvc_convert
 
 class AudioGenerationWorker(QThread):
@@ -72,7 +72,6 @@ class AudiobookMaker(QMainWindow):
 
         self.init_ui()
         
-        self.tortoise = Tortoise_API()
 
     def init_ui(self):
         # Main Layout
@@ -785,7 +784,9 @@ class AudiobookMaker(QMainWindow):
             progress_callback(progress_percentage)\
             
     def generate_audio(self, sentence):
-        audio_path = self.tortoise.call_api(sentence)
+        tort_setup = os.path.join(script_dir, "tort.yaml")
+        parameters = load_config(tort_setup)
+        audio_path = call_api(sentence, **parameters)
         selected_voice = self.voice_models_combo.currentText()
         selected_index = self.voice_index_combo.currentText()
         voice_model_path = os.path.join(self.voice_folder_path, selected_voice)
