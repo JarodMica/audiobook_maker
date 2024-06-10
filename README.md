@@ -33,6 +33,7 @@ There are two ways to install this, via Package or Manually.  If you don't have 
     - [ ] Highlight sentences for generation later (will need to do some type of edit to the json structure so that even if you close out, they are still highlighted)
     - [ ] Find a way to do "multiple speakers" for dialogue in the book (might involve a new tab where users can select sentences to regenerate)
     - [ ] Auto sentence regeneration and comparison using whisper (https://github.com/maxbachmann/RapidFuzz/) 
+    - [ ] Add a toggleable option for using rvc conversion
 
 
 ## Prerequisites:
@@ -85,7 +86,7 @@ venv\Scripts\activate
 ```
 4. Install pytorch using command below (recommended) or get from https://pytorch.org/get-started/locally/:
 
-```pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117```
+```pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121```
 
 5. Install requirements:
 
@@ -96,6 +97,8 @@ venv\Scripts\activate
 ```pip install https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.2-cp310-cp310-win_amd64.whl```
 
 ```pip install git+https://github.com/JarodMica/rvc-tts-pipeline.git@lightweight#egg=rvc_tts_pipe```
+
+```pip install git+https://github.com/JarodMica/tortoise_api.git```
 
 6. Download and install ffmpeg: https://ffmpeg.org/download.html
     - Place ffmpeg.exe and ffprobe.exe inside of audiobook_maker OR make sure they are in your environment path variable

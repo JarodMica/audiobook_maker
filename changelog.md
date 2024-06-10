@@ -1,5 +1,9 @@
 # Changelog & thoughts
 
+# 6/9/2024
+Bug fix for tortoise TTS API call implemented, lots of things in the pipeline need a little refreshing
+- Package version is not done yet.
+
 # 10/17/2023
 Bug fixes for next patch
 - Fixed hardcoded path in lightweight rvc package under configs.py for nvidia cards under 4GB
