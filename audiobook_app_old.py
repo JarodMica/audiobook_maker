@@ -18,7 +18,7 @@ if os.path.exists(runtime_dir):
 import shutil
 import json
 
-from pydub import AudioSegment
+# from pydub import AudioSegment
 from PyQt5.QtWidgets import QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QFileDialog, QLineEdit, QLabel, QWidget, QMessageBox, QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QAction, QDesktopWidget
 from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from PyQt5.QtCore import QUrl, QThread, pyqtSignal, Qt
@@ -30,9 +30,9 @@ from PyQt5.QtGui import QPixmap, QPalette, QBrush
 script_directory = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(script_directory)
 
-from tortoise_api.tortoise_api import load_sentences, load_config, call_api
+# from tortoise_api.tortoise_api import load_sentences, load_config, call_api
 
-from rvc_pipe.rvc_infer import rvc_convert
+# from rvc_pipe.rvc_infer import rvc_convert
 
 class AudioGenerationWorker(QThread):
     progress_signal = pyqtSignal(int)
@@ -784,22 +784,33 @@ class AudiobookMaker(QMainWindow):
             progress_callback(progress_percentage)\
             
     def generate_audio(self, sentence):
-        tort_setup = os.path.join(script_dir, "tort.yaml")
-        parameters = load_config(tort_setup)
-        audio_path = call_api(sentence, **parameters)
-        selected_voice = self.voice_models_combo.currentText()
-        selected_index = self.voice_index_combo.currentText()
-        voice_model_path = os.path.join(self.voice_folder_path, selected_voice)
-        voice_index_path = os.path.join(self.index_folder_path, selected_index)
+        # tort_setup = os.path.join(script_dir, "tort.yaml")
+        # parameters = load_config(tort_setup)
+        # audio_path = call_api(sentence, **parameters)
+        # selected_voice = self.voice_models_combo.currentText()
+        # selected_index = self.voice_index_combo.currentText()
+        # voice_model_path = os.path.join(self.voice_folder_path, selected_voice)
+        # voice_index_path = os.path.join(self.index_folder_path, selected_index)
         
-        f0_pitch = self.voice_pitch_slider.value()
-        index_rate = (self.voice_index_slider.value()/100)
-        audio_path = rvc_convert(model_path=voice_model_path, 
-                                 f0_up_key=f0_pitch, 
-                                 resample_sr=0, 
-                                 file_index=voice_index_path,
-                                 index_rate=index_rate,
-                                 input_path=audio_path)
+        # f0_pitch = self.voice_pitch_slider.value()
+        # index_rate = (self.voice_index_slider.value()/100)
+        # audio_path = rvc_convert(model_path=voice_model_path, 
+        #                          f0_up_key=f0_pitch, 
+        #                          resample_sr=0, 
+        #                          file_index=voice_index_path,
+        #                          index_rate=index_rate,
+        #                          input_path=audio_path)
+        
+        audio_path = os.path.join(os.getcwd(), "output_audio.wav")
+        
+        import pyttsx3
+        engine = pyttsx3.init()
+        # Save the spoken sentence to an audio file
+        engine.save_to_file(sentence, audio_path)
+        
+        # Run the engine
+        engine.runAndWait()
+        
         if audio_path:
             return audio_path
         else:
