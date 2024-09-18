@@ -1,0 +1,3 @@
+[submodule "modules/tortoise_tts_api"]
+	path = modules/tortoise_tts_api
+	url = https://github.com/JarodMica/tortoise_tts_api
