@@ -7,6 +7,8 @@ from pydub import AudioSegment
 import pyttsx3
 import re
 import tempfile
+import tts_engines  # Import your TTS_engines module
+
 
 class AudiobookModel:
     def __init__(self):
@@ -24,8 +26,11 @@ class AudiobookModel:
         if os.path.exists('settings.json'):
             with open('settings.json', 'r') as json_file:
                 self.settings = json.load(json_file)
-                return self.settings.get('background_image', None)
-        return None
+                return self.settings
+        return {}
+    
+    def get_tts_engines(self):
+        return self.settings.get('available_tts_engines', [])
 
     def save_settings(self, background_image=None):
         self.settings['background_image'] = background_image
@@ -108,9 +113,14 @@ class AudiobookModel:
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #   Audiobook Generation Methods
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    def load_selected_tts_engine(self, chosen_tts_engine, **kwargs):
+        self.tts_engine = tts_engines.load_tts_engine(chosen_tts_engine, **kwargs)
+        return self.tts_engine
+        
 
     def generate_audio_for_sentence_threaded(self, directory_path, report_progress_callback, voice_parameters, sentence_generated_callback):
-        audio_map_path = os.path.join(directory_path, 'text_audio_map.json')
+        # audio_map_path = os.path.join(directory_path, 'text_audio_map.json')
         self.load_text_audio_map(directory_path)
 
         total_sentences = len(self.text_audio_map)
@@ -125,15 +135,16 @@ class AudiobookModel:
             # Check if audio is already generated
             if not generated:
                 # Generate audio for the sentence
-                audio_path = self.generate_audio(sentence, voice_parameters)
+                # Entry point for new logic to select between TTS engines
+                audio_path = self.generate_audio_proxy(sentence, voice_parameters)
 
                 # Check if audio is successfully generated
                 if audio_path:
                     file_idx = 0
-                    new_audio_path = os.path.join(directory_path, f"audio_{file_idx}.wav")
+                    new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
                     while os.path.exists(new_audio_path):
                         file_idx += 1
-                        new_audio_path = os.path.join(directory_path, f"audio_{file_idx}.wav")
+                        new_audio_path = os.path.join(directory_path, f"audio_{idx}_{file_idx}.wav")
                     os.rename(audio_path, new_audio_path)
                     # Update the audio path and set generated to true
                     self.text_audio_map[idx]['audio_path'] = new_audio_path
@@ -152,24 +163,17 @@ class AudiobookModel:
             progress_percentage = int((generated_count / total_sentences) * 100)
             report_progress_callback(progress_percentage)
 
-    def generate_audio(self, sentence, voice_parameters):
+    def generate_audio_proxy(self, sentence, voice_parameters):
+        tts_engine_name = voice_parameters.get('tts_engine', 'pyttsx3')
+
         # Generate a unique temporary file name
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
             audio_path = tmp_file.name
 
-        # This is where the TTS engine or external API would be called
-        # For simplicity, we'll use pyttsx3 here
+        # Now call TTS_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
+        success = tts_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
 
-        engine = pyttsx3.init()
-        # Optionally set voice parameters here using voice_parameters
-        # e.g., engine.setProperty('rate', voice_parameters.get('rate', 200))
-        # Save the spoken sentence to an audio file
-        engine.save_to_file(sentence, audio_path)
-
-        # Run the engine
-        engine.runAndWait()
-
-        if os.path.exists(audio_path):
+        if success:
             return audio_path
         else:
             return None

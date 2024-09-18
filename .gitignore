@@ -16,4 +16,6 @@ output/
 tortoise_api/
 personal/
 
-
+models/
+*.pth
+voices/

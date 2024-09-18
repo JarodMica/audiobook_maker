@@ -2,8 +2,9 @@
 
 from PySide6.QtWidgets import (
     QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QPushButton,
-    QVBoxLayout, QLineEdit, QLabel, QWidget, QMessageBox,
-    QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QFileDialog
+    QVBoxLayout, QLineEdit, QLabel, QWidget, QMessageBox, QCheckBox,
+    QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QFileDialog, QScrollArea,
+    QSizePolicy, QSpinBox
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Signal, Qt, QUrl
@@ -17,6 +18,7 @@ class AudiobookMakerView(QMainWindow):
 
     # Define signals for user actions
     load_text_file_requested = Signal()
+    load_tts_requested = Signal()
     start_generation_requested = Signal()
     play_selected_audio_requested = Signal()
     pause_audio_requested = Signal()
@@ -34,6 +36,9 @@ class AudiobookMakerView(QMainWindow):
     voice_pitch_changed = Signal(int)
     voice_index_effect_changed = Signal(float)
     pause_between_sentences_changed = Signal(float)
+    tts_engine_changed = Signal(str)
+    audio_finished_signal = Signal()
+
 
     def __init__(self):
         super().__init__()
@@ -65,7 +70,6 @@ class AudiobookMakerView(QMainWindow):
         self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
         self.current_audio_path = None  # Track the current audio file being played
 
-
         # Initialize UI components
         self.init_ui()
 
@@ -81,6 +85,22 @@ class AudiobookMakerView(QMainWindow):
         left_container.setLayout(left_layout)
         left_container.setMaximumWidth(500)
         main_layout.addWidget(left_container)
+        
+        # -- TTS Engine Combo Box
+        self.tts_engine_layout = QHBoxLayout()
+        self.tts_engine_label = QLabel("TTS Engine: ")
+        self.tts_engine_combo = QComboBox()
+        self.tts_engine_layout.addWidget(self.tts_engine_label)
+        self.tts_engine_layout.addWidget(self.tts_engine_combo, 1)
+        self.tts_engine_combo.currentTextChanged.connect(self.on_tts_engine_changed)
+        left_layout.addLayout(self.tts_engine_layout)
+        
+        self.load_tts = QPushButton("Load TTS Engine", self)
+        self.load_tts.clicked.connect(self.on_load_tts_clicked)
+        left_layout.addWidget(self.load_tts)
+        
+        self.do_rvc_checkbox = QCheckBox("Do RVC?", self)
+        left_layout.addWidget(self.do_rvc_checkbox)
 
         self.load_text = QPushButton("Select Text File", self)
         self.load_text.clicked.connect(self.on_load_text_clicked)
@@ -233,13 +253,42 @@ class AudiobookMakerView(QMainWindow):
         self.audiobook_label.setStyleSheet("font-size: 16pt; color: #eee;")
         right_layout.addWidget(self.audiobook_label)
 
+        # Create a horizontal layout to hold the table and TTS options
+        right_inner_layout = QHBoxLayout()
+
         # Table widget
         self.tableWidget = QTableWidget(self)
         self.tableWidget.setColumnCount(1)
         self.tableWidget.setHorizontalHeaderLabels(['Sentence'])
         self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        right_layout.addWidget(self.tableWidget)
+        self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
+        right_inner_layout.addWidget(self.tableWidget)
 
+        # TTS Options Widget
+        self.tts_options_widget = QWidget()
+        self.tts_options_layout = QVBoxLayout()
+        self.tts_options_widget.setLayout(self.tts_options_layout)
+        self.tts_options_widget.setVisible(False)  # Initially hidden
+
+        # Set a fixed size policy and maximum dimensions for the TTS options widget
+        self.tts_options_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.tts_options_widget.setMaximumWidth(300)  # Adjust as needed
+        self.tts_options_widget.setMaximumHeight(400)  # Adjust as needed
+
+        # Make the TTS options scrollable
+        self.tts_options_scroll_area = QScrollArea()
+        self.tts_options_scroll_area.setWidgetResizable(True)
+        self.tts_options_scroll_area.setWidget(self.tts_options_widget)
+        self.tts_options_scroll_area.setFixedWidth(320)  # Account for scrollbar width
+        self.tts_options_scroll_area.setFixedHeight(400)
+
+        right_inner_layout.addWidget(self.tts_options_scroll_area)
+
+        # Set Stretch Factors: Table = 3, TTS Options = 1
+        right_inner_layout.setStretch(0, 3)  # Table takes 3 parts
+        right_inner_layout.setStretch(1, 1)  # TTS Options take 1 part
+
+        right_layout.addLayout(right_inner_layout)
         main_layout.addLayout(right_layout)
 
         # Create a QWidget for the main window's central widget
@@ -317,6 +366,10 @@ class AudiobookMakerView(QMainWindow):
 
     def on_load_text_clicked(self):
         self.load_text_file_requested.emit()
+        
+    def on_load_tts_clicked(self):
+        self.set_load_tts_button_color("")  # Reset color before loading
+        self.load_tts_requested.emit()
 
     def on_generate_button_clicked(self):
         self.start_generation_requested.emit()
@@ -388,7 +441,7 @@ class AudiobookMakerView(QMainWindow):
     def update_font_size_from_slider(self, value):
         font_size = f"{value}pt"
         self.setStyleSheet(self.load_stylesheet(font_size))
-
+    
     # Method to load stylesheet
     def load_stylesheet(self, font_size="14pt"):
         # Load the base stylesheet
@@ -477,20 +530,200 @@ class AudiobookMakerView(QMainWindow):
     def get_book_name(self):
         return self.book_name_input.text().strip()
 
-    def get_voice_model(self):
+    def get_rvc_voice_model(self):
         return self.voice_models_combo.currentText()
 
-    def get_voice_index(self):
+    def get_rvc_voice_index(self):
         return self.voice_index_combo.currentText()
 
-    def get_voice_pitch(self):
+    def get_rvc_voice_pitch(self):
         return self.voice_pitch_slider.value()
 
-    def get_voice_index_effect(self):
+    def get_rvc_voice_index_effect(self):
         return self.voice_index_slider.value() / 100.0
 
     def get_pause_between_sentences(self):
         return self.export_pause_slider.value() / 10.0
+    
+    def get_do_rvc(self):
+        # Returns whether the checkbox is checked
+        return self.do_rvc_checkbox.isChecked()
+
+    def get_tts_engine(self):
+        return self.tts_engine_combo.currentText()
+    
+    def set_load_tts_button_color(self, color):
+        if color == "green":
+            self.load_tts.setStyleSheet("QPushButton { background-color: green; }")
+        elif color == "red":
+            self.load_tts.setStyleSheet("QPushButton { background-color: red; }")
+        else:
+            self.load_tts.setStyleSheet("")
+
+    def set_load_tts_button_enabled(self, enabled):
+        self.load_tts.setEnabled(enabled)
+    
+    def set_tts_engines(self, engines):
+        self.tts_engine_combo.clear()
+        self.tts_engine_combo.addItems(engines)
+        
+    def on_tts_engine_changed(self, text):
+        self.set_load_tts_button_color("")  # Reset color when TTS engine changes
+        self.tts_engine_changed.emit(text)
+        self.update_tts_options(text)  # Update the TTS options in the view
+
+    def update_tts_options(self, tts_engine_name, settings=None):
+        # Clear existing widgets and layouts
+        self.clear_layout(self.tts_options_layout)
+        # Depending on the TTS engine, add appropriate options
+        if tts_engine_name.lower() == 'tortoise':
+            self.add_tortoise_options()
+            self.tts_options_widget.setVisible(True)
+            if settings:
+                # Update the fields with settings if provided
+                self.voice_selection_input.setText(settings.get('voice', ''))
+                self.sample_size_spinbox.setValue(settings.get('sample_size', 4))
+                self.use_hifigan_checkbox.setChecked(settings.get('use_hifigan', False))
+                self.autoregressive_model_path_input.setText(settings.get('autoregressive_model_path', ''))
+                self.diffusion_model_path_input.setText(settings.get('diffusion_model_path', ''))
+                self.vocoder_name_input.setText(settings.get('vocoder_name', ''))
+                self.tokenizer_json_path_input.setText(settings.get('tokenizer_json_path', ''))
+                self.use_deepspeed_checkbox.setChecked(settings.get('use_deepspeed', False))
+        else:
+            self.tts_options_widget.setVisible(False)
+
+    def clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self.clear_layout(item.layout())
+                item.layout().deleteLater()
+    def add_tortoise_options(self):
+        # Autoregressive Model Path
+        autoregressive_layout = QHBoxLayout()
+        autoregressive_label = QLabel("Autoregressive Model Path:")
+        self.autoregressive_model_path_input = QLineEdit()
+        autoregressive_browse = QPushButton("Browse")
+        autoregressive_browse.clicked.connect(self.on_browse_autoregressive_model)
+        autoregressive_layout.addWidget(self.autoregressive_model_path_input)
+        autoregressive_layout.addWidget(autoregressive_browse)
+        self.tts_options_layout.addWidget(autoregressive_label)
+        self.tts_options_layout.addLayout(autoregressive_layout)
+
+        # Diffusion Model Path
+        diffusion_layout = QHBoxLayout()
+        diffusion_label = QLabel("Diffusion Model Path:")
+        self.diffusion_model_path_input = QLineEdit()
+        diffusion_browse = QPushButton("Browse")
+        diffusion_browse.clicked.connect(self.on_browse_diffusion_model)
+        diffusion_layout.addWidget(self.diffusion_model_path_input)
+        diffusion_layout.addWidget(diffusion_browse)
+        self.tts_options_layout.addWidget(diffusion_label)
+        self.tts_options_layout.addLayout(diffusion_layout)
+
+        # Vocoder Name
+        vocoder_layout = QHBoxLayout()
+        vocoder_label = QLabel("Vocoder Name:")
+        self.vocoder_name_input = QLineEdit()
+        vocoder_layout.addWidget(self.vocoder_name_input)
+        self.tts_options_layout.addWidget(vocoder_label)
+        self.tts_options_layout.addLayout(vocoder_layout)
+
+        # Tokenizer JSON Path
+        tokenizer_layout = QHBoxLayout()
+        tokenizer_label = QLabel("Tokenizer JSON Path:")
+        self.tokenizer_json_path_input = QLineEdit()
+        tokenizer_browse = QPushButton("Browse")
+        tokenizer_browse.clicked.connect(self.on_browse_tokenizer_json)
+        tokenizer_layout.addWidget(self.tokenizer_json_path_input)
+        tokenizer_layout.addWidget(tokenizer_browse)
+        self.tts_options_layout.addWidget(tokenizer_label)
+        self.tts_options_layout.addLayout(tokenizer_layout)
+
+        # Voice Selection
+        voice_layout = QHBoxLayout()
+        voice_label = QLabel("Voice:")
+        self.voice_selection_input = QLineEdit()
+        voice_layout.addWidget(self.voice_selection_input)
+        self.tts_options_layout.addWidget(voice_label)
+        self.tts_options_layout.addLayout(voice_layout)
+
+        # Sample Size
+        sample_size_layout = QHBoxLayout()
+        sample_size_label = QLabel("Sample Size:")
+        self.sample_size_spinbox = QSpinBox()
+        self.sample_size_spinbox.setMinimum(1)
+        self.sample_size_spinbox.setMaximum(64)
+        self.sample_size_spinbox.setValue(4)
+        sample_size_layout.addWidget(self.sample_size_spinbox)
+        self.tts_options_layout.addWidget(sample_size_label)
+        self.tts_options_layout.addLayout(sample_size_layout)
+
+        # Use DeepSpeed
+        self.use_deepspeed_checkbox = QCheckBox("Use DeepSpeed")
+        self.tts_options_layout.addWidget(self.use_deepspeed_checkbox)
+
+        # Use HiFi-GAN
+        self.use_hifigan_checkbox = QCheckBox("Use HiFi-GAN")
+        self.tts_options_layout.addWidget(self.use_hifigan_checkbox)
+    
+    def get_tts_engine_parameters(self):
+        tts_engine_name = self.get_tts_engine().lower()
+        parameters = {}
+        if tts_engine_name == 'tortoise':
+            parameters['autoregressive_model_path'] = self.autoregressive_model_path_input.text()
+            parameters['diffusion_model_path'] = self.diffusion_model_path_input.text()
+            parameters['vocoder_name'] = self.vocoder_name_input.text()
+            parameters['tokenizer_json_path'] = self.tokenizer_json_path_input.text()
+            parameters['use_deepspeed'] = self.use_deepspeed_checkbox.isChecked()
+            parameters['use_hifigan'] = self.use_hifigan_checkbox.isChecked()
+            parameters['voice'] = self.voice_selection_input.text()
+            parameters['sample_size'] = self.sample_size_spinbox.value()
+        # Include other TTS engine parameters similarly
+        return parameters
+
+    
+    def get_voice_parameters(self):
+        tts_engine_name = self.get_tts_engine()
+        voice_parameters = {}
+
+        voice_parameters['tts_engine'] = tts_engine_name
+        voice_parameters['do_rvc'] = self.get_do_rvc()
+        voice_parameters['selected_voice'] = self.get_rvc_voice_model()
+        voice_parameters['selected_index'] = self.get_rvc_voice_index()
+        voice_parameters['f0_pitch'] = self.get_rvc_voice_pitch()
+        voice_parameters['index_rate'] = self.get_rvc_voice_index_effect()
+        voice_parameters['pause_duration'] = self.get_pause_between_sentences()
+
+        if tts_engine_name.lower() == 'tortoise':
+            voice_parameters['voice'] = self.voice_selection_input.text()
+            voice_parameters['sample_size'] = self.sample_size_spinbox.value()
+            voice_parameters['use_hifigan'] = self.use_hifigan_checkbox.isChecked()
+            voice_parameters['autoregressive_model_path'] = self.autoregressive_model_path_input.text()
+            voice_parameters['diffusion_model_path'] = self.diffusion_model_path_input.text()
+            voice_parameters['vocoder_name'] = self.vocoder_name_input.text()
+            voice_parameters['tokenizer_json_path'] = self.tokenizer_json_path_input.text()
+            voice_parameters['use_deepspeed'] = self.use_deepspeed_checkbox.isChecked()
+        # Add other TTS engine parameters as needed
+        return voice_parameters
+    
+     # Browse Methods for Tortoise TTS
+    def on_browse_autoregressive_model(self):
+        file_path = self.get_open_file_name("Select Autoregressive Model", "", "Model Files (*.pth *.pt);;All Files (*)")
+        if file_path:
+            self.autoregressive_model_path_input.setText(file_path)
+
+    def on_browse_diffusion_model(self):
+        file_path = self.get_open_file_name("Select Diffusion Model", "", "Model Files (*.pth *.pt);;All Files (*)")
+        if file_path:
+            self.diffusion_model_path_input.setText(file_path)
+
+    def on_browse_tokenizer_json(self):
+        file_path = self.get_open_file_name("Select Tokenizer JSON", "", "JSON Files (*.json);;All Files (*)")
+        if file_path:
+            self.tokenizer_json_path_input.setText(file_path)
 
     # Methods to populate combo boxes
     def set_voice_models(self, models):
@@ -559,32 +792,10 @@ class AudiobookMakerView(QMainWindow):
             self.audio_paths = []
             self.indices = []
 
-    def play_audio_sequence(self, audio_paths, indices):
-        self.audio_paths = audio_paths
-        self.indices = indices
-        self.current_audio_index = 0
-        self.playing_sequence = True  # Set the flag to True
-        if self.current_audio_index < len(self.audio_paths):
-            self.play_audio(self.audio_paths[self.current_audio_index])
-            self.select_table_row(self.indices[self.current_audio_index])
-
     def on_audio_finished(self, state):
         if state == QMediaPlayer.EndOfMedia or state == QMediaPlayer.StoppedState:
             self.current_audio_path = None  # Clear current audio path
-            if self.playing_sequence:
-                self.current_audio_index += 1
-                if self.current_audio_index < len(self.audio_paths):
-                    self.play_audio(self.audio_paths[self.current_audio_index])
-                    self.select_table_row(self.indices[self.current_audio_index])
-                else:
-                    # Sequence finished
-                    self.playing_sequence = False
-                    self.current_audio_index = 0
-                    self.audio_paths = []
-                    self.indices = []
-            else:
-                # Do nothing for single audio playback
-                pass
+            self.audio_finished_signal.emit()  # Emit the signal
             
     def is_audio_playing(self, audio_path):
         return self.current_audio_path == audio_path
@@ -606,18 +817,48 @@ class AudiobookMakerView(QMainWindow):
         self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
 
     def update_generation_settings(self, settings):
+        # General settings
+        tts_engine = settings.get('tts_engine', '')
+        do_rvc = settings.get('do_rvc', False)
         selected_voice = settings.get('selected_voice', '')
         selected_index = settings.get('selected_index', '')
         f0_pitch = settings.get('f0_pitch', 0)
         index_rate = settings.get('index_rate', 0)
+        pause_duration = settings.get('pause_duration', 0)
 
+        # Update TTS engine combo box
+        index_tts = self.tts_engine_combo.findText(tts_engine)
+        if index_tts >= 0:
+            self.tts_engine_combo.setCurrentIndex(index_tts)
+
+        # Update Do RVC checkbox
+        self.do_rvc_checkbox.setChecked(do_rvc)
+
+        # Update voice models combo box
         index_voice = self.voice_models_combo.findText(selected_voice)
         if index_voice >= 0:
             self.voice_models_combo.setCurrentIndex(index_voice)
 
+        # Update voice index combo box
         index_index = self.voice_index_combo.findText(selected_index)
         if index_index >= 0:
             self.voice_index_combo.setCurrentIndex(index_index)
 
+        # Update sliders
         self.voice_pitch_slider.setValue(f0_pitch)
         self.voice_index_slider.setValue(int(index_rate * 100))
+        self.export_pause_slider.setValue(int(pause_duration * 10))
+
+        # Tortoise TTS specific settings
+        if tts_engine.lower() == 'tortoise':
+            # Ensure TTS options are visible and updated
+            self.update_tts_options(tts_engine, settings)
+            self.voice_selection_input.setText(settings.get('voice', ''))
+            self.sample_size_spinbox.setValue(settings.get('sample_size', 4))
+            self.use_hifigan_checkbox.setChecked(settings.get('use_hifigan', False))
+            self.autoregressive_model_path_input.setText(settings.get('autoregressive_model_path', ''))
+            self.diffusion_model_path_input.setText(settings.get('diffusion_model_path', ''))
+            self.vocoder_name_input.setText(settings.get('vocoder_name', ''))
+            self.tokenizer_json_path_input.setText(settings.get('tokenizer_json_path', ''))
+            self.use_deepspeed_checkbox.setChecked(settings.get('use_deepspeed', False))
+
