@@ -352,7 +352,7 @@ class AudiobookMakerView(QMainWindow):
         screen = QScreen().geometry()  # Get the screen geometry
         target_ratio = 16 / 9
 
-        width = screen.width() * 0.8
+        width = screen.width() * 1.2
         height = width / target_ratio  # calculate height based on the target aspect ratio
 
         if height > screen.height():
