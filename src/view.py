@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QPushButton,
     QVBoxLayout, QLineEdit, QLabel, QWidget, QMessageBox, QCheckBox,
     QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QFileDialog, QScrollArea,
-    QSizePolicy, QSpinBox
+    QSizePolicy, QSpinBox, QSplitter
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Signal, Qt, QUrl
@@ -77,7 +77,7 @@ class AudiobookMakerView(QMainWindow):
         # Main Layout
         self.filepath = None
         main_layout = QHBoxLayout()
-        
+
         # Left side Layout
         left_layout = QVBoxLayout()
         left_layout.setSpacing(10) 
@@ -85,7 +85,7 @@ class AudiobookMakerView(QMainWindow):
         left_container.setLayout(left_layout)
         left_container.setMaximumWidth(500)
         main_layout.addWidget(left_container)
-        
+
         # -- TTS Engine Combo Box
         self.tts_engine_layout = QHBoxLayout()
         self.tts_engine_label = QLabel("TTS Engine: ")
@@ -94,11 +94,11 @@ class AudiobookMakerView(QMainWindow):
         self.tts_engine_layout.addWidget(self.tts_engine_combo, 1)
         self.tts_engine_combo.currentTextChanged.connect(self.on_tts_engine_changed)
         left_layout.addLayout(self.tts_engine_layout)
-        
+
         self.load_tts = QPushButton("Load TTS Engine", self)
         self.load_tts.clicked.connect(self.on_load_tts_clicked)
         left_layout.addWidget(self.load_tts)
-        
+
         self.do_rvc_checkbox = QCheckBox("Do RVC?", self)
         left_layout.addWidget(self.do_rvc_checkbox)
 
@@ -114,70 +114,6 @@ class AudiobookMakerView(QMainWindow):
         self.book_layout.addWidget(self.book_name_input)
         left_layout.addLayout(self.book_layout)
 
-        # -- Voice Name Combo Box
-        self.voice_name_layout = QHBoxLayout()
-        self.voice_name_label = QLabel("Voice Model: ")
-        self.voice_models_combo = QComboBox()
-        self.voice_name_layout.addWidget(self.voice_name_label)
-        self.voice_name_layout.addWidget(self.voice_models_combo, 1)
-        self.voice_models_combo.currentTextChanged.connect(self.on_voice_model_changed)
-        left_layout.addLayout(self.voice_name_layout)
-
-        # -- Voice Index Combo Box
-        self.voice_index_layout = QHBoxLayout()
-        self.voice_index_label = QLabel("Voice Index: ")
-        self.voice_index_combo = QComboBox()
-        self.voice_index_layout.addWidget(self.voice_index_label)
-        self.voice_index_layout.addWidget(self.voice_index_combo, 1)
-        self.voice_index_combo.currentTextChanged.connect(self.on_voice_index_changed)
-        left_layout.addLayout(self.voice_index_layout)
-
-        # -- Voice Index Slider
-        index = 0
-        self.voice_index_value_label = QLabel(f"{index / 100}")  # 0 is the initial value of the slider
-        max_index_str = "1"  # the maximum value the label will show
-        estimated_width = len(max_index_str) * 50
-        self.voice_index_value_label.setFixedWidth(estimated_width)
-
-        self.voice_index_slider_layout = QHBoxLayout()
-        self.voice_index_slider_label = QLabel("Index Effect: ")
-        self.voice_index_slider = QSlider(Qt.Horizontal)
-        self.voice_index_slider.setMinimum(0)
-        self.voice_index_slider.setMaximum(100)
-        self.voice_index_slider.setValue(index)
-        self.voice_index_slider.setTickPosition(QSlider.TicksBelow)
-        self.voice_index_slider.setTickInterval(1)
-
-        self.voice_index_slider.valueChanged.connect(self.on_voice_index_slider_changed)
-
-        self.voice_index_slider_layout.addWidget(self.voice_index_slider_label)
-        self.voice_index_slider_layout.addWidget(self.voice_index_slider)
-        self.voice_index_slider_layout.addWidget(self.voice_index_value_label)
-
-        left_layout.addLayout(self.voice_index_slider_layout)
-
-        # -- Voice Pitch Slider
-        self.voice_pitch_value_label = QLabel("0")  # 0 is the initial value of the slider
-        max_value_str = "16"  # the maximum value the label will show
-        estimated_width = len(max_value_str) * 20
-
-        self.voice_pitch_value_label.setFixedWidth(estimated_width)
-        self.voice_pitch_layout = QHBoxLayout()
-        self.voice_pitch_label = QLabel("Voice Pitch: ")
-        self.voice_pitch_slider = QSlider(Qt.Horizontal)
-        self.voice_pitch_slider.setMinimum(-16)
-        self.voice_pitch_slider.setMaximum(16)
-        self.voice_pitch_slider.setValue(0)
-        self.voice_pitch_slider.setTickPosition(QSlider.TicksBelow)
-        self.voice_pitch_slider.setTickInterval(1)
-
-        self.voice_pitch_slider.valueChanged.connect(self.on_voice_pitch_slider_changed)
-
-        self.voice_pitch_layout.addWidget(self.voice_pitch_label)
-        self.voice_pitch_layout.addWidget(self.voice_pitch_slider)
-        self.voice_pitch_layout.addWidget(self.voice_pitch_value_label)
-
-        left_layout.addLayout(self.voice_pitch_layout)
 
         # -- Export Pause Slider
         pause = 0
@@ -253,7 +189,7 @@ class AudiobookMakerView(QMainWindow):
         self.audiobook_label.setStyleSheet("font-size: 16pt; color: #eee;")
         right_layout.addWidget(self.audiobook_label)
 
-        # Create a horizontal layout to hold the table and TTS options
+        # Create a horizontal layout to hold the table and options
         right_inner_layout = QHBoxLayout()
 
         # Table widget
@@ -264,29 +200,45 @@ class AudiobookMakerView(QMainWindow):
         self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
         right_inner_layout.addWidget(self.tableWidget)
 
-        # TTS Options Widget
+        # Create a vertical layout for options
+        self.options_layout = QVBoxLayout()
+
+        # Initialize RVC Options
+        self.add_rvc_options()
+
+        # Initialize TTS Options
         self.tts_options_widget = QWidget()
         self.tts_options_layout = QVBoxLayout()
         self.tts_options_widget.setLayout(self.tts_options_layout)
         self.tts_options_widget.setVisible(False)  # Initially hidden
 
-        # Set a fixed size policy and maximum dimensions for the TTS options widget
-        self.tts_options_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.tts_options_widget.setMaximumWidth(300)  # Adjust as needed
-        self.tts_options_widget.setMaximumHeight(400)  # Adjust as needed
-
         # Make the TTS options scrollable
         self.tts_options_scroll_area = QScrollArea()
         self.tts_options_scroll_area.setWidgetResizable(True)
         self.tts_options_scroll_area.setWidget(self.tts_options_widget)
-        self.tts_options_scroll_area.setFixedWidth(320)  # Account for scrollbar width
-        self.tts_options_scroll_area.setFixedHeight(400)
+        self.tts_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        right_inner_layout.addWidget(self.tts_options_scroll_area)
+        # Make the RVC options scrollable
+        self.rvc_options_scroll_area = QScrollArea()
+        self.rvc_options_scroll_area.setWidgetResizable(True)
+        self.rvc_options_scroll_area.setWidget(self.rvc_options_widget)
+        self.rvc_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        # Set Stretch Factors: Table = 3, TTS Options = 1
+        # Set size policies for options widgets
+        self.tts_options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.rvc_options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Add the scroll areas to the layout
+        self.options_layout.addWidget(self.rvc_options_scroll_area, stretch=1)
+        self.options_layout.addWidget(self.tts_options_scroll_area, stretch=1)
+
+
+        # Add the splitter to the inner layout
+        right_inner_layout.addLayout(self.options_layout)
+
+        # Set Stretch Factors: Table = 3, Options = 1
         right_inner_layout.setStretch(0, 3)  # Table takes 3 parts
-        right_inner_layout.setStretch(1, 1)  # TTS Options take 1 part
+        right_inner_layout.setStretch(1, 1)  # Options take 1 part
 
         right_layout.addLayout(right_inner_layout)
         main_layout.addLayout(right_layout)
@@ -349,13 +301,13 @@ class AudiobookMakerView(QMainWindow):
 
         # Window settings
         self.setWindowTitle("Audiobook Maker")
-        screen = QScreen().geometry()  # Get the screen geometry
+        screen = QScreen().availableGeometry()  # Get the available screen geometry
         target_ratio = 16 / 9
 
-        width = screen.width() * 1.2
+        width = screen.width() * 0.8  # Adjusted to fit within the screen
         height = width / target_ratio  # calculate height based on the target aspect ratio
 
-        if height > screen.height():
+        if height > screen.height() * 0.8:
             height = screen.height() * 0.8
             width = height * target_ratio  # calculate width based on the target aspect ratio
 
@@ -600,7 +552,98 @@ class AudiobookMakerView(QMainWindow):
             elif item.layout():
                 self.clear_layout(item.layout())
                 item.layout().deleteLater()
+                
+    def add_rvc_options(self):
+        # RVC Options Widget
+        self.rvc_options_widget = QWidget()
+        self.rvc_options_layout = QVBoxLayout()
+        self.rvc_options_widget.setLayout(self.rvc_options_layout)
+        
+        self.rvc_option_label = QLabel("RVC Settings")
+        self.rvc_option_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
+        self.rvc_options_layout.addWidget(self.rvc_option_label)
+
+        # -- Voice Name Combo Box
+        self.voice_name_layout = QHBoxLayout()
+        self.voice_name_label = QLabel("Voice Model: ")
+        self.voice_models_combo = QComboBox()
+        self.voice_name_layout.addWidget(self.voice_name_label)
+        self.voice_name_layout.addWidget(self.voice_models_combo, 1)
+        self.voice_models_combo.currentTextChanged.connect(self.on_voice_model_changed)
+        self.rvc_options_layout.addLayout(self.voice_name_layout)
+        
+        # -- Voice Index Combo Box
+        self.voice_index_layout = QHBoxLayout()
+        self.voice_index_label = QLabel("Voice Index: ")
+        self.voice_index_combo = QComboBox()
+        self.voice_index_layout.addWidget(self.voice_index_label)
+        self.voice_index_layout.addWidget(self.voice_index_combo, 1)
+        # self.voice_index_combo.currentTextChanged.connect(self.on_voice_index_changed)
+        self.rvc_options_layout.addLayout(self.voice_index_layout)
+        
+        # -- Voice Index Slider
+        index = 0
+        self.voice_index_value_label = QLabel(f"{index / 100}")  # 0 is the initial value of the slider
+        max_index_str = "1"  # the maximum value the label will show
+        estimated_width = len(max_index_str) * 50
+        self.voice_index_value_label.setFixedWidth(estimated_width)
+
+        self.voice_index_slider_layout = QHBoxLayout()
+        self.voice_index_slider_label = QLabel("Index Effect: ")
+        self.voice_index_slider = QSlider(Qt.Horizontal)
+        self.voice_index_slider.setMinimum(0)
+        self.voice_index_slider.setMaximum(100)
+        self.voice_index_slider.setValue(index)
+        self.voice_index_slider.setTickPosition(QSlider.TicksBelow)
+        self.voice_index_slider.setTickInterval(1)
+
+        self.voice_index_slider.valueChanged.connect(self.on_voice_index_slider_changed)
+
+        self.voice_index_slider_layout.addWidget(self.voice_index_slider_label)
+        self.voice_index_slider_layout.addWidget(self.voice_index_slider)
+        self.voice_index_slider_layout.addWidget(self.voice_index_value_label)
+
+        self.rvc_options_layout.addLayout(self.voice_index_slider_layout)
+        
+        # -- Voice Pitch Slider
+        self.voice_pitch_value_label = QLabel("0")  # 0 is the initial value of the slider
+        max_value_str = "16"  # the maximum value the label will show
+        estimated_width = len(max_value_str) * 20
+
+        self.voice_pitch_value_label.setFixedWidth(estimated_width)
+        self.voice_pitch_layout = QHBoxLayout()
+        self.voice_pitch_label = QLabel("Voice Pitch: ")
+        self.voice_pitch_slider = QSlider(Qt.Horizontal)
+        self.voice_pitch_slider.setMinimum(-16)
+        self.voice_pitch_slider.setMaximum(16)
+        self.voice_pitch_slider.setValue(0)
+        self.voice_pitch_slider.setTickPosition(QSlider.TicksBelow)
+        self.voice_pitch_slider.setTickInterval(1)
+
+        self.voice_pitch_slider.valueChanged.connect(self.on_voice_pitch_slider_changed)
+
+        self.voice_pitch_layout.addWidget(self.voice_pitch_label)
+        self.voice_pitch_layout.addWidget(self.voice_pitch_slider)
+        self.voice_pitch_layout.addWidget(self.voice_pitch_value_label)
+
+        self.rvc_options_layout.addLayout(self.voice_pitch_layout)
+        
+        self.rvc_options_layout.addStretch()
+
+
+        
+    # Browse Methods for RVC Options
+    def on_browse_rvc_model(self):
+        file_path = self.get_open_file_name("Select RVC Model", "", "Model Files (*.pth *.pt);;All Files (*)")
+        if file_path:
+            self.rvc_model_path_input.setText(file_path)
+
     def add_tortoise_options(self):
+        
+        tortoise_label = QLabel("TortoiseTTS Settings")
+        tortoise_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
+        self.tts_options_layout.addWidget(tortoise_label)
+        
         # Autoregressive Model Path
         autoregressive_layout = QHBoxLayout()
         autoregressive_label = QLabel("Autoregressive Model Path:")
@@ -668,6 +711,8 @@ class AudiobookMakerView(QMainWindow):
         # Use HiFi-GAN
         self.use_hifigan_checkbox = QCheckBox("Use HiFi-GAN")
         self.tts_options_layout.addWidget(self.use_hifigan_checkbox)
+        
+        self.tts_options_layout.addStretch()
     
     def get_tts_engine_parameters(self):
         tts_engine_name = self.get_tts_engine().lower()
