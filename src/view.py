@@ -70,6 +70,8 @@ class AudiobookMakerView(QMainWindow):
         self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
         self.current_audio_path = None  # Track the current audio file being played
 
+        self.tts_config = self.load_tts_config('configs/tts_config.json')
+
         # Initialize UI components
         self.init_ui()
 
@@ -86,6 +88,36 @@ class AudiobookMakerView(QMainWindow):
         left_container.setMaximumWidth(500)
         main_layout.addWidget(left_container)
 
+        # Initialize TTS Options
+        self.tts_options_widget = QWidget()
+        self.tts_options_layout = QVBoxLayout()
+        self.tts_options_widget.setLayout(self.tts_options_layout)
+        self.tts_options_widget.setVisible(False)  # Initially hidden
+
+        # Make the TTS options scrollable
+        self.tts_options_scroll_area = QScrollArea()
+        self.tts_options_scroll_area.setWidgetResizable(True)
+        self.tts_options_scroll_area.setWidget(self.tts_options_widget)
+        self.tts_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Initialize RVC Options
+        self.add_rvc_options()
+
+        # Make the RVC options scrollable
+        self.rvc_options_scroll_area = QScrollArea()
+        self.rvc_options_scroll_area.setWidgetResizable(True)
+        self.rvc_options_scroll_area.setWidget(self.rvc_options_widget)
+        self.rvc_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Set size policies for options widgets
+        self.tts_options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.rvc_options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        # Create a vertical layout for options
+        self.options_layout = QVBoxLayout()
+        self.options_layout.addWidget(self.rvc_options_scroll_area, stretch=1)
+        self.options_layout.addWidget(self.tts_options_scroll_area, stretch=1)
+
         # -- TTS Engine Combo Box
         self.tts_engine_layout = QHBoxLayout()
         self.tts_engine_label = QLabel("TTS Engine: ")
@@ -95,9 +127,13 @@ class AudiobookMakerView(QMainWindow):
         self.tts_engine_combo.currentTextChanged.connect(self.on_tts_engine_changed)
         left_layout.addLayout(self.tts_engine_layout)
 
+        # **Create Load TTS Button Before Populating the Combo Box**
         self.load_tts = QPushButton("Load TTS Engine", self)
         self.load_tts.clicked.connect(self.on_load_tts_clicked)
         left_layout.addWidget(self.load_tts)
+        
+        if self.tts_engine_combo.count() > 0:
+            self.tts_engine_combo.setCurrentIndex(0)
 
         self.do_rvc_checkbox = QCheckBox("Do RVC?", self)
         left_layout.addWidget(self.do_rvc_checkbox)
@@ -200,40 +236,7 @@ class AudiobookMakerView(QMainWindow):
         self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
         right_inner_layout.addWidget(self.tableWidget)
 
-        # Create a vertical layout for options
-        self.options_layout = QVBoxLayout()
-
-        # Initialize RVC Options
-        self.add_rvc_options()
-
-        # Initialize TTS Options
-        self.tts_options_widget = QWidget()
-        self.tts_options_layout = QVBoxLayout()
-        self.tts_options_widget.setLayout(self.tts_options_layout)
-        self.tts_options_widget.setVisible(False)  # Initially hidden
-
-        # Make the TTS options scrollable
-        self.tts_options_scroll_area = QScrollArea()
-        self.tts_options_scroll_area.setWidgetResizable(True)
-        self.tts_options_scroll_area.setWidget(self.tts_options_widget)
-        self.tts_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # Make the RVC options scrollable
-        self.rvc_options_scroll_area = QScrollArea()
-        self.rvc_options_scroll_area.setWidgetResizable(True)
-        self.rvc_options_scroll_area.setWidget(self.rvc_options_widget)
-        self.rvc_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # Set size policies for options widgets
-        self.tts_options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.rvc_options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
-        # Add the scroll areas to the layout
-        self.options_layout.addWidget(self.rvc_options_scroll_area, stretch=1)
-        self.options_layout.addWidget(self.tts_options_scroll_area, stretch=1)
-
-
-        # Add the splitter to the inner layout
+        # Add the options layout
         right_inner_layout.addLayout(self.options_layout)
 
         # Set Stretch Factors: Table = 3, Options = 1
@@ -393,6 +396,17 @@ class AudiobookMakerView(QMainWindow):
     def update_font_size_from_slider(self, value):
         font_size = f"{value}pt"
         self.setStyleSheet(self.load_stylesheet(font_size))
+        
+    def populate_tts_engines(self):
+        engines = [engine['name'] for engine in self.tts_config.get('tts_engines')]
+        self.tts_engine_combo.addItems(engines)
+    
+    def load_tts_config(self, config_path):
+        if not os.path.exists(config_path):
+            self.show_message("Error", f"Configuration file {config_path} not found.", QMessageBox.Critical)
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
     
     # Method to load stylesheet
     def load_stylesheet(self, font_size="14pt"):
@@ -519,30 +533,94 @@ class AudiobookMakerView(QMainWindow):
         self.tts_engine_combo.clear()
         self.tts_engine_combo.addItems(engines)
         
-    def on_tts_engine_changed(self, text):
+    def on_tts_engine_changed(self, engine_name):
         self.set_load_tts_button_color("")  # Reset color when TTS engine changes
-        self.tts_engine_changed.emit(text)
-        self.update_tts_options(text)  # Update the TTS options in the view
+        self.tts_engine_changed.emit(engine_name)
+        self.update_tts_options(engine_name)  # Update the TTS options in the view
 
-    def update_tts_options(self, tts_engine_name, settings=None):
+    def update_tts_options(self, engine_name):
+        if not engine_name:
+            # If engine_name is empty, simply hide the TTS options without showing an error
+            self.tts_options_widget.setVisible(False)
+            return
+
         # Clear existing widgets and layouts
         self.clear_layout(self.tts_options_layout)
-        # Depending on the TTS engine, add appropriate options
-        if tts_engine_name.lower() == 'tortoise':
-            self.add_tortoise_options()
-            self.tts_options_widget.setVisible(True)
-            if settings:
-                # Update the fields with settings if provided
-                self.voice_selection_input.setText(settings.get('voice', ''))
-                self.sample_size_spinbox.setValue(settings.get('sample_size', 4))
-                self.use_hifigan_checkbox.setChecked(settings.get('use_hifigan', False))
-                self.autoregressive_model_path_input.setText(settings.get('autoregressive_model_path', ''))
-                self.diffusion_model_path_input.setText(settings.get('diffusion_model_path', ''))
-                self.vocoder_name_input.setText(settings.get('vocoder_name', ''))
-                self.tokenizer_json_path_input.setText(settings.get('tokenizer_json_path', ''))
-                self.use_deepspeed_checkbox.setChecked(settings.get('use_deepspeed', False))
-        else:
+        
+        # Find the engine config using a for loop
+        engine_config = None
+        for engine in self.tts_config.get('tts_engines', []):
+            if engine['name'].lower() == engine_name.lower():
+                engine_config = engine
+                break
+
+        if not engine_config:
+            self.show_message("Error", f"No configuration found for TTS engine: {engine_name}", QMessageBox.Critical)
             self.tts_options_widget.setVisible(False)
+            return
+        
+        # Create a label for the TTS engine
+        engine_label = QLabel(f"{engine_name} Settings")
+        engine_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
+        self.tts_options_layout.addWidget(engine_label)
+        
+        # Iterate over parameters and create widgets
+        for param in engine_config.get('parameters', []):
+            widget = self.create_widget_for_parameter(param)
+            if widget:
+                self.tts_options_layout.addLayout(widget)
+        
+        self.tts_options_layout.addStretch()
+        self.tts_options_widget.setVisible(True)
+
+        
+    def create_widget_for_parameter(self, param):
+        layout = QHBoxLayout()
+        label = QLabel(param['label'] + ": ")
+        layout.addWidget(label)
+        
+        param_type = param['type']
+        attribute = param['attribute']
+        
+        if param_type == 'text':
+            widget = QLineEdit()
+            widget.textChanged.connect(lambda text, attr=attribute: self.on_parameter_changed(attr, text))
+            layout.addWidget(widget)
+        elif param_type == 'file':
+            widget = QLineEdit()
+            widget.textChanged.connect(lambda text, attr=attribute: self.on_parameter_changed(attr, text))
+            browse_button = QPushButton("Browse")
+            browse_button.clicked.connect(lambda _, w=widget, p=param: self.browse_file(w, p))
+            layout.addWidget(widget)
+            layout.addWidget(browse_button)
+        elif param_type == 'spinbox':
+            widget = QSpinBox()
+            widget.setMinimum(param.get('min', 0))
+            widget.setMaximum(param.get('max', 100))
+            widget.setValue(param.get('default', 0))
+            widget.valueChanged.connect(lambda value, attr=attribute: self.on_parameter_changed(attr, value))
+            layout.addWidget(widget)
+        elif param_type == 'checkbox':
+            widget = QCheckBox()
+            widget.stateChanged.connect(lambda state, attr=attribute: self.on_parameter_changed(attr, bool(state)))
+            layout.addWidget(widget)
+        else:
+            self.show_message("Error", f"Unknown parameter type: {param_type}", QMessageBox.Warning)
+            return None
+        
+        # Optionally store the widget reference for later use
+        setattr(self, f"{attribute}_widget", widget)
+        return layout
+    
+    def on_parameter_changed(self, attribute, value):
+        # You can store these values in a dictionary or directly update your TTS engine instance
+        setattr(self, attribute, value)
+        # Optionally, emit a signal or perform validation
+    
+    def browse_file(self, widget, param):
+        file_path = self.get_open_file_name("Select File", "", param.get('file_filter', 'All Files (*)'))
+        if file_path:
+            widget.setText(file_path)
 
     def clear_layout(self, layout):
         while layout.count():
@@ -637,98 +715,25 @@ class AudiobookMakerView(QMainWindow):
         file_path = self.get_open_file_name("Select RVC Model", "", "Model Files (*.pth *.pt);;All Files (*)")
         if file_path:
             self.rvc_model_path_input.setText(file_path)
-
-    def add_tortoise_options(self):
-        
-        tortoise_label = QLabel("TortoiseTTS Settings")
-        tortoise_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        self.tts_options_layout.addWidget(tortoise_label)
-        
-        # Autoregressive Model Path
-        autoregressive_layout = QHBoxLayout()
-        autoregressive_label = QLabel("Autoregressive Model Path:")
-        self.autoregressive_model_path_input = QLineEdit()
-        autoregressive_browse = QPushButton("Browse")
-        autoregressive_browse.clicked.connect(self.on_browse_autoregressive_model)
-        autoregressive_layout.addWidget(self.autoregressive_model_path_input)
-        autoregressive_layout.addWidget(autoregressive_browse)
-        self.tts_options_layout.addWidget(autoregressive_label)
-        self.tts_options_layout.addLayout(autoregressive_layout)
-
-        # Diffusion Model Path
-        diffusion_layout = QHBoxLayout()
-        diffusion_label = QLabel("Diffusion Model Path:")
-        self.diffusion_model_path_input = QLineEdit()
-        diffusion_browse = QPushButton("Browse")
-        diffusion_browse.clicked.connect(self.on_browse_diffusion_model)
-        diffusion_layout.addWidget(self.diffusion_model_path_input)
-        diffusion_layout.addWidget(diffusion_browse)
-        self.tts_options_layout.addWidget(diffusion_label)
-        self.tts_options_layout.addLayout(diffusion_layout)
-
-        # Vocoder Name
-        vocoder_layout = QHBoxLayout()
-        vocoder_label = QLabel("Vocoder Name:")
-        self.vocoder_name_input = QLineEdit()
-        vocoder_layout.addWidget(self.vocoder_name_input)
-        self.tts_options_layout.addWidget(vocoder_label)
-        self.tts_options_layout.addLayout(vocoder_layout)
-
-        # Tokenizer JSON Path
-        tokenizer_layout = QHBoxLayout()
-        tokenizer_label = QLabel("Tokenizer JSON Path:")
-        self.tokenizer_json_path_input = QLineEdit()
-        tokenizer_browse = QPushButton("Browse")
-        tokenizer_browse.clicked.connect(self.on_browse_tokenizer_json)
-        tokenizer_layout.addWidget(self.tokenizer_json_path_input)
-        tokenizer_layout.addWidget(tokenizer_browse)
-        self.tts_options_layout.addWidget(tokenizer_label)
-        self.tts_options_layout.addLayout(tokenizer_layout)
-
-        # Voice Selection
-        voice_layout = QHBoxLayout()
-        voice_label = QLabel("Voice:")
-        self.voice_selection_input = QLineEdit()
-        voice_layout.addWidget(self.voice_selection_input)
-        self.tts_options_layout.addWidget(voice_label)
-        self.tts_options_layout.addLayout(voice_layout)
-
-        # Sample Size
-        sample_size_layout = QHBoxLayout()
-        sample_size_label = QLabel("Sample Size:")
-        self.sample_size_spinbox = QSpinBox()
-        self.sample_size_spinbox.setMinimum(1)
-        self.sample_size_spinbox.setMaximum(64)
-        self.sample_size_spinbox.setValue(4)
-        sample_size_layout.addWidget(self.sample_size_spinbox)
-        self.tts_options_layout.addWidget(sample_size_label)
-        self.tts_options_layout.addLayout(sample_size_layout)
-
-        # Use DeepSpeed
-        self.use_deepspeed_checkbox = QCheckBox("Use DeepSpeed")
-        self.tts_options_layout.addWidget(self.use_deepspeed_checkbox)
-
-        # Use HiFi-GAN
-        self.use_hifigan_checkbox = QCheckBox("Use HiFi-GAN")
-        self.tts_options_layout.addWidget(self.use_hifigan_checkbox)
-        
-        self.tts_options_layout.addStretch()
     
     def get_tts_engine_parameters(self):
-        tts_engine_name = self.get_tts_engine().lower()
+        engine_name = self.get_tts_engine()
+        engine_config = next((engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == engine_name), None)
+        if not engine_config:
+            return {}
+        
         parameters = {}
-        if tts_engine_name == 'tortoise':
-            parameters['autoregressive_model_path'] = self.autoregressive_model_path_input.text()
-            parameters['diffusion_model_path'] = self.diffusion_model_path_input.text()
-            parameters['vocoder_name'] = self.vocoder_name_input.text()
-            parameters['tokenizer_json_path'] = self.tokenizer_json_path_input.text()
-            parameters['use_deepspeed'] = self.use_deepspeed_checkbox.isChecked()
-            parameters['use_hifigan'] = self.use_hifigan_checkbox.isChecked()
-            parameters['voice'] = self.voice_selection_input.text()
-            parameters['sample_size'] = self.sample_size_spinbox.value()
-        # Include other TTS engine parameters similarly
+        for param in engine_config.get('parameters', []):
+            attribute = param['attribute']
+            widget = getattr(self, f"{attribute}_widget", None)
+            if widget:
+                if param['type'] == 'text' or param['type'] == 'file':
+                    parameters[attribute] = widget.text()
+                elif param['type'] == 'spinbox':
+                    parameters[attribute] = widget.value()
+                elif param['type'] == 'checkbox':
+                    parameters[attribute] = widget.isChecked()
         return parameters
-
     
     def get_voice_parameters(self):
         tts_engine_name = self.get_tts_engine()
@@ -742,33 +747,11 @@ class AudiobookMakerView(QMainWindow):
         voice_parameters['index_rate'] = self.get_rvc_voice_index_effect()
         voice_parameters['pause_duration'] = self.get_pause_between_sentences()
 
-        if tts_engine_name.lower() == 'tortoise':
-            voice_parameters['voice'] = self.voice_selection_input.text()
-            voice_parameters['sample_size'] = self.sample_size_spinbox.value()
-            voice_parameters['use_hifigan'] = self.use_hifigan_checkbox.isChecked()
-            voice_parameters['autoregressive_model_path'] = self.autoregressive_model_path_input.text()
-            voice_parameters['diffusion_model_path'] = self.diffusion_model_path_input.text()
-            voice_parameters['vocoder_name'] = self.vocoder_name_input.text()
-            voice_parameters['tokenizer_json_path'] = self.tokenizer_json_path_input.text()
-            voice_parameters['use_deepspeed'] = self.use_deepspeed_checkbox.isChecked()
-        # Add other TTS engine parameters as needed
+        # Get TTS engine-specific parameters dynamically
+        tts_engine_parameters = self.get_tts_engine_parameters()
+        voice_parameters.update(tts_engine_parameters)
+
         return voice_parameters
-    
-     # Browse Methods for Tortoise TTS
-    def on_browse_autoregressive_model(self):
-        file_path = self.get_open_file_name("Select Autoregressive Model", "", "Model Files (*.pth *.pt);;All Files (*)")
-        if file_path:
-            self.autoregressive_model_path_input.setText(file_path)
-
-    def on_browse_diffusion_model(self):
-        file_path = self.get_open_file_name("Select Diffusion Model", "", "Model Files (*.pth *.pt);;All Files (*)")
-        if file_path:
-            self.diffusion_model_path_input.setText(file_path)
-
-    def on_browse_tokenizer_json(self):
-        file_path = self.get_open_file_name("Select Tokenizer JSON", "", "JSON Files (*.json);;All Files (*)")
-        if file_path:
-            self.tokenizer_json_path_input.setText(file_path)
 
     # Methods to populate combo boxes
     def set_voice_models(self, models):
@@ -894,16 +877,28 @@ class AudiobookMakerView(QMainWindow):
         self.voice_index_slider.setValue(int(index_rate * 100))
         self.export_pause_slider.setValue(int(pause_duration * 10))
 
-        # Tortoise TTS specific settings
-        if tts_engine.lower() == 'tortoise':
-            # Ensure TTS options are visible and updated
-            self.update_tts_options(tts_engine, settings)
-            self.voice_selection_input.setText(settings.get('voice', ''))
-            self.sample_size_spinbox.setValue(settings.get('sample_size', 4))
-            self.use_hifigan_checkbox.setChecked(settings.get('use_hifigan', False))
-            self.autoregressive_model_path_input.setText(settings.get('autoregressive_model_path', ''))
-            self.diffusion_model_path_input.setText(settings.get('diffusion_model_path', ''))
-            self.vocoder_name_input.setText(settings.get('vocoder_name', ''))
-            self.tokenizer_json_path_input.setText(settings.get('tokenizer_json_path', ''))
-            self.use_deepspeed_checkbox.setChecked(settings.get('use_deepspeed', False))
+        # Update TTS options dynamically
+        self.update_tts_options(tts_engine)
+
+        # Get the TTS engine configuration
+        engine_config = next(
+            (engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == tts_engine),
+            None
+        )
+
+        if engine_config:
+            for param in engine_config.get('parameters', []):
+                attribute = param['attribute']
+                widget = getattr(self, f"{attribute}_widget", None)
+                if widget:
+                    value = settings.get(attribute, None)
+                    if value is not None:
+                        if param['type'] in ('text', 'file'):
+                            widget.setText(str(value))
+                        elif param['type'] == 'spinbox':
+                            widget.setValue(value)
+                        elif param['type'] == 'checkbox':
+                            widget.setChecked(bool(value))
+                        # Add handling for other widget types if necessary
+
 

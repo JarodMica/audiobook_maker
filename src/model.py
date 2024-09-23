@@ -30,8 +30,16 @@ class AudiobookModel:
         return {}
     
     def get_tts_engines(self):
-        return self.settings.get('available_tts_engines', [])
+        # Load available TTS engines from the tts_config.json
+        tts_config = self.load_tts_config('tts_config.json')
+        return [engine['name'] for engine in tts_config.get('tts_engines', [])]
 
+    def load_tts_config(self, config_path):
+        if not os.path.exists(config_path):
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    
     def save_settings(self, background_image=None):
         self.settings['background_image'] = background_image
         with open('settings.json', 'w') as json_file:
@@ -170,7 +178,7 @@ class AudiobookModel:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
             audio_path = tmp_file.name
 
-        # Now call TTS_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
+        # Now call tts_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
         success = tts_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
 
         if success:
@@ -305,4 +313,4 @@ class AudiobookModel:
         return destination_path
 
     def clear_background_image(self):
-        self.save_settings(background_image=None)
+        self.save_settings(background_image=None) 

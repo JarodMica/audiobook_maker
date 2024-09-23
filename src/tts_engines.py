@@ -6,20 +6,20 @@ from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
 from tortoise_tts_api.inference.generate import generate
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
-    match tts_engine_name:
-        case 'pyttsx3':
-            return generate_with_pyttsx3(tts_engine, sentence, voice_parameters, audio_path)
-        case 'styletts2':
-            return generate_with_styletts2(tts_engine, sentence, voice_parameters, audio_path)
-        case 'tortoise':
-            return generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path)
-        case 'xtts':
-            return generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path)
-        case _:
-            # Handle unknown engine
-            return False
+    tts_engine_name = tts_engine_name.lower()
+    if tts_engine_name == 'pyttsx3':
+        return generate_with_pyttsx3(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'styletts2':
+        return generate_with_styletts2(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'tortoise':
+        return generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'xtts':
+        return generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path)
+    else:
+        # Handle unknown engine
+        return False
 
-def generate_with_pyttsx3(sentence, voice_parameters, audio_path):
+def generate_with_pyttsx3(tts_engine, sentence, voice_parameters, audio_path):
     import pyttsx3
     engine = pyttsx3.init()
     # Optionally set voice parameters here using voice_parameters
@@ -29,8 +29,8 @@ def generate_with_pyttsx3(sentence, voice_parameters, audio_path):
     engine.runAndWait()
     return os.path.exists(audio_path)
 
-def generate_with_styletts2(sentence, voice_parameters, audio_path):
-    # noop
+def generate_with_styletts2(tts_engine, sentence, voice_parameters, audio_path):
+    # Implement styletts2 TTS engine generation here
     pass
 
 def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
@@ -51,37 +51,36 @@ def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
     )
     return os.path.exists(audio_path)
 
-def generate_with_xtts(sentence, voice_parameters, audio_path):
-    # noop
+def generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path):
+    # Implement xtts TTS engine generation here
     pass
 
-# Add more TTS engine implementations as needed
-
-##### Loading stuff below                           
+##### Loading TTS Engines Below                           
 
 def load_tts_engine(tts_engine_name, **kwargs):
+    tts_engine_name = tts_engine_name.lower()
     try:
-        match tts_engine_name:
-            case 'pyttsx3':
-                return None  # pyttsx3 doesn't require loading
-            case 'styletts2':
-                return load_with_styletts2(**kwargs)
-            case 'tortoise':
-                return load_with_tortoise(**kwargs)
-            case 'xtts':
-                return load_with_xtts(**kwargs)
-            case _:
-                # Handle unknown engine
-                raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
+        if tts_engine_name == 'pyttsx3':
+            return None  # pyttsx3 doesn't require loading
+        elif tts_engine_name == 'styletts2':
+            return load_with_styletts2(**kwargs)
+        elif tts_engine_name == 'tortoise':
+            return load_with_tortoise(**kwargs)
+        elif tts_engine_name == 'xtts':
+            return load_with_xtts(**kwargs)
+        else:
+            # Handle unknown engine
+            raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
     except Exception as e:
         # Re-raise the exception to be caught by the worker thread
         raise e
-        
-def load_with_styletts2():
-    #noop
+
+def load_with_styletts2(**kwargs):
+    # Implement loading for styletts2 TTS engine here
     pass
-    
+
 def load_with_tortoise(**kwargs):
+    from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
     # Parameters needed to load the tortoise engine
     autoregressive_model_path = kwargs.get("autoregressive_model_path", None)
     diffusion_model_path = kwargs.get("diffusion_model_path", None)
@@ -100,6 +99,6 @@ def load_with_tortoise(**kwargs):
     )
     return tts
 
-def load_with_xtts():
-    #noop
+def load_with_xtts(**kwargs):
+    # Implement loading for xtts TTS engine here
     pass

@@ -149,6 +149,11 @@ class AudiobookController:
         tts_engines = self.model.get_tts_engines()
         self.view.set_tts_engines(tts_engines)
         
+        # **Set Default TTS Engine Selection in the Controller**
+        if self.view.tts_engine_combo.count() > 0:
+            self.view.tts_engine_combo.setCurrentIndex(0)
+
+        
     def load_text_file(self):
         filepath = self.view.get_open_file_name(
             "Select Text File", "", "Text Files (*.txt);;All Files (*)"
@@ -162,22 +167,6 @@ class AudiobookController:
     def load_tts_engine(self):
         engine_to_use = self.view.get_tts_engine()
         parameters = self.view.get_tts_engine_parameters()
-
-        # Set default values for missing Tortoise parameters
-        if engine_to_use.lower() == 'tortoise':
-            default_parameters = {
-                'autoregressive_model_path': None,
-                'diffusion_model_path': None,
-                'vocoder_name': None,
-                'tokenizer_json_path': None,
-                'voice': 'random',
-                'sample_size': 4,
-                'use_deepspeed': False,
-                'use_hifigan': False
-            }
-            for key, default in default_parameters.items():
-                if not parameters.get(key):
-                    parameters[key] = default
 
         # Reset button color before loading
         self.view.set_load_tts_button_color("") 
