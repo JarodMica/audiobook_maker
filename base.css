@@ -51,7 +51,17 @@ QHeaderView::section {
     border: 1px solid #555;
 }
 
+
+QMenuBar:disabled, QMenu:disabled {
+    background-color: rgba(30, 30, 30, 1.0); 
+}
+
 QMenu::item:disabled {
-    color: #A9A9A9;
+    color: #3e3c3c; 
+}
+
+QMenuBar::item:disabled, QMenu::item:disabled {
+    background-color: rgba(30, 30, 30, 1.0);
+    color: #717171;
 }
 

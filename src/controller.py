@@ -35,13 +35,14 @@ class RegenerateAudioWorker(QThread):
     finished_signal = Signal(str)  # Signal to indicate completion
     error_signal = Signal(str)     # Signal to report errors
 
-    def __init__(self, model, old_audio_path, selected_sentence, voice_parameters, new_audio_path):
+    def __init__(self, model, old_audio_path, selected_sentence, voice_parameters, new_audio_path, speaker_id):
         super().__init__()
         self.model = model
         self.old_audio_path = old_audio_path
         self.selected_sentence = selected_sentence
         self.voice_parameters = voice_parameters
         self.new_audio_path = new_audio_path
+        self.speaker_id = speaker_id
 
     def run(self):
         # Wait until the media player has released the file
@@ -61,6 +62,8 @@ class RegenerateAudioWorker(QThread):
                     return
 
         # Generate new audio
+        tts_engine_name = self.voice_parameters.get('tts_engine')
+        self.model.load_selected_tts_engine(tts_engine_name, self.speaker_id, **self.voice_parameters)
         new_audio_temp_path = self.model.generate_audio_proxy(self.selected_sentence, self.voice_parameters)
         if not new_audio_temp_path:
             self.error_signal.emit("Failed to generate new audio.")
@@ -102,6 +105,7 @@ class AudiobookController:
         self.view.audio_finished_signal.connect(self.on_audio_finished)
         self.playing_sequence = False
         self.current_audio_index = 0
+        self.current_audiobook_directory = None
 
         # Connect signals and slots
         self.connect_signals()
@@ -128,11 +132,68 @@ class AudiobookController:
         self.view.set_background_image_requested.connect(self.set_background_image)
         self.view.set_background_clear_image_requested.connect(self.clear_background_image)
         self.view.tts_engine_changed.connect(self.on_tts_engine_changed)
+        self.view.speakers_updated.connect(self.update_speakers)
+        self.view.sentence_speaker_changed.connect(self.assign_speaker_to_sentence)
+        self.view.tableWidget.customContextMenuRequested.connect(self.allow_speaker_assignment)
+        self.view.generation_settings_changed.connect(self.save_generation_settings)
+
+
         # No need to connect font size and voice setting signals if they are handled in the view
+
+    def allow_speaker_assignment(self, position):
+        """
+        Assigns the current selected speaker to the selected sentences when right-clicked.
+        """
+        if not self.current_audiobook_directory or not os.path.exists(self.current_audiobook_directory):
+            # Prompt the user to create the audiobook directory
+            reply = self.view.ask_question(
+                "Create Audiobook Directory",
+                "Please create an audiobook directory before assigning speakers. Do you want to create it now?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            if reply:
+                # Initiate the audiobook directory creation process
+                self.create_audiobook_directory()
+            else:
+                # User chose not to create the directory; do nothing or handle accordingly
+                pass
+        else:
+            # Audiobook directory exists; assign current speaker to selected sentences
+            speaker_id = self.view.get_current_speaker_id()
+            self.view.assign_speaker_to_selected(speaker_id)
+            # Update model accordingly
+            selected_rows = self.view.tableWidget.selectionModel().selectedRows()
+            for index in selected_rows:
+                row = index.row()
+                self.assign_speaker_to_sentence(row, speaker_id)
+
 
     def on_tts_engine_changed(self, tts_engine_name):
         # You might perform additional actions here if needed
         pass
+    
+    def update_speakers(self, speakers):
+        self.model.update_speakers(speakers)
+
+    def assign_speaker_to_sentence(self, idx, speaker_id):
+        self.model.assign_speaker_to_sentence(idx, speaker_id)
+        # Save the updated text_audio_map
+        directory_path = self.current_audiobook_directory
+        if directory_path:
+            self.model.save_text_audio_map(directory_path)
+        else:
+            # Handle the case where the audiobook directory is not set
+            pass
+
+    def save_generation_settings(self):
+        if self.current_audiobook_directory:
+            voice_parameters = self.view.get_voice_parameters()
+            self.model.save_generation_settings(self.current_audiobook_directory, voice_parameters, self.model.speakers)
+        else:
+            voice_parameters = self.view.get_voice_parameters()
+            self.model.save_temp_generation_settings(voice_parameters, self.model.speakers)
+
     
     def populate_initial_data(self):
         # Load settings
@@ -153,6 +214,10 @@ class AudiobookController:
         if self.view.tts_engine_combo.count() > 0:
             self.view.tts_engine_combo.setCurrentIndex(0)
 
+    def update_speakers(self, speakers):
+        self.model.update_speakers(speakers)
+        self.view.update_speaker_selection_combo()
+
         
     def load_text_file(self):
         filepath = self.view.get_open_file_name(
@@ -160,19 +225,26 @@ class AudiobookController:
         )
         if filepath:
             self.model.filepath = filepath
+            sentences = self.model.load_sentences(filepath)
+            if sentences:
+                self.model.create_audio_text_map("", sentences)
+                self.update_table_with_sentences()
+                self.view.enable_speaker_menu()  # Enable speaker menu after loading text
+
         else:
             # Handle case where no file is selected
             pass
+
         
     def load_tts_engine(self):
         engine_to_use = self.view.get_tts_engine()
         parameters = self.view.get_tts_engine_parameters()
 
         # Reset button color before loading
-        self.view.set_load_tts_button_color("") 
+        # self.view.set_load_tts_button_color("") 
 
         # Disable the Load TTS button to prevent multiple clicks
-        self.view.set_load_tts_button_enabled(False)
+        # self.view.set_load_tts_button_enabled(False)
 
         # Create and start the worker thread
         self.load_tts_worker = LoadTTSWorker(self.model, engine_to_use, parameters)
@@ -181,48 +253,73 @@ class AudiobookController:
         self.load_tts_worker.finished.connect(lambda: self.view.set_load_tts_button_enabled(True))
         self.load_tts_worker.start()
     
-    def on_tts_loaded_success(self):
-        self.view.set_load_tts_button_color("green")
-        self.view.show_message("Success", "TTS Engine loaded successfully.", icon=QMessageBox.Information)
+    # def on_tts_loaded_success(self):
+    #     self.view.set_load_tts_button_color("green")
+    #     self.view.show_message("Success", "TTS Engine loaded successfully.", icon=QMessageBox.Information)
 
-    def on_tts_loaded_error(self, error_message):
-        self.view.set_load_tts_button_color("red")
-        self.view.show_message("Error", f"Failed to load TTS engine:\n{error_message}", icon=QMessageBox.Warning)
+    # def on_tts_loaded_error(self, error_message):
+    #     self.view.set_load_tts_button_color("red")
+    #     self.view.show_message("Error", f"Failed to load TTS engine:\n{error_message}", icon=QMessageBox.Warning)
+
+    def create_audiobook_directory(self):
+        book_name = self.view.get_book_name()
+        if not book_name:
+            self.view.show_message("Error", "Please enter a book name before proceeding.", icon=QMessageBox.Warning)
+            return
+        directory_path = os.path.join("audiobooks", book_name)
+        self.current_audiobook_directory = directory_path  # Add this line
+        self.view.set_audiobook_label(book_name)
+        if os.path.exists(directory_path):
+            overwrite = self.view.ask_question(
+                'Overwrite Existing Audiobook',
+                "An audiobook with this name already exists. Do you want to overwrite it?",
+                default_button=QMessageBox.No
+            )
+            if overwrite:
+                confirm_delete = self.view.ask_question(
+                    'Confirm Deletion',
+                    "This cannot be undone, the audiobook will be lost forever. Proceed?",
+                    default_button=QMessageBox.No
+                )
+                if confirm_delete:
+                    shutil.rmtree(directory_path)
+                else:
+                    return
+            else:
+                return
+        os.makedirs(directory_path)
+        
+        return directory_path
 
     def start_generation(self):
         if hasattr(self.model, 'filepath') and self.model.filepath:
-            book_name = self.view.get_book_name()
-            if not book_name:
-                self.view.show_message("Error", "Please enter a book name before proceeding.", icon=QMessageBox.Warning)
-                return
-            directory_path = os.path.join("audiobooks", book_name)
-            self.view.set_audiobook_label(book_name)
-            if os.path.exists(directory_path):
-                overwrite = self.view.ask_question(
-                    'Overwrite Existing Audiobook',
-                    "An audiobook with this name already exists. Do you want to overwrite it?",
-                    default_button=QMessageBox.No
-                )
-                if overwrite:
-                    confirm_delete = self.view.ask_question(
-                        'Confirm Deletion',
-                        "This cannot be undone, the audiobook will be lost forever. Proceed?",
-                        default_button=QMessageBox.No
-                    )
-                    if confirm_delete:
-                        # Delete the old audiobook directory and its contents
-                        shutil.rmtree(directory_path)
-                    else:
-                        return
-                else:
-                    return
-            os.makedirs(directory_path)
-            self.view.clear_table()
-            self.model.text_audio_map.clear()
+            if not self.current_audiobook_directory:
+                directory_path = self.create_audiobook_directory()
+            
+            directory_path = self.current_audiobook_directory
+
+            # Load existing text_audio_map if it exists
+            map_file_path = os.path.join(directory_path, "text_audio_map.json")
+            if os.path.exists(map_file_path):
+                self.model.load_text_audio_map(directory_path)
+            else:
+                self.model.text_audio_map.clear()
+
             sentence_list = self.model.load_sentences(self.model.filepath)
-            self.model.create_audio_text_map(directory_path, sentence_list)
+
+            # Update text_audio_map with new sentences
+            self.model.update_text_audio_map(sentence_list)
+
+            # Save the updated map
+            self.model.save_text_audio_map(directory_path)
+
+            # Update the view's table
+            self.update_table_with_sentences()
+
             # Save generation settings
             voice_parameters = self.view.get_voice_parameters()
+            # Update the model's speakers
+            self.model.update_speakers(self.view.speakers)
             self.model.save_generation_settings(directory_path, voice_parameters)
 
             # Start the worker thread
@@ -234,7 +331,6 @@ class AudiobookController:
             self.worker.progress_signal.connect(self.view.set_progress)
             self.worker.started.connect(self.view.disable_buttons)
             self.worker.finished.connect(self.on_generation_finished)
-            # Connect the new signal
             self.worker.sentence_generated_signal.connect(self.on_sentence_generated)
             self.worker.start()
         else:
@@ -243,9 +339,9 @@ class AudiobookController:
 
 
     def on_sentence_generated(self, idx, sentence):
-        # Update the table with the new sentence
         row_position = int(idx)
         self.view.add_table_item(row_position, sentence)
+
 
     def on_generation_finished(self):
         self.view.enable_buttons()
@@ -253,10 +349,15 @@ class AudiobookController:
 
     def update_table_with_sentences(self):
         self.view.clear_table()
-        for idx_str, item in self.model.text_audio_map.items():
+        total_sentences = len(self.model.text_audio_map)
+        self.view.tableWidget.setRowCount(total_sentences)  # Set the total number of rows upfront
+        for idx_str in sorted(self.model.text_audio_map.keys(), key=lambda x: int(x)):
+            item = self.model.text_audio_map[idx_str]
             sentence = item['sentence']
             row_position = int(idx_str)
             self.view.add_table_item(row_position, sentence)
+            speaker_id = item.get('speaker_id', 1)
+            self.view.set_row_speaker(row_position, speaker_id)
 
     def play_selected_audio(self):
         selected_row = self.view.get_selected_table_row()
@@ -320,6 +421,7 @@ class AudiobookController:
             return
 
         map_key = str(selected_row)
+
         if not self.model.text_audio_map.get(map_key, {}).get('generated', False):
             self.view.show_message(
                 "Error",
@@ -327,7 +429,8 @@ class AudiobookController:
                 icon=QMessageBox.Warning
             )
             return
-
+        
+        speaker_id = self.model.text_audio_map[map_key].get('speaker_id', 1)
         selected_sentence = self.model.text_audio_map[map_key]['sentence']
         old_audio_path = self.model.text_audio_map[map_key]['audio_path']
         audio_path_parent = os.path.dirname(old_audio_path)
@@ -346,13 +449,20 @@ class AudiobookController:
         # Prepare new audio path (use a temporary file)
         new_audio_path = old_audio_path  # We'll overwrite the old file
 
+        # Merge voice_parameters with speaker_settings
+        speaker = self.model.speakers.get(speaker_id, {})
+        speaker_settings = speaker.get('settings', {})
+        combined_parameters = {**voice_parameters, **speaker_settings}
+        
         # Start the regeneration worker
         self.regen_worker = RegenerateAudioWorker(
             self.model,
             old_audio_path,
             selected_sentence,
-            voice_parameters,
-            new_audio_path
+            combined_parameters,
+            new_audio_path,
+            speaker_id
+
         )
         self.regen_worker.finished_signal.connect(lambda path: self.on_regeneration_finished(map_key, path))
         self.regen_worker.error_signal.connect(self.on_regeneration_error)
@@ -373,6 +483,8 @@ class AudiobookController:
 
     def continue_audiobook_generation(self):
         directory_path = self.view.get_existing_directory("Select an Audiobook to Continue Generating")
+        self.current_audiobook_directory = directory_path  # Add this line
+
         if not directory_path:
             return  # Exit the function if no directory was selected
 
@@ -420,6 +532,8 @@ class AudiobookController:
 
     def load_existing_audiobook(self):
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
+        self.current_audiobook_directory = directory_path 
+
         if not directory_path:
             return
 
@@ -430,21 +544,13 @@ class AudiobookController:
             self.model.load_text_audio_map(directory_path)
             self.update_table_with_sentences()
 
-            # Prompt the user to load previous settings
-            use_old_settings = self.view.ask_question(
-                'Load Previous Settings',
-                "Would you like to load the settings used for this audiobook?",
-                default_button=QMessageBox.Yes
-            )
+            # Load generation settings, including speakers
+            generation_settings = self.model.load_generation_settings(directory_path)
+            self.view.update_generation_settings(generation_settings)
 
-            if use_old_settings:
-                # Load generation settings
-                generation_settings = self.model.load_generation_settings(directory_path)
-                # Update the view with these settings
-                self.view.update_generation_settings(generation_settings)
-            else:
-                # Do not change the current settings
-                pass
+            # Update the view's speakers
+            self.view.speakers = self.model.speakers
+            self.view.update_speaker_selection_combo()
         except Exception as e:
             self.view.show_message("Error", f"An error occurred: {str(e)}", icon=QMessageBox.Warning)
 
@@ -469,6 +575,8 @@ class AudiobookController:
             return
 
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
+        self.current_audiobook_directory = directory_path  # Add this line
+
         if not directory_path:
             return
 

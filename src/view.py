@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QPushButton,
     QVBoxLayout, QLineEdit, QLabel, QWidget, QMessageBox, QCheckBox,
     QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QFileDialog, QScrollArea,
-    QSizePolicy, QSpinBox, QSplitter
+    QSizePolicy, QSpinBox, QSplitter, QDialog, QListWidget, QListWidgetItem, QColorDialog, QMenu
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Signal, Qt, QUrl
@@ -12,6 +12,109 @@ from PySide6.QtGui import QPixmap, QAction, QScreen
 
 import os
 import json
+
+
+from PySide6.QtWidgets import (
+    QDialog, QListWidget, QListWidgetItem, QVBoxLayout, QHBoxLayout,
+    QPushButton, QInputDialog, QColorDialog, QMessageBox
+)
+from PySide6.QtGui import QColor
+
+class SpeakerManagementDialog(QDialog):
+    def __init__(self, parent=None, speakers=None):
+        super().__init__(parent)
+        self.setWindowTitle("Manage Speakers")
+        self.setModal(True)
+        self.speakers = speakers or {}
+
+        # Layouts and widgets
+        self.layout = QVBoxLayout()
+        self.list_widget = QListWidget()
+        self.layout.addWidget(self.list_widget)
+
+        # Populate the list
+        self.populate_speaker_list()
+
+        # Add buttons to add, edit, delete speakers
+        self.add_button = QPushButton("Add Speaker")
+        self.delete_button = QPushButton("Delete Speaker")
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addWidget(self.add_button)
+        self.button_layout.addWidget(self.delete_button)
+        self.layout.addLayout(self.button_layout)
+
+        self.setLayout(self.layout)
+
+        # Connect signals
+        self.add_button.clicked.connect(self.add_speaker)
+        self.delete_button.clicked.connect(self.delete_speaker)
+        self.list_widget.itemDoubleClicked.connect(self.edit_speaker)
+
+    def populate_speaker_list(self):
+        self.list_widget.clear()
+        for speaker_id, speaker in self.speakers.items():
+            item = QListWidgetItem(f"Speaker {speaker_id}: {speaker['name']}")
+            color = speaker.get('color', Qt.gray)
+            if isinstance(color, str):
+                color = QColor(color)  # Convert string to QColor
+            item.setBackground(color)
+            item.setData(Qt.UserRole, speaker_id)  # Store speaker_id in item
+            self.list_widget.addItem(item)
+
+    def add_speaker(self):
+        new_speaker_id = max(self.speakers.keys()) + 1 if self.speakers else 2  # Start from 2
+        speaker_name, ok = QInputDialog.getText(self, "Add Speaker", "Enter Speaker Name:")
+        if ok and speaker_name:
+            # Let user select a color
+            color = QColorDialog.getColor()
+            if color.isValid():
+                speaker = {
+                    'name': speaker_name,
+                    'color': color,
+                    'settings': {}  # Empty settings initially
+                }
+                self.speakers[new_speaker_id] = speaker
+                self.populate_speaker_list()
+        else:
+            # User canceled input
+            pass
+
+    def edit_speaker(self, item):
+        speaker_id = item.data(Qt.UserRole)
+        speaker = self.speakers.get(speaker_id)
+        if speaker:
+            # Let user edit name
+            speaker_name, ok = QInputDialog.getText(self, "Edit Speaker", "Enter Speaker Name:", text=speaker['name'])
+            if ok and speaker_name:
+                speaker['name'] = speaker_name
+                # Let user select a color
+                color = QColorDialog.getColor(initial=speaker.get('color', Qt.gray))
+                if color.isValid():
+                    speaker['color'] = color
+                self.populate_speaker_list()
+
+    def delete_speaker(self):
+        selected_items = self.list_widget.selectedItems()
+        if not selected_items:
+            QMessageBox.warning(self, "Delete Speaker", "Please select a speaker to delete.")
+            return
+        for item in selected_items:
+            speaker_id = item.data(Qt.UserRole)
+            if speaker_id == 1:
+                QMessageBox.warning(self, "Delete Speaker", "Cannot delete the default speaker.")
+                continue
+            # Remove the speaker
+            del self.speakers[speaker_id]
+        self.populate_speaker_list()
+
+    def get_speakers(self):
+        # Convert QColor to hex string for serialization
+        for speaker in self.speakers.values():
+            color = speaker.get('color', Qt.gray)
+            if isinstance(color, QColor):
+                speaker['color'] = color.name()
+        return self.speakers
+
 
 
 class AudiobookMakerView(QMainWindow):
@@ -38,6 +141,10 @@ class AudiobookMakerView(QMainWindow):
     pause_between_sentences_changed = Signal(float)
     tts_engine_changed = Signal(str)
     audio_finished_signal = Signal()
+    speakers_updated = Signal(dict)
+    sentence_speaker_changed = Signal(int, int)
+    current_speaker_changed = Signal(int)
+    generation_settings_changed = Signal()
 
 
     def __init__(self):
@@ -69,8 +176,13 @@ class AudiobookMakerView(QMainWindow):
         self.indices = []
         self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
         self.current_audio_path = None  # Track the current audio file being played
+        self.speakers_updated.connect(self.update_speaker_selection_combo)
+
 
         self.tts_config = self.load_tts_config('configs/tts_config.json')
+        self.speakers = {
+                1: {'name': 'Narrator', 'color': Qt.gray, 'settings': {}}
+            }
 
         # Initialize UI components
         self.init_ui()
@@ -128,15 +240,17 @@ class AudiobookMakerView(QMainWindow):
         left_layout.addLayout(self.tts_engine_layout)
 
         # **Create Load TTS Button Before Populating the Combo Box**
-        self.load_tts = QPushButton("Load TTS Engine", self)
-        self.load_tts.clicked.connect(self.on_load_tts_clicked)
-        left_layout.addWidget(self.load_tts)
+        # self.load_tts = QPushButton("Load TTS Engine", self)
+        # self.load_tts.clicked.connect(self.on_load_tts_clicked)
+        # left_layout.addWidget(self.load_tts)
         
         if self.tts_engine_combo.count() > 0:
             self.tts_engine_combo.setCurrentIndex(0)
 
         self.do_rvc_checkbox = QCheckBox("Do RVC?", self)
         left_layout.addWidget(self.do_rvc_checkbox)
+        self.do_rvc_checkbox.stateChanged.connect(self.on_do_rvc_changed)
+
 
         self.load_text = QPushButton("Select Text File", self)
         self.load_text.clicked.connect(self.on_load_text_clicked)
@@ -301,6 +415,31 @@ class AudiobookMakerView(QMainWindow):
         self.set_background_clear_action = QAction("Clear Background Image", self)
         self.set_background_clear_action.triggered.connect(self.on_set_background_clear_image_triggered)
         self.background_menu.addAction(self.set_background_clear_action)
+        
+
+        # In init_ui()
+        self.speaker_menu = self.menu.addMenu("Speakers")
+        self.speaker_menu.setEnabled(False) 
+        
+        # In init_ui()
+        self.speaker_selection_layout = QHBoxLayout()
+        self.speaker_selection_label = QLabel("Current Speaker: ")
+        self.speaker_selection_combo = QComboBox()
+        self.speaker_selection_layout.addWidget(self.speaker_selection_label)
+        self.speaker_selection_layout.addWidget(self.speaker_selection_combo, 1)
+        self.speaker_selection_combo.currentIndexChanged.connect(self.on_current_speaker_changed)
+        left_layout.addLayout(self.speaker_selection_layout)
+
+        # After initializing self.speakers
+        self.update_speaker_selection_combo()
+
+        
+        # Add Manage Speakers action to Speakers menu
+        self.manage_speakers_action = QAction("Manage Speakers", self)
+        self.manage_speakers_action.triggered.connect(self.on_manage_speakers)
+        self.speaker_menu.addAction(self.manage_speakers_action)
+        
+        self.tableWidget.setContextMenuPolicy(Qt.CustomContextMenu)
 
         # Window settings
         self.setWindowTitle("Audiobook Maker")
@@ -316,6 +455,167 @@ class AudiobookMakerView(QMainWindow):
 
         # Set the calculated geometry for the window
         self.setGeometry(100, 100, int(width), int(height))
+
+    def update_speaker_selection_combo(self):
+        self.speaker_selection_combo.blockSignals(True)  # Prevent signal during update
+        self.speaker_selection_combo.clear()
+        for speaker_id, speaker in self.speakers.items():
+            self.speaker_selection_combo.addItem(f"{speaker['name']}", userData=speaker_id)
+        self.speaker_selection_combo.blockSignals(False)
+        
+    def enable_speaker_menu(self):
+        self.speaker_menu.setEnabled(True)
+
+
+    def disable_speaker_menu(self):
+        self.speaker_menu.setEnabled(False)
+
+    # In on_current_speaker_changed method
+    def on_current_speaker_changed(self, index):
+        speaker_id = self.speaker_selection_combo.itemData(index)
+        if speaker_id is not None:
+            if speaker_id in self.speakers:
+                self.load_speaker_settings(speaker_id)
+                # Emit a signal to notify the controller or model
+                self.current_speaker_changed.emit(speaker_id)
+            else:
+                self.reset_settings_to_default()
+        else:
+            self.reset_settings_to_default()
+            
+    def reset_settings_to_default(self):
+        default_speaker_id = 1
+        if default_speaker_id in self.speakers:
+            self.load_speaker_settings(default_speaker_id)
+            self.speaker_selection_combo.setCurrentIndex(
+                self.speaker_selection_combo.findData(default_speaker_id)
+            )
+            # Emit the signal to notify any listeners about the change
+            self.current_speaker_changed.emit(default_speaker_id)
+        else:
+            self.show_message("Error", "Default speaker not found.", QMessageBox.Critical)
+
+    def update_current_speaker_setting(self, attribute, value):
+        current_speaker_id = self.get_current_speaker_id()
+        if current_speaker_id in self.speakers:
+            speaker = self.speakers[current_speaker_id]
+            speaker_settings = speaker.setdefault('settings', {})
+            speaker_settings[attribute] = value
+        else:
+            pass
+
+    def get_current_speaker_id(self):
+        index = self.speaker_selection_combo.currentIndex()
+        speaker_id = self.speaker_selection_combo.itemData(index)
+        if speaker_id is not None:
+            return speaker_id
+        else:
+            return 1  # Default speaker
+
+    def on_voice_model_changed(self, text):
+        self.voice_model_changed.emit(text)
+        self.update_current_speaker_setting('selected_voice', text)
+
+    def assign_speaker_to_selected(self, speaker_id):
+        selected_rows = self.tableWidget.selectionModel().selectedRows()
+        for index in selected_rows:
+            row = index.row()
+            self.set_row_speaker(row, speaker_id)
+            self.sentence_speaker_changed.emit(row, speaker_id)
+
+    
+    def on_manage_speakers(self):
+        # Open the speaker management dialog
+        dialog = SpeakerManagementDialog(self, self.speakers)
+        dialog.exec()
+        # Update speakers after the dialog is closed
+        self.speakers = dialog.get_speakers()
+        self.speakers_updated.emit(self.speakers)
+
+    def set_row_speaker(self, row, speaker_id):
+        speaker = self.speakers.get(speaker_id, {})
+        color = speaker.get('color', Qt.gray)
+        if isinstance(color, str):
+            color = QColor(color)
+        for col in range(self.tableWidget.columnCount()):
+            item = self.tableWidget.item(row, col)
+            if item:
+                item.setBackground(color)
+                
+    def load_speaker_settings(self, speaker_id):
+        speaker = self.speakers.get(speaker_id, {})
+        settings = speaker.get('settings', {})
+        # Update TTS engine
+        tts_engine = settings.get('tts_engine', '')
+        index_tts = self.tts_engine_combo.findText(tts_engine)
+        self.tts_engine_combo.blockSignals(True)  # Block signals
+        if index_tts >= 0:
+            self.tts_engine_combo.setCurrentIndex(index_tts)
+        else:
+            self.tts_engine_combo.setCurrentIndex(0)  # Default to first TTS engine
+        self.tts_engine_combo.blockSignals(False)  # Unblock signals
+
+        # Update TTS options
+        self.update_tts_options(tts_engine)
+        # Set TTS parameters
+        self.set_tts_parameters(settings)
+
+        # Update RVC settings
+        selected_voice = settings.get('selected_voice', '')
+        index_voice = self.voice_models_combo.findText(selected_voice)
+        self.voice_models_combo.blockSignals(True)
+        if index_voice >= 0:
+            self.voice_models_combo.setCurrentIndex(index_voice)
+        else:
+            self.voice_models_combo.setCurrentIndex(0)
+        self.voice_models_combo.blockSignals(False)
+
+        selected_index = settings.get('selected_index', '')
+        index_index = self.voice_index_combo.findText(selected_index)
+        self.voice_index_combo.blockSignals(True)
+        if index_index >= 0:
+            self.voice_index_combo.setCurrentIndex(index_index)
+        else:
+            self.voice_index_combo.setCurrentIndex(0)
+        self.voice_index_combo.blockSignals(False)
+
+        f0_pitch = settings.get('f0_pitch', 0)
+        self.voice_pitch_slider.setValue(f0_pitch)
+
+        index_rate = settings.get('index_rate', 0)
+        self.voice_index_slider.setValue(int(index_rate * 100))
+
+        pause_duration = settings.get('pause_duration', 0)
+        self.export_pause_slider.setValue(int(pause_duration * 10))
+
+        do_rvc = settings.get('do_rvc', False)
+        self.do_rvc_checkbox.blockSignals(True)
+        self.do_rvc_checkbox.setChecked(do_rvc)
+        self.do_rvc_checkbox.blockSignals(False)
+
+        # Also set TTS parameters
+        self.set_tts_parameters(settings)
+
+    def set_tts_parameters(self, settings):
+        tts_engine = self.get_tts_engine()
+        engine_config = next(
+            (engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == tts_engine),
+            None
+        )
+        if engine_config:
+            for param in engine_config.get('parameters', []):
+                attribute = param['attribute']
+                widget = getattr(self, f"{attribute}_widget", None)
+                if widget:
+                    value = settings.get(attribute, None)
+                    if value is not None:
+                        if param['type'] in ('text', 'file'):
+                            widget.setText(str(value))
+                        elif param['type'] == 'spinbox':
+                            widget.setValue(value)
+                        elif param['type'] == 'checkbox':
+                            widget.setChecked(bool(value))
+
 
     # Methods for handling UI actions and emitting signals
 
@@ -363,25 +663,29 @@ class AudiobookMakerView(QMainWindow):
         self.font_size_changed.emit(value)
         self.update_font_size_from_slider(value)
 
-    def on_voice_model_changed(self, text):
-        self.voice_model_changed.emit(text)
-
     def on_voice_index_changed(self, text):
+        self.update_current_speaker_setting('selected_index', text)
         self.voice_index_changed.emit(text)
+
 
     def on_voice_pitch_slider_changed(self, value):
         self.updateVoicePitchLabel(value)
+        self.update_current_speaker_setting('f0_pitch', value)
         self.voice_pitch_changed.emit(value)
 
     def on_voice_index_slider_changed(self, value):
-        value = value / 100.0
-        self.updateVoiceIndexLabel(value)
-        self.voice_index_effect_changed.emit(value)
+        index_rate = value / 100.0
+        self.updateVoiceIndexLabel(index_rate)
+        self.update_current_speaker_setting('index_rate', index_rate)
+        self.voice_index_effect_changed.emit(index_rate)
+
 
     def on_export_pause_slider_changed(self, value):
-        value = value / 10.0
-        self.updatePauseLabel(value)
-        self.pause_between_sentences_changed.emit(value)
+        pause_duration = value / 10.0
+        self.updatePauseLabel(pause_duration)
+        self.update_current_speaker_setting('pause_duration', pause_duration)
+        self.pause_between_sentences_changed.emit(pause_duration)
+
 
     # Methods to update the UI
     def updateVoicePitchLabel(self, value):
@@ -481,10 +785,14 @@ class AudiobookMakerView(QMainWindow):
         self.tableWidget.setRowCount(0)
 
     def add_table_item(self, row, text):
+        # Ensure the table has enough rows
+        current_row_count = self.tableWidget.rowCount()
+        if current_row_count <= row:
+            self.tableWidget.setRowCount(row + 1)
         sentence_item = QTableWidgetItem(text)
         sentence_item.setFlags(sentence_item.flags() & ~Qt.ItemIsEditable)
-        self.tableWidget.insertRow(row)
         self.tableWidget.setItem(row, 0, sentence_item)
+
 
     def get_selected_table_row(self):
         return self.tableWidget.currentRow()
@@ -518,25 +826,33 @@ class AudiobookMakerView(QMainWindow):
     def get_tts_engine(self):
         return self.tts_engine_combo.currentText()
     
-    def set_load_tts_button_color(self, color):
-        if color == "green":
-            self.load_tts.setStyleSheet("QPushButton { background-color: green; }")
-        elif color == "red":
-            self.load_tts.setStyleSheet("QPushButton { background-color: red; }")
-        else:
-            self.load_tts.setStyleSheet("")
+    def on_do_rvc_changed(self, state):
+        is_checked = state == Qt.Checked
+        self.update_current_speaker_setting('do_rvc', is_checked)
+        self.generation_settings_changed.emit()
 
-    def set_load_tts_button_enabled(self, enabled):
-        self.load_tts.setEnabled(enabled)
+    
+    # def set_load_tts_button_color(self, color):
+    #     if color == "green":
+    #         self.load_tts.setStyleSheet("QPushButton { background-color: green; }")
+    #     elif color == "red":
+    #         self.load_tts.setStyleSheet("QPushButton { background-color: red; }")
+    #     else:
+    #         self.load_tts.setStyleSheet("")
+
+    # def set_load_tts_button_enabled(self, enabled):
+    #     self.load_tts.setEnabled(enabled)
     
     def set_tts_engines(self, engines):
         self.tts_engine_combo.clear()
         self.tts_engine_combo.addItems(engines)
         
     def on_tts_engine_changed(self, engine_name):
-        self.set_load_tts_button_color("")  # Reset color when TTS engine changes
+        # self.set_load_tts_button_color("")  # Reset color when TTS engine changes
         self.tts_engine_changed.emit(engine_name)
         self.update_tts_options(engine_name)  # Update the TTS options in the view
+        self.update_current_speaker_setting('tts_engine', engine_name)
+
 
     def update_tts_options(self, engine_name):
         if not engine_name:
@@ -614,7 +930,9 @@ class AudiobookMakerView(QMainWindow):
     
     def on_parameter_changed(self, attribute, value):
         # You can store these values in a dictionary or directly update your TTS engine instance
-        setattr(self, attribute, value)
+        self.update_current_speaker_setting(attribute, value)
+        # setattr(self, attribute, value)
+        self.generation_settings_changed.emit()
         # Optionally, emit a signal or perform validation
     
     def browse_file(self, widget, param):
@@ -656,7 +974,7 @@ class AudiobookMakerView(QMainWindow):
         self.voice_index_combo = QComboBox()
         self.voice_index_layout.addWidget(self.voice_index_label)
         self.voice_index_layout.addWidget(self.voice_index_combo, 1)
-        # self.voice_index_combo.currentTextChanged.connect(self.on_voice_index_changed)
+        self.voice_index_combo.currentTextChanged.connect(self.on_voice_index_changed)
         self.rvc_options_layout.addLayout(self.voice_index_layout)
         
         # -- Voice Index Slider
