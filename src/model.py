@@ -39,11 +39,15 @@ class AudiobookModel:
         return {}
     
     def get_tts_engines(self):
-        tts_config = self.load_tts_config(os.path.join('configs', 'tts_config.json'))
+        tts_config = self.load_config(os.path.join('configs', 'tts_config.json'))
         return [engine['name'] for engine in tts_config.get('tts_engines', [])]
+    
+    def get_rvc_config(self):
+        rvc_config = self.load_config(os.path.join('configs', 'rvc_config.json'))
+        return rvc_config
 
 
-    def load_tts_config(self, config_path):
+    def load_config(self, config_path):
         if not os.path.exists(config_path):
             return {}
         with open(config_path, 'r') as f:

@@ -12,6 +12,7 @@ from PySide6.QtGui import QPixmap, QAction, QScreen
 
 import os
 import json
+import fnmatch
 
 
 from PySide6.QtWidgets import (
@@ -416,12 +417,9 @@ class AudiobookMakerView(QMainWindow):
         self.set_background_clear_action.triggered.connect(self.on_set_background_clear_image_triggered)
         self.background_menu.addAction(self.set_background_clear_action)
         
-
-        # In init_ui()
         self.speaker_menu = self.menu.addMenu("Speakers")
         self.speaker_menu.setEnabled(False) 
         
-        # In init_ui()
         self.speaker_selection_layout = QHBoxLayout()
         self.speaker_selection_label = QLabel("Current Speaker: ")
         self.speaker_selection_combo = QComboBox()
@@ -515,6 +513,8 @@ class AudiobookMakerView(QMainWindow):
     def on_voice_model_changed(self, text):
         self.voice_model_changed.emit(text)
         self.update_current_speaker_setting('selected_voice', text)
+        self.generation_settings_changed.emit()  # Emit the signal
+
 
     def assign_speaker_to_selected(self, speaker_id):
         selected_rows = self.tableWidget.selectionModel().selectedRows()
@@ -533,7 +533,9 @@ class AudiobookMakerView(QMainWindow):
         self.speakers_updated.emit(self.speakers)
 
     def set_row_speaker(self, row, speaker_id):
-        speaker = self.speakers.get(speaker_id, {})
+        speaker = self.speakers.get(str(speaker_id), None)
+        if not speaker: # HOT FIX, should figure out why speaker_id needs to be a string for one check, and then int for another for color
+            speaker = self.speakers.get(speaker_id, None)
         color = speaker.get('color', Qt.gray)
         if isinstance(color, str):
             color = QColor(color)
@@ -546,7 +548,7 @@ class AudiobookMakerView(QMainWindow):
         speaker = self.speakers.get(speaker_id, {})
         settings = speaker.get('settings', {})
         # Update TTS engine
-        tts_engine = settings.get('tts_engine', '')
+        tts_engine = settings.get('tts_engine', self.tts_engine_combo.currentText())
         index_tts = self.tts_engine_combo.findText(tts_engine)
         self.tts_engine_combo.blockSignals(True)  # Block signals
         if index_tts >= 0:
@@ -615,6 +617,15 @@ class AudiobookMakerView(QMainWindow):
                             widget.setValue(value)
                         elif param['type'] == 'checkbox':
                             widget.setChecked(bool(value))
+                        elif param['type'] == 'combobox':
+                            index = widget.findText(str(value))
+                            if index >= 0:
+                                widget.setCurrentIndex(index)
+                            else:
+                                widget.setCurrentIndex(0)  # Default to first item
+                    else:
+                        if param['type'] == 'combobox':
+                            widget.setCurrentIndex(0)  # Default to first item when value is None
 
 
     # Methods for handling UI actions and emitting signals
@@ -666,18 +677,21 @@ class AudiobookMakerView(QMainWindow):
     def on_voice_index_changed(self, text):
         self.update_current_speaker_setting('selected_index', text)
         self.voice_index_changed.emit(text)
+        self.generation_settings_changed.emit()  # Emit the signal
 
 
     def on_voice_pitch_slider_changed(self, value):
         self.updateVoicePitchLabel(value)
         self.update_current_speaker_setting('f0_pitch', value)
         self.voice_pitch_changed.emit(value)
+        self.generation_settings_changed.emit()  # Emit the signal
 
     def on_voice_index_slider_changed(self, value):
         index_rate = value / 100.0
         self.updateVoiceIndexLabel(index_rate)
         self.update_current_speaker_setting('index_rate', index_rate)
         self.voice_index_effect_changed.emit(index_rate)
+        self.generation_settings_changed.emit()  # Emit the signal
 
 
     def on_export_pause_slider_changed(self, value):
@@ -827,7 +841,7 @@ class AudiobookMakerView(QMainWindow):
         return self.tts_engine_combo.currentText()
     
     def on_do_rvc_changed(self, state):
-        is_checked = state == Qt.Checked
+        is_checked = self.do_rvc_checkbox.isChecked()
         self.update_current_speaker_setting('do_rvc', is_checked)
         self.generation_settings_changed.emit()
 
@@ -920,6 +934,17 @@ class AudiobookMakerView(QMainWindow):
             widget = QCheckBox()
             widget.stateChanged.connect(lambda state, attr=attribute: self.on_parameter_changed(attr, bool(state)))
             layout.addWidget(widget)
+        elif param_type == 'combobox':
+            widget = QComboBox()
+            function_name = param.get('function')
+            if function_name == 'get_combobox_items':
+                items = self.get_combobox_items(param)
+                widget.addItems(items)
+            else:
+                self.show_message("Error", f"Unknown function {function_name} for combobox parameter", QMessageBox.Warning)
+            widget.currentTextChanged.connect(lambda text, attr=attribute: self.on_parameter_changed(attr, text))
+            layout.addWidget(widget)
+            
         else:
             self.show_message("Error", f"Unknown parameter type: {param_type}", QMessageBox.Warning)
             return None
@@ -928,7 +953,54 @@ class AudiobookMakerView(QMainWindow):
         setattr(self, f"{attribute}_widget", widget)
         return layout
     
+    def get_combobox_items(self, param):
+        folder_path = param.get('folder_path', '.')
+        look_for = param.get('look_for', 'folders')  # 'folders' or 'files'
+        file_filter = param.get('file_filter', '*')  # e.g., '*.txt'
+        include_none_option = param.get('include_none_option', False)
+        none_option_label = param.get('none_option_label', 'Default')  # Label for the None option
+
+        # Expand any environment variables and user variables
+        folder_path = os.path.expandvars(os.path.expanduser(folder_path))
+
+        # Convert to absolute path
+        folder_path = os.path.abspath(folder_path)
+
+        items = []
+
+        if include_none_option:
+            items.append(none_option_label)
+
+        if not os.path.exists(folder_path):
+            self.show_message("Error", f"Folder {folder_path} does not exist.", QMessageBox.Warning)
+            return items  # Return items, which may contain the 'Default' option
+
+        if look_for == 'folders':
+            try:
+                for entry in os.scandir(folder_path):
+                    if entry.is_dir():
+                        items.append(entry.name)
+            except Exception as e:
+                self.show_message("Error", f"Error reading directory {folder_path}: {e}", QMessageBox.Warning)
+                return items
+        elif look_for == 'files':
+            try:
+                for entry in os.scandir(folder_path):
+                    if entry.is_file() and fnmatch.fnmatch(entry.name, file_filter):
+                        items.append(entry.name)
+            except Exception as e:
+                self.show_message("Error", f"Error reading directory {folder_path}: {e}", QMessageBox.Warning)
+                return items
+        else:
+            self.show_message("Error", f"Invalid look_for value: {look_for}", QMessageBox.Warning)
+            return items
+
+        return items
+
+    
     def on_parameter_changed(self, attribute, value):
+        if value == 'Default':
+            value = None  # Set value to None when 'Default' option is selected
         # You can store these values in a dictionary or directly update your TTS engine instance
         self.update_current_speaker_setting(attribute, value)
         # setattr(self, attribute, value)
@@ -1141,6 +1213,7 @@ class AudiobookMakerView(QMainWindow):
     def on_audio_finished(self, state):
         if state == QMediaPlayer.EndOfMedia or state == QMediaPlayer.StoppedState:
             self.current_audio_path = None  # Clear current audio path
+            self.release_media_player_resources()
             self.audio_finished_signal.emit()  # Emit the signal
             
     def is_audio_playing(self, audio_path):
@@ -1218,5 +1291,3 @@ class AudiobookMakerView(QMainWindow):
                         elif param['type'] == 'checkbox':
                             widget.setChecked(bool(value))
                         # Add handling for other widget types if necessary
-
-

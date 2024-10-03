@@ -1,7 +1,7 @@
-# controller.py
-
-import sys
-from PySide6.QtWidgets import QApplication, QMessageBox
+# controller.py 
+ 
+import sys 
+from PySide6.QtWidgets import QApplication, QMessageBox 
 from PySide6.QtCore import QThread, Signal, QObject
 
 from model import AudiobookModel
@@ -32,7 +32,7 @@ class AudioGenerationWorker(QThread):
         self.sentence_generated_signal.emit(idx, sentence)
         
 class RegenerateAudioWorker(QThread):
-    finished_signal = Signal(str)  # Signal to indicate completion
+    finished_signal = Signal(str, int)  # Signal to indicate completion
     error_signal = Signal(str)     # Signal to report errors
 
     def __init__(self, model, old_audio_path, selected_sentence, voice_parameters, new_audio_path, speaker_id):
@@ -62,6 +62,7 @@ class RegenerateAudioWorker(QThread):
                     return
 
         # Generate new audio
+        print(f"regeneration id: {self.speaker_id}")
         tts_engine_name = self.voice_parameters.get('tts_engine')
         self.model.load_selected_tts_engine(tts_engine_name, self.speaker_id, **self.voice_parameters)
         new_audio_temp_path = self.model.generate_audio_proxy(self.selected_sentence, self.voice_parameters)
@@ -73,7 +74,9 @@ class RegenerateAudioWorker(QThread):
         shutil.move(new_audio_temp_path, self.new_audio_path)
 
         # Emit finished signal
-        self.finished_signal.emit(self.new_audio_path)
+        print(f"regeneration id: {self.speaker_id}")
+
+        self.finished_signal.emit(self.new_audio_path, self.speaker_id)
 
 class LoadTTSWorker(QThread):
     success_signal = Signal()
@@ -136,7 +139,6 @@ class AudiobookController:
         self.view.sentence_speaker_changed.connect(self.assign_speaker_to_sentence)
         self.view.tableWidget.customContextMenuRequested.connect(self.allow_speaker_assignment)
         self.view.generation_settings_changed.connect(self.save_generation_settings)
-
 
         # No need to connect font size and voice setting signals if they are handled in the view
 
@@ -213,6 +215,8 @@ class AudiobookController:
         # **Set Default TTS Engine Selection in the Controller**
         if self.view.tts_engine_combo.count() > 0:
             self.view.tts_engine_combo.setCurrentIndex(0)
+            
+        rvc_settings = self.model.get_rvc_config()
 
     def update_speakers(self, speakers):
         self.model.update_speakers(speakers)
@@ -356,8 +360,9 @@ class AudiobookController:
             sentence = item['sentence']
             row_position = int(idx_str)
             self.view.add_table_item(row_position, sentence)
-            speaker_id = item.get('speaker_id', 1)
+            speaker_id = item.get('speaker_id', 1)  
             self.view.set_row_speaker(row_position, speaker_id)
+
 
     def play_selected_audio(self):
         selected_row = self.view.get_selected_table_row()
@@ -429,8 +434,10 @@ class AudiobookController:
                 icon=QMessageBox.Warning
             )
             return
-        
-        speaker_id = self.model.text_audio_map[map_key].get('speaker_id', 1)
+
+        # Get the speaker_id from the combobox
+        speaker_id = self.view.get_current_speaker_id()
+
         selected_sentence = self.model.text_audio_map[map_key]['sentence']
         old_audio_path = self.model.text_audio_map[map_key]['audio_path']
         audio_path_parent = os.path.dirname(old_audio_path)
@@ -453,7 +460,7 @@ class AudiobookController:
         speaker = self.model.speakers.get(speaker_id, {})
         speaker_settings = speaker.get('settings', {})
         combined_parameters = {**voice_parameters, **speaker_settings}
-        
+
         # Start the regeneration worker
         self.regen_worker = RegenerateAudioWorker(
             self.model,
@@ -462,21 +469,30 @@ class AudiobookController:
             combined_parameters,
             new_audio_path,
             speaker_id
-
         )
-        self.regen_worker.finished_signal.connect(lambda path: self.on_regeneration_finished(map_key, path))
+        # Modify the connection to pass speaker_id to the handler
+        print(speaker_id)
+        self.regen_worker.finished_signal.connect(
+            lambda path, speaker_id=speaker_id: self.on_regeneration_finished(map_key, path, speaker_id)
+        )
         self.regen_worker.error_signal.connect(self.on_regeneration_error)
         self.regen_worker.start()
+
         
-    def on_regeneration_finished(self, map_key, new_audio_path):
-        # Update the text_audio_map with the new audio path
+    def on_regeneration_finished(self, map_key, new_audio_path, speaker_id):
+        # Update the text_audio_map with the new audio path and speaker_id
         self.model.text_audio_map[map_key]['audio_path'] = new_audio_path
+        self.model.text_audio_map[map_key]['speaker_id'] = speaker_id
+
+        # Update the table row's background color to match the new speaker
+        self.view.set_row_speaker(int(map_key), speaker_id)
 
         book_name = self.view.audiobook_label.text()
         directory_path = os.path.join("audiobooks", book_name)
         # Save the updated map back to the file
         self.model.save_text_audio_map(directory_path)
         print("Regeneration complete")
+
 
     def on_regeneration_error(self, error_message):
         self.view.show_message("Error", error_message, icon=QMessageBox.Warning)
@@ -542,15 +558,18 @@ class AudiobookController:
 
         try:
             self.model.load_text_audio_map(directory_path)
-            self.update_table_with_sentences()
-
+            
             # Load generation settings, including speakers
             generation_settings = self.model.load_generation_settings(directory_path)
             self.view.update_generation_settings(generation_settings)
 
-            # Update the view's speakers
+            # Update the view's speakers before updating the table
             self.view.speakers = self.model.speakers
             self.view.update_speaker_selection_combo()
+            self.view.on_current_speaker_changed(0)  # default to narrator
+
+            # Now update the table with sentences
+            self.update_table_with_sentences()
         except Exception as e:
             self.view.show_message("Error", f"An error occurred: {str(e)}", icon=QMessageBox.Warning)
 
@@ -627,9 +646,9 @@ class AudiobookController:
         except FileNotFoundError as e:
             self.view.show_message("Error", str(e), icon=QMessageBox.Warning)
 
-    def set_background_image(self):
-        file_name = self.view.get_open_file_name("", "", "Image Files (*.png *.jpg *.jpeg);;All Files (*)")
-        if file_name:
+    def set_background_image(self): 
+        file_name = self.view.get_open_file_name("", "", "Image Files (*.png *.jpg *.jpeg);;All Files (*)") 
+        if file_name: 
             destination_path = self.model.set_background_image(file_name)
             self.view.set_background(destination_path)
 
