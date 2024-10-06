@@ -26,6 +26,7 @@ class AudiobookModel:
         self.current_speaker_id = None
         self.current_voice_parameters = None
         self.tts_engine = None
+        self.filepath = None
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #   Data Loading and Saving Methods
@@ -161,6 +162,7 @@ class AudiobookModel:
         idx_str = str(idx)
         if idx_str in self.text_audio_map:
             self.text_audio_map[idx_str]['speaker_id'] = speaker_id
+            self.text_audio_map[idx_str]['generated'] = False
             # Optionally, save the updated map
             # self.save_text_audio_map(directory_path)
 
@@ -202,10 +204,16 @@ class AudiobookModel:
 
         
 
-    def generate_audio_for_sentence_threaded(self, directory_path, report_progress_callback, voice_parameters, sentence_generated_callback):
+    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, report_progress_callback, sentence_generated_callback, should_stop_callback):
+        self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
         total_sentences = len(self.text_audio_map)
-        generated_count = sum(1 for entry in self.text_audio_map.values() if entry['generated'])
+        if is_continue:
+            generated_count = sum(1 for entry in self.text_audio_map.values() if entry['generated'])
+            if generated_count == total_sentences:
+                return
+        else:
+            generated_count = 0
 
         sentences_by_speaker = defaultdict(list)
         for idx, entry in self.text_audio_map.items():
@@ -218,29 +226,43 @@ class AudiobookModel:
             speaker = self.speakers.get(speaker_id, {})
             speaker_settings = speaker.get('settings', {})
             # Merge voice_parameters with speaker_settings
-            combined_parameters = {**voice_parameters, **speaker_settings}
+            combined_parameters = speaker_settings
             # Load TTS engine with speaker-specific settings
             tts_engine_name = combined_parameters.get('tts_engine', 'pyttsx3')
             self.load_selected_tts_engine(tts_engine_name, speaker_id, **combined_parameters)
 
             # Generate audio for sentences assigned to this speaker
             for idx, entry in entries:
-                if not entry['generated']:
-                    sentence = entry['sentence']
-                    audio_path = self.generate_audio_proxy(sentence, combined_parameters)
-                    if audio_path:
-                        new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
-                        os.rename(audio_path, new_audio_path)
-                        self.text_audio_map[idx]['audio_path'] = new_audio_path
-                        self.text_audio_map[idx]['generated'] = True
-                        generated_count += 1
-                        self.save_text_audio_map(directory_path)
-                        sentence_generated_callback(int(idx), sentence)
-                    progress_percentage = int((generated_count / total_sentences) * 100)
-                    report_progress_callback(progress_percentage)
+                # Check for stop request
+                if should_stop_callback():
+                    print("Generation stopped by user")
+                    return
+                # Skip already generated sentences if is_continue is True
+                if is_continue and entry['generated']:
+                    continue
+                
+                sentence = entry['sentence']
+                audio_path = self.generate_audio_proxy(sentence, combined_parameters)
+
+                if audio_path:
+                    new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
+                    shutil.move(audio_path, new_audio_path)
+                    self.text_audio_map[idx]['audio_path'] = new_audio_path
+                    self.text_audio_map[idx]['generated'] = True
+                    generated_count += 1
+                    self.save_text_audio_map(directory_path)
+                    sentence_generated_callback(int(idx), sentence)
+
+                # Calculate progress and report
+                progress_percentage = int((generated_count / total_sentences) * 100)
+                report_progress_callback(progress_percentage)
 
     def generate_audio_proxy(self, sentence, voice_parameters):
+        # print(voice_parameters)
         tts_engine_name = voice_parameters.get('tts_engine', 'pyttsx3')
+        s2s_engine_name = voice_parameters.get('s2s_engine', None)
+        use_s2s = voice_parameters.get('use_s2s', None)
+
         # Generate a unique temporary file name
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
             audio_path = tmp_file.name
@@ -248,10 +270,15 @@ class AudiobookModel:
         # Now call tts_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
         success = tts_engines.generate_audio(self.tts_engine, sentence, voice_parameters, tts_engine_name, audio_path)
 
-        if success:
-            return audio_path
-        else:
+        if not success:
             return None
+
+        if use_s2s:
+            # do rvc inference here then return audio path, use s2s_engine.py
+            pass
+        else:
+            return audio_path
+        
 
     def export_audiobook(self, directory_path, pause_duration):
         dir_name = os.path.basename(directory_path)
@@ -302,7 +329,9 @@ class AudiobookModel:
         print(f"Combined audiobook saved as {output_filename}")
         return output_filename
 
-    def update_audiobook(self, directory_path, new_sentences_list, generate_new_audio, voice_parameters):
+
+
+    def update_audiobook(self, directory_path, new_sentences_list):
         audio_map_path = os.path.join(directory_path, 'text_audio_map.json')
         if not os.path.exists(audio_map_path):
             raise FileNotFoundError("The selected directory is not a valid Audiobook Directory.")
@@ -311,37 +340,93 @@ class AudiobookModel:
         with open(audio_map_path, 'r', encoding='utf-8') as file:
             text_audio_map = json.load(file)
 
-        reverse_map = {item['sentence']: idx for idx, item in text_audio_map.items()}
+        # Create reverse map to handle duplicate sentences
+        reverse_map = {}
+        for idx, item in text_audio_map.items():
+            sentence = item['sentence']
+            reverse_map.setdefault(sentence, []).append(idx)
 
-        # Generate updated map
         new_text_audio_map = {}
-        deleted_sentences = set(text_audio_map.keys())
+        deleted_indices = set(text_audio_map.keys())
+        sentence_counts = {}
+
+        # Collect rename operations
+        rename_operations = {}
+
         for new_idx, sentence in enumerate(new_sentences_list):
-            if sentence in reverse_map:  # Sentence exists in old map
-                old_idx = reverse_map[sentence]
-                new_text_audio_map[str(new_idx)] = text_audio_map[old_idx]
-                deleted_sentences.discard(old_idx)  # Remove index from set of deleted sentences
-            else:  # New sentence
+            sentence_counts[sentence] = sentence_counts.get(sentence, 0) + 1
+            count = sentence_counts[sentence]
+
+            if sentence in reverse_map and len(reverse_map[sentence]) >= count:
+                # Existing sentence (consider duplicates)
+                old_idx = reverse_map[sentence][count - 1]
+                old_item = text_audio_map[old_idx]
+                old_audio_path = old_item['audio_path']
+
+                # Extract the basename of the audio file
+                old_audio_filename = os.path.basename(old_audio_path)
+                old_audio_full_path = os.path.join(directory_path, old_audio_filename)
+
+                # Remove old index from deleted_indices
+                deleted_indices.discard(old_idx)
+
+                # Update the item with new index
+                new_audio_filename = f"audio_{new_idx}.wav"
+                new_audio_full_path = os.path.join(directory_path, new_audio_filename)
+
+                # Update the audio_path in the item
+                old_item['audio_path'] = new_audio_full_path  # Store only the filename
+
+                new_text_audio_map[str(new_idx)] = old_item
+
+                # Check if renaming is needed
+                if str(new_idx) != old_idx and old_audio_filename:
+                    # Record the rename operation
+                    rename_operations[old_audio_full_path] = new_audio_full_path
+            else:
+                # New sentence
                 generated = False
-                new_audio_path = ""
+                new_audio_filename = ""
                 new_text_audio_map[str(new_idx)] = {
                     "sentence": sentence,
-                    "audio_path": new_audio_path,
+                    "audio_path": new_audio_filename,
                     "generated": generated,
                     "speaker_id": 1  # Default speaker
                 }
 
         # Handle deleted sentences and their audio files
-        for old_idx in deleted_sentences:
+        for old_idx in deleted_indices:
             old_audio_path = text_audio_map[old_idx]['audio_path']
-            if os.path.exists(old_audio_path):
-                os.remove(old_audio_path)  # Delete the audio file
+            if old_audio_path:
+                old_audio_filename = os.path.basename(old_audio_path)
+                old_audio_full_path = os.path.join(directory_path, old_audio_filename)
+                if os.path.exists(old_audio_full_path):
+                    os.remove(old_audio_full_path)  # Delete the audio file
+                else:
+                    print(f"Audio file to delete not found: {old_audio_full_path}")
+
+        # Now perform the renaming operations without overwriting files
+
+        # Step 1: Rename all source files to temporary files
+        temp_files = {}
+        for src, dst in rename_operations.items():
+            if os.path.exists(src):
+                temp_src = src + '.tmp'
+                os.rename(src, temp_src)
+                temp_files[temp_src] = dst
+            else:
+                print(f"Warning: Source file '{src}' does not exist.")
+
+        # Step 2: Rename all temporary files to their final destinations
+        for temp_src, dst in temp_files.items():
+            if os.path.exists(dst):
+                os.remove(dst)  # Remove existing file to prevent conflicts
+            os.rename(temp_src, dst)
 
         self.text_audio_map = new_text_audio_map
         self.save_text_audio_map(directory_path)
 
-        if generate_new_audio:
-            self.generate_audio_for_sentence_threaded(directory_path, lambda x: None, voice_parameters)
+
 
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -361,12 +446,13 @@ class AudiobookModel:
         return []
 
 
-    def save_generation_settings(self, directory_path, generation_settings, speakers=None):
+    def save_generation_settings(self, directory_path, speakers=None):
+        generation_settings = {}
         if speakers is None:
             speakers = self.speakers
         
         # Convert QColor or Qt.GlobalColor to hex string
-        for speaker_id, speaker in speakers.items():
+        for speaker in speakers.values():
             color = speaker.get('color', '#b0b0b0')
             
             if isinstance(color, QColor):
@@ -380,27 +466,61 @@ class AudiobookModel:
                 pass
             else:
                 # If we encounter an unsupported color type, raise an error
-                raise TypeError(f"Unsupported color type: {type(color)} for speaker {speaker_id}, value: {color}")
+                raise TypeError(f"Unsupported color type: {type(color)} for speaker {speaker}, value: {color}")
         
         generation_settings['speakers'] = speakers
         generation_settings_path = os.path.join(directory_path, "generation_settings.json")
+        
+        # Replace "Default" or "None" strings with None
+        self.replace_default_with_none(generation_settings)
 
         # Save the settings to a JSON file
         self.save_json(generation_settings_path, generation_settings)
 
         
-    def save_temp_generation_settings(self, generation_settings, speakers=None):
+    def save_temp_generation_settings(self, speakers=None):
+        generation_settings = {}
         if speakers is None:
             speakers = self.speakers
+        # Convert QColor or Qt.GlobalColor to hex string
         for speaker in speakers.values():
             color = speaker.get('color', '#b0b0b0')
+            
             if isinstance(color, QColor):
+                # Convert QColor to hex string
                 speaker['color'] = color.name()
+            elif color == Qt.gray:  # Compare directly with Qt.GlobalColor (integer enum value)
+                # Convert Qt.GlobalColor (integer) to QColor and then to hex string
+                speaker['color'] = QColor(color).name()
+            elif isinstance(color, str):
+                # If it's already a string (likely a hex code), do nothing
+                pass
+            else:
+                # If we encounter an unsupported color type, raise an error
+                raise TypeError(f"Unsupported color type: {type(color)} for speaker {speaker}, value: {color}")
+        
         generation_settings['speakers'] = speakers
         temp_settings_path = os.path.join('temp', "generation_settings.json")
         if not os.path.exists('temp'):
             os.makedirs('temp')
+            
+        # Replace "Default" or "None" strings with None
+        self.replace_default_with_none(generation_settings)
+        
         self.save_json(temp_settings_path, generation_settings)
+        
+    def reset(self):
+        self.text_audio_map.clear()
+        self.settings.clear()
+        self.current_sentence_idx = 0
+        self.speakers = {
+            1: {'name': 'Narrator', 'color': '#FFFFFF', 'settings': {}}
+        }
+        self.current_tts_engine_name = None
+        self.current_speaker_id = None
+        self.current_voice_parameters = None
+        self.tts_engine = None
+        self.filepath = None
 
     def load_generation_settings(self, directory_path):
         generation_settings_path = os.path.join(directory_path, "generation_settings.json")
@@ -408,15 +528,21 @@ class AudiobookModel:
             settings = self.load_json(generation_settings_path)
             # Load speakers
             self.speakers = settings.get('speakers', {})
+            # Convert keys to integers
+            self.speakers = {int(k): v for k, v in self.speakers.items()}
             # Convert color strings back to QColor
             for speaker in self.speakers.values():
                 color = speaker.get('color', '#FFFFFF')
                 if isinstance(color, str):
                     speaker['color'] = QColor(color)  # Convert hex string back to QColor
+            # print(self.speakers)
             return settings
         else:
             return {}
 
+    def get_s2s_engines(self):
+        s2s_config = self.load_config(os.path.join('configs', 's2s_config.json'))
+        return [engine['name'] for engine in s2s_config.get('s2s_engines', [])]
 
 
 
@@ -436,3 +562,18 @@ class AudiobookModel:
 
     def clear_background_image(self):
         self.save_settings(background_image=None) 
+        
+    def replace_default_with_none(self, data):
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, str) and value.lower() in ['default', 'none']:
+                    data[key] = None
+                elif isinstance(value, (dict, list)):
+                    self.replace_default_with_none(value)
+        elif isinstance(data, list):
+            for i in range(len(data)):
+                value = data[i]
+                if isinstance(value, str) and value.lower() in ['default', 'none']:
+                    data[i] = None
+                elif isinstance(value, (dict, list)):
+                    self.replace_default_with_none(value)

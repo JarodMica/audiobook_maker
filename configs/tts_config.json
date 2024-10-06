@@ -5,9 +5,13 @@
             "parameters": [
                 {
                     "label": "Autoregressive Model Path",
-                    "type": "file",
+                    "type": "combobox",
                     "attribute": "autoregressive_model_path",
-                    "file_filter": "Model Files (*.pth *.pt);;All Files (*)"
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/tortoise/models",
+                    "look_for": "files",
+                    "file_filter": "*.pth",
+                    "include_none_option": true
                 },
                 {
                     "label": "Diffusion Model Path",
@@ -22,14 +26,22 @@
                 },
                 {
                     "label": "Tokenizer JSON Path",
-                    "type": "file",
+                    "type": "combobox",
                     "attribute": "tokenizer_json_path",
-                    "file_filter": "JSON Files (*.json);;All Files (*)"
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/tortoise/tokenizers",
+                    "look_for": "files",
+                    "file_filter": "*.json",
+                    "include_none_option": true
                 },
                 {
                     "label": "Voice",
-                    "type": "text",
-                    "attribute": "voice"
+                    "type": "combobox",
+                    "attribute": "voice",
+                    "function": "get_combobox_items",
+                    "folder_path": "./voices",
+                    "look_for": "folders",
+                    "file_filter": null
                 },
                 {
                     "label": "Sample Size",

@@ -1,0 +1,49 @@
+{
+    "s2s_engines": [
+      {
+        "name": "rvc",
+        "label": "RVC Settings",
+        "parameters": [
+          {
+            "label": "Voice Model",
+            "attribute": "selected_voice",
+            "type": "combobox",
+            "function": "get_combobox_items",
+            "folder_path": "engines/rvc/voice_models",
+            "look_for": "files",
+            "file_filter": "*.pth",
+            "include_none_option": true,
+            "none_option_label": "Default"
+          },
+          {
+            "label": "Voice Index",
+            "attribute": "selected_index",
+            "type": "combobox",
+            "function": "get_combobox_items",
+            "folder_path": "engines/rvc/voice_indexes",
+            "look_for": "files",
+            "file_filter": "*.index",
+            "include_none_option": true,
+            "none_option_label": "Default"
+          },
+          {
+            "label": "Index Effect",
+            "attribute": "index_rate",
+            "type": "slider",
+            "min": 0,
+            "max": 100,
+            "default": 0
+          },
+          {
+            "label": "Voice Pitch",
+            "attribute": "f0_pitch",
+            "type": "slider",
+            "min": -16,
+            "max": 16,
+            "default": 0
+          }
+        ]
+      }
+    ]
+  }
+  
