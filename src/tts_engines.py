@@ -6,8 +6,8 @@ import json
 try:
     from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
     from tortoise_tts_api.inference.generate import generate
-except:
-    print("Tortoise not installed")
+except Exception as e:
+    print(f"Tortoise not installed, received error: {e}")
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()

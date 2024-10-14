@@ -4,8 +4,8 @@ import json
 
 try:
     from rvc_python.infer import RVCInference
-except:
-    print("RVC not installed")
+except Exception as e:
+    print(f"RVC not installed, received error: {e}")
 
 def process_audio(s2s_engine, s2s_engine_name, input_audio_path, output_audio_path, parameters):
     s2s_engine_name = s2s_engine_name.lower()

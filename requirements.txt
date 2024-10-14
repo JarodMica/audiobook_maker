@@ -6,3 +6,4 @@ pyyaml
 pyside6
 nltk
 pyttsx3
+psutil
