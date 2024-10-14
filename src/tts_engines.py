@@ -3,8 +3,11 @@
 import os
 import json
 
-from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
-from tortoise_tts_api.inference.generate import generate
+try:
+    from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
+    from tortoise_tts_api.inference.generate import generate
+except:
+    print("Tortoise not installed")
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -96,8 +99,6 @@ def load_with_tortoise(**kwargs):
     # Find the folder paths for autoregressive model and tokenizer in the config
     ar_folder_path = next((param.folder_path for param in tortoise_engine_config.parameters if param.attribute == "autoregressive_model_path"), None)
     tokenizer_folder_path = next((param.folder_path for param in tortoise_engine_config.parameters if param.attribute == "tokenizer_json_path"), None)
-
-    from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
     
     # Parameters needed to load the tortoise engine
     autoregressive_model_path = kwargs.get("autoregressive_model_path")
