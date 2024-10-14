@@ -13,6 +13,10 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 - [Usage](#usage)
 - [Acknowledgements](#acknowledgements)
 
+### Install Specific Engines
+- [TortoiseTTS Installation](#tortoisetts-installation)
+- [RVC Installation](#rvc-installation)
+
 ## Features
 :heavy_check_mark: Multi-speaker generation, allowing you to change who speaks which sentence etc.
 
@@ -88,10 +92,6 @@ And that's it!
 Congrats, the GUI can be launched!  You should see in the errors in the terminal such as `Tortoise not installed` or `RVC not installed`
 
 If you use it like this, you will only be able to use pyttsx3.  To install additional engines, refer to the sections below to get the engines you want installed, I recommend you do all of them.
-
-- [TortoiseTTS Installation](#tortoisetts-installation)
-- [RVC Installation](#rvc-installation)
-
 
 ### Text-to-Speech Engines
 #### TortoiseTTS Installation
