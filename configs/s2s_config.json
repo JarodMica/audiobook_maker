@@ -1,7 +1,7 @@
 {
     "s2s_engines": [
       {
-        "name": "rvc",
+        "name": "RVC",
         "label": "RVC Settings",
         "parameters": [
           {
@@ -9,22 +9,19 @@
             "attribute": "selected_voice",
             "type": "combobox",
             "function": "get_combobox_items",
-            "folder_path": "engines/rvc/voice_models",
-            "look_for": "files",
-            "file_filter": "*.pth",
-            "include_none_option": true,
+            "folder_path": "engines/rvc",
+            "look_for": "folders",
+            "file_filter": "*",
+            "include_none_option": false,
             "none_option_label": "Default"
           },
           {
-            "label": "Voice Index",
-            "attribute": "selected_index",
+            "label": "Pitch Method",
+            "attribute": "f0method",
             "type": "combobox",
             "function": "get_combobox_items",
-            "folder_path": "engines/rvc/voice_indexes",
-            "look_for": "files",
-            "file_filter": "*.index",
-            "include_none_option": true,
-            "none_option_label": "Default"
+            "look_for": "custom",
+            "custom_options": ["rmvpe", "harvest", "crepe"]
           },
           {
             "label": "Index Effect",
@@ -32,15 +29,50 @@
             "type": "slider",
             "min": 0,
             "max": 100,
-            "default": 0
+            "default": 0,
+            "step":100
           },
           {
             "label": "Voice Pitch",
-            "attribute": "f0_pitch",
+            "attribute": "f0pitch",
             "type": "slider",
             "min": -16,
             "max": 16,
             "default": 0
+          },
+          {
+            "label": "Resample Sample Rate",
+            "attribute": "resample_sr",
+            "type": "slider",
+            "min": 0,
+            "max": 48000,
+            "default": 48000
+          },
+          {
+            "label": "Volume Increase",
+            "attribute": "rms_mix_rate",
+            "type": "slider",
+            "min": 0,
+            "max": 100,
+            "default": 50,
+            "step": 100
+          },
+          {
+            "label": "Protection for Voiceless Consonants",
+            "attribute": "protect",
+            "type": "slider",
+            "min": 0,
+            "max": 50,
+            "default": 33,
+            "step": 100
+          },
+          {
+            "label": "Filter Radius",
+            "attribute": "filter_radius",
+            "type": "slider",
+            "min": 0,
+            "max": 7,
+            "default": 3
           }
         ]
       }

@@ -135,14 +135,15 @@ class AudiobookMakerView(QMainWindow):
     set_background_image_requested = Signal()
     set_background_clear_image_requested = Signal()
     font_size_changed = Signal(int)
-    tts_engine_changed = Signal(str)
+    tts_engine_changed = Signal(object)
     s2s_engine_changed = Signal(str)
     audio_finished_signal = Signal()
     speakers_updated = Signal(object)
     sentence_speaker_changed = Signal(int, int)
-    current_speaker_changed = Signal(int)
+    # current_speaker_changed = Signal(int)
     generation_settings_changed = Signal()
     stop_generation_requested = Signal()
+    regen_mode_activated = Signal(bool)
 
 
 
@@ -207,9 +208,12 @@ class AudiobookMakerView(QMainWindow):
         self.updatePauseLabel(0)
 
     def init_ui(self):
-        # Main Layout
+        # Main Layout as Vertical Layout to stack main content and bottom box
         self.filepath = None
-        main_layout = QHBoxLayout()
+        main_layout = QVBoxLayout()
+
+        # Main Content Layout (Horizontal)
+        main_content_layout = QHBoxLayout()
 
         # Left side Layout
         left_layout = QVBoxLayout()
@@ -217,7 +221,7 @@ class AudiobookMakerView(QMainWindow):
         left_container = QWidget(self)
         left_container.setLayout(left_layout)
         left_container.setMaximumWidth(500)
-        main_layout.addWidget(left_container)
+        main_content_layout.addWidget(left_container)
 
         # Initialize TTS Options
         self.tts_options_widget = QWidget()
@@ -243,14 +247,12 @@ class AudiobookMakerView(QMainWindow):
         self.s2s_options_scroll_area.setWidgetResizable(True)
         self.s2s_options_scroll_area.setWidget(self.s2s_options_widget)
         self.s2s_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
 
         # Update options layout
         self.options_layout = QVBoxLayout()
         self.options_layout.addWidget(self.s2s_options_scroll_area, stretch=1)
         self.options_layout.addWidget(self.tts_options_scroll_area, stretch=1)
 
-        
         # -- TTS Engine Combo Box
         self.tts_engine_layout = QHBoxLayout()
         self.tts_engine_label = QLabel("TTS Engine: ")
@@ -269,15 +271,12 @@ class AudiobookMakerView(QMainWindow):
         self.s2s_engine_combo.currentTextChanged.connect(self.on_s2s_engine_changed)
         left_layout.addLayout(self.s2s_engine_layout)
         
-        
         if self.tts_engine_combo.count() > 0:
             self.tts_engine_combo.setCurrentIndex(0)
 
         self.use_s2s_checkbox = QCheckBox("Use s2s Engine", self)
         left_layout.addWidget(self.use_s2s_checkbox)
         self.use_s2s_checkbox.stateChanged.connect(self.on_use_s2s_changed)
-
-
 
         self.load_text = QPushButton("Select Text File", self)
         self.load_text.clicked.connect(self.on_load_text_clicked)
@@ -290,7 +289,6 @@ class AudiobookMakerView(QMainWindow):
         self.book_name_input = QLineEdit(self)
         self.book_layout.addWidget(self.book_name_input)
         left_layout.addLayout(self.book_layout)
-
 
         # -- Export Pause Slider
         pause = 0
@@ -348,11 +346,11 @@ class AudiobookMakerView(QMainWindow):
         left_layout.addWidget(self.play_all_button)
 
         # -- Regen Audio Button
-        self.regenerate_button = QPushButton("Regenerate Audio", self)
+        self.regenerate_button = QPushButton("Regenerate Chosen Sentence", self)
         self.regenerate_button.clicked.connect(self.on_regenerate_button_clicked)
         left_layout.addWidget(self.regenerate_button)
 
-        self.continue_audiobook_button = QPushButton("Continue Audiobook Generation", self)
+        self.continue_audiobook_button = QPushButton("Regenerate/Continue Audiobook Generation", self)
         self.continue_audiobook_button.clicked.connect(self.on_continue_button_clicked)
         left_layout.addWidget(self.continue_audiobook_button)
 
@@ -392,7 +390,25 @@ class AudiobookMakerView(QMainWindow):
         right_inner_layout.setStretch(1, 1)  # Options take 1 part
 
         right_layout.addLayout(right_inner_layout)
-        main_layout.addLayout(right_layout)
+        main_content_layout.addLayout(right_layout)
+
+        # Add the main content layout to the main vertical layout
+        main_layout.addLayout(main_content_layout)
+
+        # Create the bottom rectangular box for Regeneration Mode
+        self.regen_mode_widget = QWidget(self)
+        self.regen_mode_widget.setStyleSheet("background-color: green;")
+        self.regen_mode_layout = QHBoxLayout()
+        self.regen_mode_label = QLabel("Regeneration mode is on", self)
+        self.regen_mode_label.setStyleSheet("color: white; font-weight: bold;")
+        self.regen_mode_label.setAlignment(Qt.AlignCenter)
+        self.regen_mode_layout.addWidget(self.regen_mode_label)
+        self.regen_mode_widget.setLayout(self.regen_mode_layout)
+        self.regen_mode_widget.setVisible(False)  # Initially hidden
+        self.regen_mode_widget.setFixedHeight(50)  # Set a fixed height for the box
+
+        # Add the regen mode widget to the main layout
+        main_layout.addWidget(self.regen_mode_widget)
 
         # Create a QWidget for the main window's central widget
         central_widget = QWidget(self)
@@ -440,12 +456,12 @@ class AudiobookMakerView(QMainWindow):
 
         self.background_menu = self.menu.addMenu("Background")
 
-        # Add Set Background Image action to File menu
+        # Add Set Background Image action to Background menu
         self.set_background_action = QAction("Set Background Image", self)
         self.set_background_action.triggered.connect(self.on_set_background_image_triggered)
         self.background_menu.addAction(self.set_background_action)
 
-        # Clear Background Image action to File menu
+        # Clear Background Image action to Background menu
         self.set_background_clear_action = QAction("Clear Background Image", self)
         self.set_background_clear_action.triggered.connect(self.on_set_background_clear_image_triggered)
         self.background_menu.addAction(self.set_background_clear_action)
@@ -465,13 +481,21 @@ class AudiobookMakerView(QMainWindow):
         self.update_speaker_selection_combo()
         self.populate_s2s_engines()
 
-        
         # Add Manage Speakers action to Speakers menu
         self.manage_speakers_action = QAction("Manage Speakers", self)
         self.manage_speakers_action.triggered.connect(self.on_manage_speakers)
         self.speaker_menu.addAction(self.manage_speakers_action)
         
         self.tableWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        # Create Tools menu
+        self.tools_menu = self.menu.addMenu("Tools")
+
+        # Add Regeneration Mode action
+        self.regen_mode_action = QAction("Regeneration Mode", self, checkable=True)
+        self.regen_mode_action.setChecked(False)
+        self.regen_mode_action.triggered.connect(self.toggle_regeneration_mode)
+        self.tools_menu.addAction(self.regen_mode_action)
 
         # Window settings
         self.setWindowTitle("Audiobook Maker")
@@ -487,6 +511,16 @@ class AudiobookMakerView(QMainWindow):
 
         # Set the calculated geometry for the window
         self.setGeometry(100, 100, int(width), int(height))
+        
+    def toggle_regeneration_mode(self, checked):
+        if checked:
+            self.regen_mode_widget.setVisible(True)
+            self.regen_mode_activated.emit(True)
+            self.regen_mode_action.setChecked(True)
+        else:
+            self.regen_mode_widget.setVisible(False)
+            self.regen_mode_activated.emit(False)
+            self.regen_mode_action.setChecked(False)
         
     def populate_s2s_engines(self):
         s2s_config = self.load_s2s_config('configs/s2s_config.json')
@@ -516,7 +550,7 @@ class AudiobookMakerView(QMainWindow):
             if speaker_id in self.speakers:
                 self.load_speaker_settings(speaker_id)
                 # Emit a signal to notify the controller or model
-                self.current_speaker_changed.emit(speaker_id)
+                # self.current_speaker_changed.emit(speaker_id)
             else:
                 self.reset_settings_to_default()
         else:
@@ -530,7 +564,7 @@ class AudiobookMakerView(QMainWindow):
                 self.speaker_selection_combo.findData(default_speaker_id)
             )
             # Emit the signal to notify any listeners about the change
-            self.current_speaker_changed.emit(default_speaker_id)
+            # self.current_speaker_changed.emit(default_speaker_id)
         else:
             self.show_message("Error", "Default speaker not found.", QMessageBox.Critical)
 
@@ -731,7 +765,7 @@ class AudiobookMakerView(QMainWindow):
         pause_duration = value / 10.0
         self.updatePauseLabel(pause_duration)
         self.update_current_speaker_setting('pause_duration', pause_duration)
-        self.pause_between_sentences_changed.emit(pause_duration)
+        # self.pause_between_sentences_changed.emit(pause_duration)
         
     def on_s2s_engine_changed(self, engine_name):
         self.update_s2s_options(engine_name)
@@ -894,9 +928,10 @@ class AudiobookMakerView(QMainWindow):
         
     def on_tts_engine_changed(self, engine_name):
         # self.set_load_tts_button_color("")  # Reset color when TTS engine changes
-        self.tts_engine_changed.emit(engine_name)
         self.update_tts_options(engine_name)  # Update the TTS options in the view
         self.update_current_speaker_setting('tts_engine', engine_name)
+        self.tts_engine_changed.emit(self.speakers)
+        # self.speakers_updated.emit(self.speakers)
 
     def update_s2s_options(self, engine_name):
         if not engine_name:
@@ -1019,22 +1054,29 @@ class AudiobookMakerView(QMainWindow):
             widget.setTickInterval(1)
             
             # Create the value label
-            max_val = param.get('max', 100)
-            max_val_length = len(str(max_val))
-            estimated_width = max_val_length * 10  # Adjust multiplier as needed
-            value_label = QLabel(str(widget.value()))
-            value_label.setFixedWidth(estimated_width)
+            # max_val = param.get('max', 100)
+            # max_val_length = len(str(max_val))
+            # estimated_width = max_val_length * 10  # Adjust multiplier as needed
+            
+            # To update the gui to display decimal
+            step = param.get("step", 1)
+            value_label = QLabel(str(widget.value()/step))
+            # value_label.setFixedWidth(estimated_width)
+            
+            value_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Preferred)
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            
             
             # Define a handler to update the label and emit the parameter changed signal
-            def handle_slider_change(value, attr=attribute, lbl=value_label):
-                lbl.setText(str(value))
+            def handle_slider_change(value, attr=attribute, lbl=value_label, step=step):
+                lbl.setText(str(value/step))
                 self.on_parameter_changed(attr, value)
             
             # Connect the slider's valueChanged signal to the handler
             widget.valueChanged.connect(handle_slider_change)
             
             # Add the slider and the value label to the layout
-            layout.addWidget(widget)
+            layout.addWidget(widget, stretch=1)
             layout.addWidget(value_label)
             
             # Store references to the slider and value label for later use
@@ -1054,6 +1096,7 @@ class AudiobookMakerView(QMainWindow):
         file_filter = param.get('file_filter', '*')  # e.g., '*.txt'
         include_none_option = param.get('include_none_option', False)
         none_option_label = param.get('none_option_label', 'Default')  # Label for the None option
+        custom_options = param.get('custom_options', None)
 
         # Expand any environment variables and user variables
         folder_path = os.path.expandvars(os.path.expanduser(folder_path))
@@ -1086,6 +1129,9 @@ class AudiobookMakerView(QMainWindow):
             except Exception as e:
                 self.show_message("Error", f"Error reading directory {folder_path}: {e}", QMessageBox.Warning)
                 return items
+        elif look_for == 'custom':
+            for item in custom_options:
+                items.append(item)
         else:
             self.show_message("Error", f"Invalid look_for value: {look_for}", QMessageBox.Warning)
             return items

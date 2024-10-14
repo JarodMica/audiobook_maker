@@ -118,6 +118,7 @@ class AudiobookController:
         self.current_audio_index = 0
         self.current_audiobook_directory = None
         self.is_generating = False
+        self.regen_mode = False
 
         
         self.debug = False  # Set this to True to enable debugging mode
@@ -149,6 +150,7 @@ class AudiobookController:
         self.view.set_background_clear_image_requested.connect(self.clear_background_image)
         self.view.tts_engine_changed.connect(self.on_tts_engine_changed)
         self.view.speakers_updated.connect(self.on_speakers_updated)
+        self.view.regen_mode_activated.connect(self.change_regen_mode)
 
         self.view.sentence_speaker_changed.connect(self.assign_speaker_to_sentence)
         self.view.tableWidget.customContextMenuRequested.connect(self.allow_speaker_assignment)
@@ -158,6 +160,23 @@ class AudiobookController:
 
 
         # No need to connect font size and voice setting signals if they are handled in the view
+        
+    def change_regen_mode(self, regen_mode):
+        if regen_mode:
+            self.regen_mode = True
+            self.view.clear_table()
+            total_sentences = len(self.model.text_audio_map)
+            self.view.tableWidget.setRowCount(total_sentences)  # Set the total number of rows upfront
+            for idx_str in sorted(self.model.text_audio_map.keys(), key=lambda x: int(x)):
+                item = self.model.text_audio_map[idx_str]
+                sentence = item['sentence']
+                row_position = int(idx_str)
+                self.view.add_table_item(row_position, sentence)
+        else:
+            self.regen_mode = False
+            self.update_table_with_sentences()
+            
+        
         
     def set_up_settings(self, speakers=None):
         if not speakers:
@@ -221,13 +240,13 @@ class AudiobookController:
             self.assign_speaker_to_sentence(row, speaker_id)
 
 
-    def on_tts_engine_changed(self, tts_engine_name):
-        # You might perform additional actions here if needed
+    def on_tts_engine_changed(self, speakers):
+        self.on_speakers_updated(speakers)
         pass
     
 
     def assign_speaker_to_sentence(self, idx, speaker_id):
-        self.model.assign_speaker_to_sentence(idx, speaker_id)
+        self.model.assign_speaker_to_sentence(idx, speaker_id, self.regen_mode)
         # Save the updated text_audio_map
         directory_path = self.current_audiobook_directory
         if directory_path:
@@ -286,7 +305,7 @@ class AudiobookController:
         if self.model.filepath or self.model.text_audio_map:
             proceed = self.view.ask_question(
                 action_description,
-                "A text file is currently loaded. Loading a new one will reset all settings. Proceed?",
+                f"A text file is currently loaded. {action_description} will reset all settings. Proceed?",
                 buttons=QMessageBox.Yes | QMessageBox.No,
                 default_button=QMessageBox.No
             )
@@ -294,6 +313,7 @@ class AudiobookController:
                 return False
 
             # Reset model and view
+            self.view.toggle_regeneration_mode(False)
             self.model.reset()
             self.current_audiobook_directory = None
             self.is_generating = False
@@ -351,77 +371,78 @@ class AudiobookController:
         return directory_path
 
     def start_generation(self):
-        if self.is_generating:
-            self.view.show_message(
-                "Info",
-                "Generation is already running.",
-                icon=QMessageBox.Information
-            )
-            return
-        else:
-            if hasattr(self.model, 'filepath') and self.model.filepath:
-                if not self.current_audiobook_directory:
-                    directory_path = self.create_audiobook_directory()
+        self.view.toggle_regeneration_mode(False)
+        if hasattr(self.model, 'filepath') and self.model.filepath:
+            if not self.current_audiobook_directory:
+                directory_path = self.create_audiobook_directory()
 
-                directory_path = self.current_audiobook_directory
+            directory_path = self.current_audiobook_directory
 
-                # Copy the text file to the audiobook directory
-                text_file_destination = os.path.join(directory_path, "book_text.txt")
-                if not os.path.exists(text_file_destination):
-                    shutil.copy2(self.model.filepath, text_file_destination)
+            # Copy the text file to the audiobook directory
+            text_file_destination = os.path.join(directory_path, "book_text.txt")
+            if not os.path.exists(text_file_destination):
+                shutil.copy2(self.model.filepath, text_file_destination)
 
-                # Load existing text_audio_map if it exists
-                map_file_path = os.path.join(directory_path, "text_audio_map.json")
-                if os.path.exists(map_file_path):
-                    self.model.load_text_audio_map(directory_path)
-                else:
-                    self.model.text_audio_map.clear()
-
-                sentence_list = self.model.load_sentences(self.model.filepath)
-
-                # Update text_audio_map with new sentences
-                self.model.update_text_audio_map(sentence_list)
-
-                # Save the updated map
-                self.model.save_text_audio_map(directory_path)
-
-                # Update the view's table
-                self.update_table_with_sentences()
-
-                # Save generation settings if needed
-                if self.model.load_generation_settings(directory_path) == {}: #no generation settings saved
-                    self.view.speakers = self.set_up_settings()
-                    self.save_generation_settings()
-
-                if self.debug:
-                    # Run in main thread for debugging
-                    self.view.disable_buttons()  # Disable buttons before starting
-                    self.model.generate_audio_for_sentence_threaded(
-                        directory_path,
-                        False,
-                        self.view.set_progress,  # Progress callback
-                        self.on_sentence_generated  # Sentence generated callback
+            # Load existing text_audio_map if it exists
+            map_file_path = os.path.join(directory_path, "text_audio_map.json")
+            if os.path.exists(map_file_path):
+                self.model.load_text_audio_map(directory_path)
+                if self.model.text_audio_map["0"]["generated"]:
+                    confirm_continue = self.view.ask_question(
+                        'Confirm Start',
+                        "WAIT! You've already started generating an audiobook.  If you click yes, it will start and OVERRIDE existing audio files.  If you want to continue generation from where you left off, please click 'Continue Audiobook Generation' instead.\n\nStill want to proceed?",
+                        default_button=QMessageBox.No
                     )
-                    self.view.enable_buttons()  # Re-enable buttons after finishing
-                    self.on_generation_finished()  # Perform any post-generation tasks
-                else:
-                    # Start the worker thread
-                    self.worker = AudioGenerationWorker(
-                        self.model.generate_audio_for_sentence_threaded,
-                        directory_path,
-                        False
-                    )
-                    self.worker.progress_signal.connect(self.view.set_progress)
-                    self.worker.started.connect(self.view.disable_buttons)
-                    self.worker.finished.connect(self.on_generation_finished)
-                    self.worker.sentence_generated_signal.connect(self.on_sentence_generated)
-                    self.worker.start()
-                    self.on_generation_started()  # Call this method after starting the worker
-
-                
+                    if not confirm_continue:
+                        return #stop generation
             else:
-                self.view.show_message("Error", "Please pick a text file before generating audio.", icon=QMessageBox.Warning)
-                return
+                self.model.text_audio_map.clear()
+
+            sentence_list = self.model.load_sentences(self.model.filepath)
+
+            # Update text_audio_map with new sentences
+            self.model.update_text_audio_map(sentence_list)
+
+            # Save the updated map
+            self.model.save_text_audio_map(directory_path)
+
+            # Update the view's table
+            self.update_table_with_sentences()
+
+            # Save generation settings if needed
+            if self.model.load_generation_settings(directory_path) == {}: #no generation settings saved
+                self.view.speakers = self.set_up_settings()
+                self.save_generation_settings()
+                
+            if self.debug:
+                # Run in main thread for debugging
+                self.view.disable_buttons()  # Disable buttons before starting
+                self.model.generate_audio_for_sentence_threaded(
+                    directory_path,
+                    False,
+                    self.view.set_progress,  # Progress callback
+                    self.on_sentence_generated  # Sentence generated callback
+                )
+                self.view.enable_buttons()  # Re-enable buttons after finishing
+                self.on_generation_finished()  # Perform any post-generation tasks
+            else:
+                # Start the worker thread
+                self.worker = AudioGenerationWorker(
+                    self.model.generate_audio_for_sentence_threaded,
+                    directory_path,
+                    False
+                )
+                self.worker.progress_signal.connect(self.view.set_progress)
+                self.worker.started.connect(self.view.disable_buttons)
+                self.worker.finished.connect(self.on_generation_finished)
+                self.worker.sentence_generated_signal.connect(self.on_sentence_generated)
+                self.worker.start()
+                self.on_generation_started()  # Call this method after starting the worker
+
+            
+        else:
+            self.view.show_message("Error", "Please pick a text file before generating audio.", icon=QMessageBox.Warning)
+            return
 
     def stop_generation(self):
         if hasattr(self, 'worker') and self.worker.isRunning():
@@ -518,11 +539,13 @@ class AudiobookController:
 
 
     def regenerate_audio_for_sentence(self):
+        
         selected_row = self.view.get_selected_table_row()
         if selected_row == -1:
             self.view.show_message("Error", "Choose a sentence.", icon=QMessageBox.Warning)
             return
 
+        self.view.toggle_regeneration_mode(False)
         map_key = str(selected_row)
 
         if not self.model.text_audio_map.get(map_key, {}).get('generated', False):
@@ -595,7 +618,7 @@ class AudiobookController:
         self.view.show_message("Error", error_message, icon=QMessageBox.Warning)
 
     def continue_audiobook_generation(self):
-        
+        self.view.toggle_regeneration_mode(False)
         if not self.current_audiobook_directory:
             self.current_audiobook_directory = self.view.get_existing_directory("Select an Audiobook to Continue Generating")
         
@@ -678,6 +701,8 @@ class AudiobookController:
 
 
     def update_audiobook(self):
+        if not self.check_and_reset_for_new_text_file('Update Audiobook'):
+            return
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
         self.current_audiobook_directory = directory_path  # Add this line
 

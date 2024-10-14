@@ -8,6 +8,7 @@ import pyttsx3
 import re
 import tempfile
 import tts_engines  # Import your TTS_engines module
+import s2s_engines
 from collections import defaultdict
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
@@ -27,6 +28,11 @@ class AudiobookModel:
         self.current_voice_parameters = None
         self.tts_engine = None
         self.filepath = None
+        
+        self.current_s2s_engine_name = None
+        self.current_s2s_speaker_id = None
+        self.current_s2s_parameters = None
+        self.s2s_engine = None
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #   Data Loading and Saving Methods
@@ -158,11 +164,12 @@ class AudiobookModel:
     def update_speakers(self, speakers):
         self.speakers = speakers
         
-    def assign_speaker_to_sentence(self, idx, speaker_id):
+    def assign_speaker_to_sentence(self, idx, speaker_id, regen_mode):
         idx_str = str(idx)
         if idx_str in self.text_audio_map:
             self.text_audio_map[idx_str]['speaker_id'] = speaker_id
-            self.text_audio_map[idx_str]['generated'] = False
+            if regen_mode:
+                self.text_audio_map[idx_str]['generated'] = False
             # Optionally, save the updated map
             # self.save_text_audio_map(directory_path)
 
@@ -201,10 +208,33 @@ class AudiobookModel:
             self.current_speaker_id = speaker_id
             self.current_voice_parameters = kwargs
             return self.tts_engine
+        
+    def load_selected_s2s_engine(self, chosen_s2s_engine, speaker_id, **kwargs):
+        # Check if the s2s engine is already loaded with these parameters
+        if (self.current_s2s_engine_name == chosen_s2s_engine and
+            self.current_s2s_speaker_id == speaker_id and
+            self.current_s2s_parameters == kwargs):
+            # Already loaded, skip loading
+            return True
+        else:
+            try:
+                # Load the s2s engine
+                self.s2s_engine = s2s_engines.load_s2s_engine(chosen_s2s_engine, **kwargs)
+                if self.s2s_engine == None:
+                    return False
+                # Store current parameters
+                self.current_s2s_engine_name = chosen_s2s_engine
+                self.current_s2s_speaker_id = speaker_id
+                self.current_s2s_parameters = kwargs
+                return True
+            except Exception as e:
+                # Handle exception, perhaps log it
+                print(f"Failed to load s2s engine '{chosen_s2s_engine}': {e}")
+                return False
 
         
 
-    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, report_progress_callback, sentence_generated_callback, should_stop_callback):
+    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
         self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
         total_sentences = len(self.text_audio_map)
@@ -225,24 +255,33 @@ class AudiobookModel:
             # Load speaker settings
             speaker = self.speakers.get(speaker_id, {})
             speaker_settings = speaker.get('settings', {})
-            # Merge voice_parameters with speaker_settings
-            combined_parameters = speaker_settings
             # Load TTS engine with speaker-specific settings
-            tts_engine_name = combined_parameters.get('tts_engine', 'pyttsx3')
-            self.load_selected_tts_engine(tts_engine_name, speaker_id, **combined_parameters)
-
+            tts_engine_name = speaker_settings.get('tts_engine', 'pyttsx3')
+            self.load_selected_tts_engine(tts_engine_name, speaker_id, **speaker_settings)
+            
+            use_s2s = speaker_settings.get('use_s2s', False)
+            if use_s2s:
+                s2s_engine_name = speaker_settings.get('s2s_engine', None)
+                if s2s_engine_name:
+                    s2s_parameters = speaker_settings.copy()
+                    s2s_validated = self.load_selected_s2s_engine(s2s_engine_name, speaker_id, **s2s_parameters)
+                else:
+                    s2s_validated = False
+            else:
+                s2s_validated = False
+            
             # Generate audio for sentences assigned to this speaker
             for idx, entry in entries:
                 # Check for stop request
-                if should_stop_callback():
-                    print("Generation stopped by user")
-                    return
+                # if should_stop_callback():
+                #     print("Generation stopped by user")
+                #     return
                 # Skip already generated sentences if is_continue is True
                 if is_continue and entry['generated']:
                     continue
                 
                 sentence = entry['sentence']
-                audio_path = self.generate_audio_proxy(sentence, combined_parameters)
+                audio_path = self.generate_audio_proxy(sentence, speaker_settings, s2s_validated)
 
                 if audio_path:
                     new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
@@ -257,11 +296,11 @@ class AudiobookModel:
                 progress_percentage = int((generated_count / total_sentences) * 100)
                 report_progress_callback(progress_percentage)
 
-    def generate_audio_proxy(self, sentence, voice_parameters):
+    def generate_audio_proxy(self, sentence, voice_parameters, s2s_validated):
         # print(voice_parameters)
         tts_engine_name = voice_parameters.get('tts_engine', 'pyttsx3')
         s2s_engine_name = voice_parameters.get('s2s_engine', None)
-        use_s2s = voice_parameters.get('use_s2s', None)
+        
 
         # Generate a unique temporary file name
         with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_file:
@@ -273,9 +312,11 @@ class AudiobookModel:
         if not success:
             return None
 
-        if use_s2s:
-            # do rvc inference here then return audio path, use s2s_engine.py
-            pass
+        if s2s_validated:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp_s2s_file:
+                s2s_audio_path = tmp_s2s_file.name
+            s2s_engines.process_audio(self.s2s_engine, s2s_engine_name=s2s_engine_name, input_audio_path=audio_path, output_audio_path=s2s_audio_path, parameters=voice_parameters)
+            return s2s_audio_path
         else:
             return audio_path
         
@@ -291,7 +332,7 @@ class AudiobookModel:
 
         # Find a suitable audio file name with an incrementing suffix
         while True:
-            new_audiobook_name = f"{dir_name}_audiobook_{idx}.wav"
+            new_audiobook_name = f"{dir_name}_audiobook_{idx}.mp3"
             new_audiobook_path = os.path.join(exported_dir, new_audiobook_name)
             if not os.path.exists(new_audiobook_path):
                 break  # Exit the loop once a suitable name is found
@@ -324,7 +365,7 @@ class AudiobookModel:
             combined_audio = combined_audio[:-pause_length]
 
         # Export the combined audio
-        combined_audio.export(output_filename, format="wav")
+        combined_audio.export(output_filename, format="mp3")
 
         print(f"Combined audiobook saved as {output_filename}")
         return output_filename
