@@ -4,6 +4,7 @@ pydub
 requests
 pyyaml
 pyside6
-nltk
 pyttsx3
 psutil
+deepspeed==0.15.0
+numpy==1.26.4
