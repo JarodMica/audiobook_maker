@@ -3,5 +3,6 @@ soundfile
 pydub
 requests
 pyyaml
-pyqt5
+pyside6
 nltk
+pyttsx3

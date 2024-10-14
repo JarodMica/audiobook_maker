@@ -16,5 +16,4 @@ tortoise_api/
 personal/
 
 *.pth
-voices/
 temp/
