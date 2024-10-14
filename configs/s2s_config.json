@@ -1,0 +1,81 @@
+{
+    "s2s_engines": [
+      {
+        "name": "RVC",
+        "label": "RVC Settings",
+        "parameters": [
+          {
+            "label": "Voice Model",
+            "attribute": "selected_voice",
+            "type": "combobox",
+            "function": "get_combobox_items",
+            "folder_path": "engines/rvc",
+            "look_for": "folders",
+            "file_filter": "*",
+            "include_none_option": false,
+            "none_option_label": "Default"
+          },
+          {
+            "label": "Pitch Method",
+            "attribute": "f0method",
+            "type": "combobox",
+            "function": "get_combobox_items",
+            "look_for": "custom",
+            "custom_options": ["rmvpe", "harvest", "crepe"]
+          },
+          {
+            "label": "Index Effect",
+            "attribute": "index_rate",
+            "type": "slider",
+            "min": 0,
+            "max": 100,
+            "default": 0,
+            "step":100
+          },
+          {
+            "label": "Voice Pitch",
+            "attribute": "f0pitch",
+            "type": "slider",
+            "min": -16,
+            "max": 16,
+            "default": 0
+          },
+          {
+            "label": "Resample Sample Rate",
+            "attribute": "resample_sr",
+            "type": "slider",
+            "min": 0,
+            "max": 48000,
+            "default": 48000
+          },
+          {
+            "label": "Volume Increase",
+            "attribute": "rms_mix_rate",
+            "type": "slider",
+            "min": 0,
+            "max": 100,
+            "default": 50,
+            "step": 100
+          },
+          {
+            "label": "Protection for Voiceless Consonants",
+            "attribute": "protect",
+            "type": "slider",
+            "min": 0,
+            "max": 50,
+            "default": 33,
+            "step": 100
+          },
+          {
+            "label": "Filter Radius",
+            "attribute": "filter_radius",
+            "type": "slider",
+            "min": 0,
+            "max": 7,
+            "default": 3
+          }
+        ]
+      }
+    ]
+  }
+  

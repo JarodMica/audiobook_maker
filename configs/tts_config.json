@@ -1,0 +1,118 @@
+{
+    "tts_engines": [
+        {
+            "name": "Tortoise",
+            "parameters": [
+                {
+                    "label": "Autoregressive Model Path",
+                    "type": "combobox",
+                    "attribute": "autoregressive_model_path",
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/tortoise/models",
+                    "look_for": "files",
+                    "file_filter": "*.pth",
+                    "include_none_option": true
+                },
+                {
+                    "label": "Diffusion Model Path",
+                    "type": "file",
+                    "attribute": "diffusion_model_path",
+                    "file_filter": "Model Files (*.pth *.pt);;All Files (*)"
+                },
+                {
+                    "label": "Vocoder Name",
+                    "type": "text",
+                    "attribute": "vocoder_name"
+                },
+                {
+                    "label": "Tokenizer JSON Path",
+                    "type": "combobox",
+                    "attribute": "tokenizer_json_path",
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/tortoise/tokenizers",
+                    "look_for": "files",
+                    "file_filter": "*.json",
+                    "include_none_option": true
+                },
+                {
+                    "label": "Voice",
+                    "type": "combobox",
+                    "attribute": "voice",
+                    "function": "get_combobox_items",
+                    "folder_path": "./voices",
+                    "look_for": "folders",
+                    "file_filter": null
+                },
+                {
+                    "label": "Sample Size",
+                    "type": "spinbox",
+                    "attribute": "sample_size",
+                    "min": 1,
+                    "max": 64,
+                    "default": 4
+                },
+                {
+                    "label": "Use DeepSpeed",
+                    "type": "checkbox",
+                    "attribute": "use_deepspeed"
+                },
+                {
+                    "label": "Use HiFi-GAN",
+                    "type": "checkbox",
+                    "attribute": "use_hifigan"
+                }
+            ]
+        },
+        {
+            "name": "pyttsx3",
+            "parameters": [
+                {
+                    "label": "Voice Rate",
+                    "type": "spinbox",
+                    "attribute": "rate",
+                    "min": 100,
+                    "max": 200,
+                    "default": 150
+                },
+                {
+                    "label": "Volume",
+                    "type": "spinbox",
+                    "attribute": "volume",
+                    "min": 0,
+                    "max": 100,
+                    "default": 100
+                }
+            ]
+        },
+        {
+            "name": "StyleTTS2",
+            "parameters": [
+                {
+                    "label": "Parameter 1",
+                    "type": "text",
+                    "attribute": "param1"
+                },
+                {
+                    "label": "Parameter 2",
+                    "type": "checkbox",
+                    "attribute": "param2"
+                }
+            ]
+        },
+        {
+            "name": "XTTS",
+            "parameters": [
+                {
+                    "label": "Parameter 1",
+                    "type": "text",
+                    "attribute": "param1"
+                },
+                {
+                    "label": "Parameter 2",
+                    "type": "checkbox",
+                    "attribute": "param2"
+                }
+            ]
+        }
+    ]
+}

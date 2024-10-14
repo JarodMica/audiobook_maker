@@ -1,0 +1,2 @@
+background_image: null
+available_tts_engines: ["pyttsx3", "engine2", "engine3"]
