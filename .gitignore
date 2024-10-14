@@ -5,7 +5,6 @@
 *.whl
 
 settings.json
-rvc/
 tort.yaml
 __pycache__/
 .venv/
@@ -16,6 +15,6 @@ output/
 tortoise_api/
 personal/
 
-models/
 *.pth
 voices/
+temp/
