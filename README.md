@@ -59,7 +59,9 @@ Will be available for Youtube Channel Members at the Supporter (Package) level: 
 2. Unzip the folder
 3. Run the `start.bat` file
 
-And that's it!
+And that's it! (maybe)
+
+If you run into issues, check your drivers and make sure they're up to date.  If you don't run into issues, I recommend not updating.
 
 ## Manual Installation Windows 10/11
 ### Pre-requistites
@@ -85,11 +87,16 @@ And that's it!
    ```
    pip install -r .\requirements.txt
    ```
-4. Launch the interface
+4. Pull submodules
+   ```
+   git submodule init
+   git submodule update --remote
+   ```  
+5. Launch the interface
    ```
    python .\src\controller.py
    ```
-5. (Optional) I recommend you create a batch script to launch the gui instead of manually doing it each time. Open notepad, throw the code block below into it, name it `start.bat`, and it should be fine.  Make sure your extensions are showing so that it's not `start.bat.txt`
+6. (Optional) I recommend you create a batch script to launch the gui instead of manually doing it each time. Open notepad, throw the code block below into it, name it `start.bat`, and it should be fine.  Make sure your extensions are showing so that it's not `start.bat.txt`
    ```
    call venv\Scripts\activate
    python webui.py
@@ -104,10 +111,9 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    .\venv\Scripts\activate
    ```
-2. Clone the tortoise tts api repo, then pull its submodules:
+2. Change directory to tortoise submodule, then pull its submodules:
    ```
-   git clone https://github.com/JarodMica/tortoise_tts_api.git
-   cd .\tortoise_tts_api\
+   cd .\modules\tortoise_tts_api\
    git submodule init
    git submodule update --remote
    ```
@@ -119,13 +125,9 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
 4. Install the tortoise tts api repo, then cd back to root:
    ```
    pip install .
-   cd ..
+   cd ..\..
    ```
-5. Remove the tortoise_tts_api repo to not cause any conflicts with the actual library.  If this fails, just simply delete the folder.
-   ```
-   rm -r -fo .\tortoise_tts_api\
-   ```
-6. Ensure you have pytorch installed with CUDA enabled.  You may have gotten it from the previous library installations, so we want to be sure we're on the right version so do:
+5. Ensure you have pytorch installed with CUDA enabled.  You may have gotten it from the previous library installations, so we want to be sure we're on the right version so do:
    ```
    pip uninstall torch -y
    pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
