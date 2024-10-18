@@ -3,13 +3,22 @@
 import sys 
 from PySide6.QtWidgets import QApplication, QMessageBox 
 from PySide6.QtCore import QThread, Signal, QObject
+import os
+import shutil
+import time
+
+if os.path.exists("runtime"):
+    # Get the directory where the script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Add this directory to sys.path
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+
 
 from model import AudiobookModel
 from view import AudiobookMakerView
 
-import os
-import shutil
-import time
 
 class AudioGenerationWorker(QThread):
     progress_signal = Signal(int)
