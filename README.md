@@ -13,6 +13,10 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 - [Usage](#usage)
 - [Acknowledgements](#acknowledgements)
 
+### Install Specific Engines
+- [TortoiseTTS Installation](#tortoisetts-installation)
+- [RVC Installation](#rvc-installation)
+
 ## Features
 :heavy_check_mark: Multi-speaker generation, allowing you to change who speaks which sentence etc.
 
@@ -47,7 +51,7 @@ I have decided to **NOT** use gradio for this.  The biggest reason being that th
 
 
 ## Windows Package Installation
-Is available for Youtube Channel Members at the Supporter (Package) level: https://www.youtube.com/channel/UCwNdsF7ZXOlrTKhSoGJPnlQ/join
+Will be available for Youtube Channel Members at the Supporter (Package) level: https://www.youtube.com/channel/UCwNdsF7ZXOlrTKhSoGJPnlQ/join
 ### Pre-requisites
 - NVIDIA GPU with at least 8GB of VRAM (for heavier inference models like Tortoise, 4-6 GB might be possible as we're not training here)
 
@@ -85,13 +89,14 @@ And that's it!
    ```
    python .\src\controller.py
    ```
+5. (Optional) I recommend you create a batch script to launch the gui instead of manually doing it each time. Open notepad, throw the code block below into it, name it `start.bat`, and it should be fine.  Make sure your extensions are showing so that it's not `start.bat.txt`
+   ```
+   call venv\Scripts\activate
+   python webui.py
+   ```
 Congrats, the GUI can be launched!  You should see in the errors in the terminal such as `Tortoise not installed` or `RVC not installed`
 
 If you use it like this, you will only be able to use pyttsx3.  To install additional engines, refer to the sections below to get the engines you want installed, I recommend you do all of them.
-
-- [TortoiseTTS Installation](#tortoisetts-installation)
-- [RVC Installation](#rvc-installation)
-
 
 ### Text-to-Speech Engines
 #### TortoiseTTS Installation
