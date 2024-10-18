@@ -33,22 +33,22 @@ cd ..
 xcopy %REPO_NAME%\update_package.bat update_package.bat /E /I /H /Y
 xcopy %REPO_NAME%\requirements.txt requirements.txt /E /I /H /Y
 
-xcopy %REPO_NAME%\src src /E /I /H
-xcopy %REPO_NAME%\configs configs /E /I /H
+xcopy %REPO_NAME%\src src /E /I /H /Y
+xcopy %REPO_NAME%\configs configs /E /I /H /Y
 xcopy %REPO_NAME%\modules\tortoise_tts_api modules\tortoise_tts_api /E /I /H /Y
 cd modules\tortoise_tts_api
 git submodule init
 git submodule update --remote
 cd ..\..
 
-runtime\python.exe -m pip uninstall tortoise_tts_api
-runtime\python.exe -m pip uninstall dlas
-runtime\python.exe -m pip uninstall tortoise
+runtime\python.exe -m pip uninstall -y tortoise_tts_api
+runtime\python.exe -m pip uninstall -y dlas
+runtime\python.exe -m pip uninstall -y tortoise
 runtime\python.exe -m pip install modules\tortoise_tts_api\modules\tortoise_tts
 runtime\python.exe -m pip install modules\tortoise_tts_api\modules\dlas
 runtime\python.exe -m pip install modules\tortoise_tts_api
 
-runtime\python.exe -m pip uninstall rvc-python
+runtime\python.exe -m pip uninstall -y rvc-python
 runtime\python.exe -m pip install git+https://github.com/JarodMica/rvc-python
 
 runtime\python.exe -m pip install -r requirements.txt
