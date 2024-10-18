@@ -85,7 +85,7 @@
             ]
         },
         {
-            "name": "StyleTTS2",
+            "name": "StyleTTS2 (in progress)",
             "parameters": [
                 {
                     "label": "Parameter 1",
@@ -100,7 +100,22 @@
             ]
         },
         {
-            "name": "XTTS",
+            "name": "XTTS (in progress)",
+            "parameters": [
+                {
+                    "label": "Parameter 1",
+                    "type": "text",
+                    "attribute": "param1"
+                },
+                {
+                    "label": "Parameter 2",
+                    "type": "checkbox",
+                    "attribute": "param2"
+                }
+            ]
+        },
+        {
+            "name": "F5TTS (in progress)",
             "parameters": [
                 {
                     "label": "Parameter 1",

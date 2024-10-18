@@ -15,5 +15,4 @@ output/
 tortoise_api/
 personal/
 
-*.pth
 temp/
