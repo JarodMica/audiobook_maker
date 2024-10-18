@@ -34,6 +34,7 @@ xcopy %REPO_NAME%\update_package.bat update_package.bat /E /I /H /Y
 xcopy %REPO_NAME%\requirements.txt requirements.txt /E /I /H /Y
 
 xcopy %REPO_NAME%\src src /E /I /H
+xcopy %REPO_NAME%\configs configs /E /I /H
 xcopy %REPO_NAME%\modules\tortoise_tts_api modules\tortoise_tts_api /E /I /H /Y
 cd modules\tortoise_tts_api
 git submodule init
