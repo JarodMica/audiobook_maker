@@ -99,7 +99,7 @@ If you run into issues, check your drivers and make sure they're up to date.  If
 6. (Optional) I recommend you create a batch script to launch the gui instead of manually doing it each time. Open notepad, throw the code block below into it, name it `start.bat`, and it should be fine.  Make sure your extensions are showing so that it's not `start.bat.txt`
    ```
    call venv\Scripts\activate
-   python webui.py
+   python src\controller.py
    ```
 Congrats, the GUI can be launched!  You should see in the errors in the terminal such as `Tortoise not installed` or `RVC not installed`
 
