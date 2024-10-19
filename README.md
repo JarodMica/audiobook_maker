@@ -140,16 +140,17 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    .\venv\Scripts\activate
    ```
-1. Install the rvc-python library:
-   ```
-   pip install git+https://github.com/JarodMica/rvc-python
-   ```
 1. Install fairseq as a wheels file.  Either download it from this link here https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl?download=true and place it in the `audiobook_maker` folder or run the two commands below:
    ```
    curl -Uri "https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl?download=true" -OutFile "fairseq-0.12.4-cp311-cp311-win_amd64.whl"
    pip install .\fairseq-0.12.4-cp311-cp311-win_amd64.whl
    ```
     It's done this way due to issues with fairseq on python 3.11 and above so I've compiled a wheels file for you to use.  You can delete it afterwards if you want.
+
+2. Install the rvc-python library:
+   ```
+   pip install git+https://github.com/JarodMica/rvc-python
+   ```
 3. Check torch and make sure it's `Version: 2.3.1+cu121`.  If it is, you're good to go.  If not, uninstall and reinstall as shown in Tortoise install
    ```
    pip show torch
