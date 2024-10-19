@@ -140,9 +140,8 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    .\venv\Scripts\activate
    ```
-1. Install fairseq as a wheels file.  Either download it from this link here https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl?download=true and place it in the `audiobook_maker` folder or run the two commands below:
+1. Install fairseq as a wheels file.  Download it from this link here https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl?download=true and place it in the `audiobook_maker` :
    ```
-   curl -Uri "https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl?download=true" -OutFile "fairseq-0.12.4-cp311-cp311-win_amd64.whl"
    pip install .\fairseq-0.12.4-cp311-cp311-win_amd64.whl
    ```
     It's done this way due to issues with fairseq on python 3.11 and above so I've compiled a wheels file for you to use.  You can delete it afterwards if you want.
