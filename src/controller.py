@@ -82,7 +82,20 @@ class RegenerateAudioWorker(QThread):
         print(f"regeneration id: {self.speaker_id}")
         tts_engine_name = self.combined_parameters.get('tts_engine')
         self.model.load_selected_tts_engine(tts_engine_name, self.speaker_id, **self.combined_parameters)
-        new_audio_temp_path = self.model.generate_audio_proxy(self.selected_sentence, self.combined_parameters)
+        
+        speaker = self.model.speakers.get(self.speaker_id, {})
+        speaker_settings = speaker.get('settings', {})
+        use_s2s = speaker_settings.get('use_s2s', False)
+        if use_s2s:
+            s2s_engine_name = speaker_settings.get('s2s_engine', None)
+            if s2s_engine_name:
+                s2s_parameters = speaker_settings.copy()
+                s2s_validated = self.model.load_selected_s2s_engine(s2s_engine_name, self.speaker_id, **s2s_parameters)
+            else:
+                s2s_validated = False
+        else:
+            s2s_validated = False
+        new_audio_temp_path = self.model.generate_audio_proxy(self.selected_sentence, self.combined_parameters, s2s_validated)
         if not new_audio_temp_path:
             self.error_signal.emit("Failed to generate new audio.")
             return
@@ -565,11 +578,12 @@ class AudiobookController:
             )
             return
 
-        # Get the speaker_id from the combobox
-        speaker_id = self.view.get_current_speaker_id()
+        # # Get the speaker_id from the combobox
+        # speaker_id = self.view.get_current_speaker_id()
 
         selected_sentence = self.model.text_audio_map[map_key]['sentence']
         old_audio_path = self.model.text_audio_map[map_key]['audio_path']
+        speaker_id = self.model.text_audio_map[map_key]['speaker_id']
         audio_path_parent = os.path.dirname(old_audio_path)
         generation_settings = self.model.load_generation_settings(audio_path_parent)
         # voice_parameters = generation_settings
