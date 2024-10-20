@@ -194,6 +194,9 @@ class AudiobookController:
                 sentence = item['sentence']
                 row_position = int(idx_str)
                 self.view.add_table_item(row_position, sentence)
+                # Make this toggleable in the future
+                # speaker_id = item.get('speaker_id', 1)  
+                # self.view.set_row_speaker(row_position, speaker_id)
         else:
             self.regen_mode = False
             self.update_table_with_sentences()
