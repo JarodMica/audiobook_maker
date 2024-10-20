@@ -273,9 +273,9 @@ class AudiobookModel:
             # Generate audio for sentences assigned to this speaker
             for idx, entry in entries:
                 # Check for stop request
-                # if should_stop_callback():
-                #     print("Generation stopped by user")
-                #     return
+                if should_stop_callback():
+                    print("Generation stopped by user")
+                    return
                 # Skip already generated sentences if is_continue is True
                 if is_continue and entry['generated']:
                     continue
