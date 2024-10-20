@@ -386,6 +386,8 @@ class AudiobookController:
                 else:
                     return
             else:
+                self.current_audiobook_directory = None
+                self.view.set_audiobook_label("No Audio Book Set")
                 return
         os.makedirs(directory_path)
         # Copy the text file to the audiobook directory
