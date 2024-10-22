@@ -228,22 +228,23 @@ echo ---------------------------------------------------------------
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Installing Audiobook Maker...
 echo %cyan_fg_strong%This may take a while. Please be patient.%reset%
 
-set max_retries=3
-set retry_count=0
+REM This is used when the audiobook-launcher.bat is outside the audiobook_maker folder uncomment all to auto clone for portable install
+REM set max_retries=3
+REM set retry_count=0
 
-:retry_install_audiobook_maker
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Cloning the Audiobook Maker repository...
-git clone https://github.com/JarodMica/audiobook_maker.git
+REM :retry_install_audiobook_maker
+REM echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Cloning the Audiobook Maker repository...
+REM git clone https://github.com/JarodMica/audiobook_maker.git
 
-if %errorlevel% neq 0 (
-    set /A retry_count+=1
-    echo %yellow_bg%[%time%]%reset% %yellow_fg_strong%[WARN] Retry %retry_count% of %max_retries%%reset%
-    if %retry_count% lss %max_retries% goto :retry_install_audiobook_maker
-    echo %red_bg%[%time%]%reset% %red_fg_strong%[ERROR] Failed to clone repository after %max_retries% retries.%reset%
-    pause
-    goto :home
-)
-cd /d "%audiobookmaker_install_path%"
+REM if %errorlevel% neq 0 (
+REM     set /A retry_count+=1
+REM     echo %yellow_bg%[%time%]%reset% %yellow_fg_strong%[WARN] Retry %retry_count% of %max_retries%%reset%
+REM     if %retry_count% lss %max_retries% goto :retry_install_audiobook_maker
+REM     echo %red_bg%[%time%]%reset% %red_fg_strong%[ERROR] Failed to clone repository after %max_retries% retries.%reset%
+REM     pause
+REM     goto :home
+REM )
+REM cd /d "%audiobookmaker_install_path%"
 
 
 echo %blue_fg_strong%[INFO]%reset% Installing 7-Zip...
