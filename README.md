@@ -71,6 +71,7 @@ If you run into issues, check your drivers and make sure they're up to date.  If
 - ffmpeg: https://www.ffmpeg.org/download.html#build-windows
   - Watch a tutorial here: https://www.youtube.com/watch?v=JR36oH35Fgg&t=159s&ab_channel=Koolac
 - NVIDIA GPU with at least 8GB of VRAM (for heavier inference models like Tortoise, 4-6 GB might be possible as we're not training here)
+- Install CUDA toolkit, see issue: https://github.com/JarodMica/audiobook_maker/issues/63#issuecomment-2430191713
 
 ### GUI Installation
 1. Clone the repository and cd into it.
