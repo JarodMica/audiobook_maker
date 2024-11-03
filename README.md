@@ -15,7 +15,7 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 
 ### Install Specific Engines
 - [TortoiseTTS Installation](#tortoisetts-installation)
-- [StyleTTS 2 Installation](#styletts-installation)
+- [StyleTTS 2 Installation](#styletts-2-installation)
 - [RVC Installation](#rvc-installation)
 
 ## Features
