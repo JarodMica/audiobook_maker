@@ -1011,6 +1011,7 @@ class AudiobookMakerView(QMainWindow):
         
         param_type = param['type']
         attribute = param['attribute']
+        relies_on = param.get("relies_on", None)
         
         if param_type == 'text':
             widget = QLineEdit()
@@ -1036,12 +1037,36 @@ class AudiobookMakerView(QMainWindow):
             layout.addWidget(widget)
         elif param_type == 'combobox':
             widget = QComboBox()
+            widget.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
+            widget.setMinimumContentsLength(10)  # Adjust the value as needed
+            widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             function_name = param.get('function')
-            if function_name == 'get_combobox_items':
-                items = self.get_combobox_items(param)
-                widget.addItems(items)
+            get_items_func = lambda: self.get_combobox_items(param)
+
+            if relies_on:
+            # Get the widget of the parameter it relies on
+                relies_on_widget = getattr(self, f"{relies_on}_widget", None)
+                if relies_on_widget:
+                    # Define a slot method that updates items
+                    def update_items_based_on_dependency(_):
+                        items = get_items_func()
+                        widget.blockSignals(True)
+                        widget.clear()
+                        widget.addItems(items)
+                        widget.blockSignals(False)
+                    # Connect the slot to the currentTextChanged signal of the relies_on widget
+                    relies_on_widget.currentTextChanged.connect(update_items_based_on_dependency)
+                    # Initially populate the combobox
+                    items = get_items_func()
+                    widget.addItems(items)
+                else:
+                    self.show_message("Error", f"Parameter '{attribute}' relies on unknown parameter '{relies_on}'", QMessageBox.Warning)
             else:
-                self.show_message("Error", f"Unknown function {function_name} for combobox parameter", QMessageBox.Warning)
+                if function_name == 'get_combobox_items':
+                    items = get_items_func()
+                    widget.addItems(items)
+                else:
+                    self.show_message("Error", f"Unknown function {function_name} for combobox parameter", QMessageBox.Warning)
             widget.currentTextChanged.connect(lambda text, attr=attribute: self.on_parameter_changed(attr, text))
             layout.addWidget(widget)
         elif param_type == 'slider':
@@ -1097,6 +1122,18 @@ class AudiobookMakerView(QMainWindow):
         include_none_option = param.get('include_none_option', False)
         none_option_label = param.get('none_option_label', 'Default')  # Label for the None option
         custom_options = param.get('custom_options', None)
+        relies_on = param.get('relies_on', None)
+        
+        if relies_on:
+            # Get the value of the relied-on parameter
+            relies_on_widget = getattr(self, f"{relies_on}_widget", None)
+            if relies_on_widget:
+                # Get the current value
+                relied_value = relies_on_widget.currentText()
+                # Adjust folder_path
+                folder_path = os.path.join(folder_path, relied_value)
+            else:
+                self.show_message("Error", f"Parameter relies on unknown parameter '{relies_on}'", QMessageBox.Warning)
 
         # Expand any environment variables and user variables
         folder_path = os.path.expandvars(os.path.expanduser(folder_path))
@@ -1178,7 +1215,10 @@ class AudiobookMakerView(QMainWindow):
                     parameters[attribute] = widget.isChecked()
                 elif param['type'] == 'combobox':
                     parameters[attribute] = widget.currentText()
+                elif param['type'] == 'slider':
+                    parameters[attribute] = widget.value()
         return parameters
+
     
     def get_s2s_engine_parameters(self):
         engine_name = self.get_s2s_engine()

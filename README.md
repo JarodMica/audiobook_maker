@@ -15,6 +15,7 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 
 ### Install Specific Engines
 - [TortoiseTTS Installation](#tortoisetts-installation)
+- [StyleTTS 2 Installation](#styletts-installation)
 - [RVC Installation](#rvc-installation)
 
 ## Features
@@ -115,7 +116,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    cd .\modules\tortoise_tts_api\
    git submodule init
-   git submodule update --remote
+   git submodule update
    ```
 3. Install the submodules:
    ```
@@ -127,12 +128,34 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    pip install .
    cd ..\..
    ```
-5. Ensure you have pytorch installed with CUDA enabled.  You may have gotten it from the previous library installations, so we want to be sure we're on the right version so do:
+5. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
+
+#### StyleTTS 2 Installation
+0. Make sure your venv is still activated, if not, activate it:
    ```
-   pip uninstall torch -y
-   pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+   .\venv\Scripts\activate
    ```
-    Torch is a pretty large download, so it may take a bit of time.  Once you have it installed here, it should be fine following the other install.  However, sometimes, newer versions of torch may uninstall the one we just did, so you may need to uninstall and reinstall after each engine to make sure you have the correction version.  After the first install, it will have been cached, so you won't have to wait each time afterwards.
+2. Change directory to styletts submodule, then pull its submodules:
+   ```
+   cd .\modules\styletts-api\
+   git submodule init
+   git submodule update
+   ```
+3. Install the submodules:
+   ```
+   pip install modules\StyleTTS2
+   ```
+4. Install the styletts api repo, then cd back to root:
+   ```
+   pip install .
+   cd ..\..
+   ```
+5. Install monotonic align:
+```
+pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a03d08bc3acc01c4df0442105366f
+```
+6. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
+
 
 ### Speech-to-Speech Engines
 #### RVC Installation
@@ -150,12 +173,28 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    pip install git+https://github.com/JarodMica/rvc-python
    ```
-3. Check torch and make sure it's `Version: 2.3.1+cu121`.  If it is, you're good to go.  If not, uninstall and reinstall as shown in Tortoise install
-   ```
-   pip show torch
-   ```
+3. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
+
+### Check Torch Install
+Sometimes, torch may be re-installed from other dependencies, so we want to be sure we're on the right version.
+
+Check torch version:
+```
+pip show torch
+```
+
+As long as torch `Version: 2.3.1+cu121`, you should be fine.  If not, follow below:
+
+```
+pip uninstall torch -y
+pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+```
+
+Torch is a pretty large download, so it may take a bit of time.  Once you have it installed here, it should be fine following the other install.  However, sometimes, newer versions of torch may uninstall the one we just did, so you may need to uninstall and reinstall after each engine to make sure you have the correction version.  After the first install, it will have been cached, so you won't have to wait each time afterwards.
+
 ## Usage
 To be written
+
 
 ## Acknowledgements
 This has been put together using a variety of open-source models and libraries.  Wouldn't have been possible without them.

@@ -85,18 +85,78 @@
             ]
         },
         {
-            "name": "StyleTTS2 (in progress)",
+            "name": "StyleTTS2",
             "parameters": [
                 {
-                    "label": "Parameter 1",
-                    "type": "text",
-                    "attribute": "param1"
+                    "label": "Model to Use",
+                    "type": "combobox",
+                    "attribute": "stts_model_path",
+                    "function": "get_combobox_items",
+                    "folder_path":"engines/styletts",
+                    "look_for":"folders",
+                    "file_filter":null,
+                    "include_none_option":false
                 },
                 {
-                    "label": "Parameter 2",
-                    "type": "checkbox",
-                    "attribute": "param2"
-                }
+                    "label": "Voice",
+                    "type": "combobox",
+                    "attribute": "stts_voice",
+                    "function": "get_combobox_items",
+                    "folder_path":"./voices/styletts",
+                    "look_for":"folders",
+                    "file_filter":null,
+                    "include_none_option":false
+                },
+                {
+                    "label": "Voice Reference File",
+                    "type": "combobox",
+                    "attribute": "stts_reference_audio_file",
+                    "function": "get_combobox_items",
+                    "relies_on":"stts_voice",
+                    "folder_path":"./voices/styletts",
+                    "look_for":"files",
+                    "file_filter": "*"
+                },
+                {
+                    "label": "Seed",
+                    "type": "text",
+                    "attribute": "stts_seed"
+                },
+                {
+                    "label": "Diffusion Steps",
+                    "type": "spinbox",
+                    "attribute": "stts_diffusion_steps",
+                    "min": 1,
+                    "max": 1000,
+                    "default": 20
+                },
+                {
+                    "label": "Alpha",
+                    "attribute": "stts_alpha",
+                    "type": "slider",
+                    "min": 0,
+                    "max": 200,
+                    "default": 70,
+                    "step":100
+                  },
+                  {
+                    "label": "Beta",
+                    "attribute": "stts_beta",
+                    "type": "slider",
+                    "min": 0,
+                    "max": 200,
+                    "default": 30,
+                    "step":100
+                  },
+                  {
+                    "label": "Embedding Scale",
+                    "attribute": "stts_embedding_scale",
+                    "type": "slider",
+                    "min": 0,
+                    "max": 200,
+                    "default": 50,
+                    "step":100
+                  }
             ]
         },
         {

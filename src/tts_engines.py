@@ -5,9 +5,15 @@ import json
 
 try:
     from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
-    from tortoise_tts_api.inference.generate import generate
+    from tortoise_tts_api.inference.generate import generate as tortoise_generate
 except Exception as e:
     print(f"Tortoise not installed, received error: {e}")
+    
+try:
+    from styletts_api.inference.load import load_all_models
+    from styletts_api.inference.generate import generate_audio as stts_generate
+except Exception as e:
+    print(f"StyleTTS not installed, received error: {e}")
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -34,8 +40,51 @@ def generate_with_pyttsx3(tts_engine, sentence, voice_parameters, audio_path):
     return os.path.exists(audio_path)
 
 def generate_with_styletts2(tts_engine, sentence, voice_parameters, audio_path):
-    # Implement styletts2 TTS engine generation here
-    pass
+    engine_name = "StyleTTS2" 
+    # Load the config and convert it to an object
+    tts_config = load_config("configs/tts_config.json")
+    tts_settings = dict_to_object(tts_config)
+
+    styletts_engine_config = None
+    for engine in tts_settings.tts_engines:
+        if engine.name.lower() == engine_name.lower():  # Case-insensitive matching
+            styletts_engine_config = engine
+            break
+        
+    voice_root = next((param.folder_path for param in styletts_engine_config.parameters if param.attribute == "stts_voice"))
+
+    voice = voice_parameters.get("stts_voice", None)
+    if not voice:
+        raise ("No voice found for StyleTTS")
+    reference_audio_file = voice_parameters.get("stts_reference_audio_file")
+    seed = int(voice_parameters.get("stts_seed"))
+    if not seed:
+        seed=-1
+    diffusion_steps = voice_parameters.get("stts_diffusion_steps")
+    
+    alpha_step = next((param.step for param in styletts_engine_config.parameters if param.attribute=="stts_alpha"), 100)
+    alpha = voice_parameters.get("stts_alpha") // alpha_step
+    
+    beta_step = next((param.step for param in styletts_engine_config.parameters if param.attribute=="stts_beta"), 100)
+    beta = voice_parameters.get("stts_beta") // beta_step 
+    
+    embedding_scale_step = next((param.step for param in styletts_engine_config.parameters if param.attribute=="stts_embedding_scale"), 100)
+    embedding_scale = voice_parameters.get("stts_embedding_scale") // embedding_scale_step
+    
+    audio_path = stts_generate(
+        text=sentence, 
+        voice=voice, 
+        reference_audio_file=reference_audio_file, 
+        seed=seed, 
+        diffusion_steps=diffusion_steps, 
+        alpha=alpha, 
+        beta=beta, 
+        embedding_scale=embedding_scale, 
+        output_audio_path=audio_path,
+        model_dict=tts_engine, 
+        voices_root=voice_root
+        )
+    return audio_path
 
 def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
     if tts_engine is None:
@@ -45,7 +94,7 @@ def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
     use_hifigan = voice_parameters.get('use_hifigan', False)
     num_autoregressive_samples = sample_size
 
-    result = generate(
+    result = tortoise_generate(
         tts=tts_engine,
         text=sentence,
         voice=voice,
@@ -80,8 +129,26 @@ def load_tts_engine(tts_engine_name, **kwargs):
         raise e
 
 def load_with_styletts2(**kwargs):
-    # Implement loading for styletts2 TTS engine here
-    pass
+    engine_name = "StyleTTS2" 
+    tts_config = load_config("configs/tts_config.json")
+    tts_settings = dict_to_object(tts_config)
+    styletts_engine_config = None
+    for engine in tts_settings.tts_engines:
+        if engine.name.lower() == engine_name.lower():
+            styletts_engine_config = engine
+            break
+    
+    model_root = next((param.folder_path for param in styletts_engine_config.parameters if param.attribute == "stts_model_path"))
+    model_folder_name = kwargs.get("stts_model_path")
+    print(model_root)
+    print(model_folder_name)
+    folder_to_walk = os.path.join(model_root, model_folder_name)
+    model_path = next(
+        (os.path.join(folder_to_walk, file) for file in os.listdir(folder_to_walk) if file.endswith(".pth")),
+        None
+    )
+    model_dict = load_all_models(model_path=model_path)
+    return model_dict
 
 def load_with_tortoise(**kwargs):
     engine_name = "Tortoise" 
