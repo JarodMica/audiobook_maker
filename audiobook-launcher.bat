@@ -32,20 +32,38 @@ set "blue_bg=[44m"
 set "yellow_bg=[43m"
 set "green_bg=[42m"
 
-set "audiobookmaker_install_path=%~dp0audiobook_maker"
-set "audiobookmaker_modules_tortoise_path=%~dp0audiobook_maker\modules\tortoise_tts_api"
+set "audiobookmaker_install_path=%~dp0"
+set "audiobookmaker_userdata_path=%~dp0userdata"
+set "audiobookmaker_modules_tortoise_path=%audiobookmaker_install_path%\modules\tortoise_tts_api"
 
 REM Environment Variables (winget)
 set "winget_path=%userprofile%\AppData\Local\Microsoft\WindowsApps"
 
-REM Environment Variables (Miniconda3)
-set "miniconda_path=%userprofile%\miniconda"
+REM Environment Variables (miniconda3)
+set "miniconda_download_url=https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe"
+set "miniconda_download_path=%audiobookmaker_userdata_path%\miniconda.exe"
+set "miniconda_install_path=%audiobookmaker_userdata_path%\miniconda3"
+set "miniconda_env_path=%audiobookmaker_userdata_path%\env"
+set "miniconda_env_audiobookmaker_path=%miniconda_env_path%\audiobookmaker"
+set "miniconda_path_mingw=%userprofile%\miniconda3\Library\mingw-w64\bin"
+set "miniconda_path_usrbin=%userprofile%\miniconda3\Library\usr\bin"
+set "miniconda_path_bin=%userprofile%\miniconda3\Library\bin"
+set "miniconda_path_scripts=%userprofile%\miniconda3\Scripts"
+
+REM Environment Variables (RVC)
+set "fairseq_download_url=https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl"
+set "fairseq_download_path=%audiobookmaker_userdata_path%\fairseq-0.12.4-cp311-cp311-win_amd64.whl"
 
 REM Environment Variables (FFmpeg)
-set "ffmpeg_url=https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z"
-set "ffdownload_path=%~dp0ffmpeg.7z"
-set "ffextract_path=C:\ffmpeg"
-set "bin_path=%ffextract_path%\bin"
+set "ffmpeg_download_url=https://www.gyan.dev/ffmpeg/builds/ffmpeg-git-full.7z"
+set "ffmpeg_download_path=%audiobookmaker_userdata_path%\ffmpeg.7z"
+set "ffmpeg_install_path=C:\ffmpeg"
+set "ffmpeg_path_bin=%ffmpeg_install_path%\bin"
+
+REM Environment Variables (7-Zip)
+set "zip7_version=7z2301-x64"
+set "zip7_install_path=%ProgramFiles%\7-Zip"
+set "zip7_download_path=%TEMP%\%zip7_version%.exe"
 
 REM Define the paths and filenames for the shortcut creation
 set "shortcutTarget=%~dp0audiobook-launcher.bat"
@@ -56,11 +74,27 @@ set "startIn=%~dp0"
 set "comment=Audiobook Maker Launcher"
 
 REM Define variables for logging
-set "log_path=%~dp0logs.log"
+set "log_path=%audiobookmaker_userdata_path%\logs.log"
 set "log_invalidinput=[ERROR] Invalid input. Please enter a valid number."
 set "echo_invalidinput=%red_fg_strong%[ERROR] Invalid input. Please enter a valid number.%reset%"
 
 cd /d "%~dp0"
+
+REM Check if the folder exists
+if not exist "%audiobookmaker_userdata_path%" (
+    mkdir "%audiobookmaker_userdata_path%"
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Created folder: "userdata"  
+)
+REM Check if the folder exists
+if not exist "%miniconda_install_path%" (
+    mkdir "%miniconda_install_path%"
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Created folder: "miniconda3"  
+)
+REM Check if the folder exists
+if not exist "%miniconda_env_path%" (
+    mkdir "%miniconda_env_path%"
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Created folder: "env"  
+)
 
 REM Get the current PATH value from the registry
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v PATH') do set "current_path=%%B"
@@ -105,6 +139,7 @@ if %errorlevel% neq 0 (
 ) else (
     echo %blue_fg_strong%[INFO] Winget is already installed.%reset%
 )
+
 
 REM Check if Git is installed if not then install git
 git --version > nul 2>&1
@@ -228,6 +263,9 @@ echo ---------------------------------------------------------------
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Installing Audiobook Maker...
 echo %cyan_fg_strong%This may take a while. Please be patient.%reset%
 
+REM deactivate existing conda envs
+(call conda deactivate && call conda deactivate && call conda deactivate) 2>nul
+
 REM This is used when the audiobook-launcher.bat is outside the audiobook_maker folder uncomment all to auto clone for portable install
 REM set max_retries=3
 REM set retry_count=0
@@ -280,80 +318,110 @@ if %zip7_path_exists% neq 0 (
     echo %blue_fg_strong%[INFO] 7-Zip already exists in PATH.%reset%
 )
 
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% %green_fg_strong%7-Zip installed successfully. Please restart the Launcher.%reset%
+rem Update the PATH value for the current session
+set PATH=%new_path%
 
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Downloading FFmpeg archive...
-curl -L -o "%ffdownload_path%" "%ffmpeg_url%"
-
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Creating ffmpeg directory if it doesn't exist...
-if not exist "%ffextract_path%" (
-    mkdir "%ffextract_path%"
+rem Check if 7z correctly was installed
+7z > nul 2>&1
+if %errorlevel% neq 0 (
+    echo %yellow_bg%[%time%]%reset% %yellow_fg_strong%[WARN] App command: "7z" from app: "7-Zip" NOT FOUND. The app is not installed or added to PATH.
+) else (
+    echo [ %green_fg_strong%OK%reset% ] Found app command: %cyan_fg_strong%"7z"%reset% from app: "7-Zip"
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% %green_fg_strong%7-Zip installed successfully.%reset%
 )
 
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Extracting FFmpeg archive...
-7z x "%ffdownload_path%" -o"%ffextract_path%"
+
+rmdir /s /q "%ffmpeg_install_path%"
+REM Check if ffmpeg is installed
+if not exist "%ffmpeg_install_path%" (
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Downloading FFmpeg archive...
+    curl -L -o "%ffmpeg_download_path%" "%ffmpeg_download_url%"
+
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Creating ffmpeg directory if it doesn't exist...
+    if not exist "%ffmpeg_install_path%" (
+        mkdir "%ffmpeg_install_path%"
+    )
+
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Extracting FFmpeg archive...
+    7z x "%ffmpeg_download_path%" -o"%ffmpeg_install_path%"
 
 
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Moving FFmpeg contents to C:\ffmpeg...
-for /d %%i in ("%ffextract_path%\ffmpeg-*-full_build") do (
-    xcopy "%%i\bin" "%ffextract_path%\bin" /E /I /Y
-    xcopy "%%i\doc" "%ffextract_path%\doc" /E /I /Y
-    xcopy "%%i\presets" "%ffextract_path%\presets" /E /I /Y
-    rd "%%i" /S /Q
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Moving FFmpeg contents to C:\ffmpeg...
+    for /d %%i in ("%ffmpeg_install_path%\ffmpeg-*-full_build") do (
+        xcopy "%%i\bin" "%ffmpeg_install_path%\bin" /E /I /Y
+        xcopy "%%i\doc" "%ffmpeg_install_path%\doc" /E /I /Y
+        xcopy "%%i\presets" "%ffmpeg_install_path%\presets" /E /I /Y
+        rd "%%i" /S /Q
+    )
+    del "%ffmpeg_download_path%"
 )
 
 rem Get the current PATH value from the registry
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v PATH') do set "current_path=%%B"
 
 rem Check if the paths are already in the current PATH
-echo %current_path% | find /i "%bin_path%" > nul
+echo %current_path% | find /i "%ffmpeg_path_bin%" > nul
 set "ff_path_exists=%errorlevel%"
 
 setlocal enabledelayedexpansion
 
 REM Append the new paths to the current PATH only if they don't exist
 if %ff_path_exists% neq 0 (
-    set "new_path=%current_path%;%bin_path%"
+    set "new_path=%current_path%;%ffmpeg_path_bin%"
     echo.
     echo [DEBUG] "current_path is:%cyan_fg_strong% %current_path%%reset%"
     echo.
-    echo [DEBUG] "bin_path is:%cyan_fg_strong% %bin_path%%reset%"
+    echo [DEBUG] "ffmpeg_path_bin is:%cyan_fg_strong% %ffmpeg_path_bin%%reset%"
     echo.
     echo [DEBUG] "new_path is:%cyan_fg_strong% !new_path!%reset%"
 
     REM Update the PATH value in the registry
     reg add "HKCU\Environment" /v PATH /t REG_EXPAND_SZ /d "!new_path!" /f
 
-    REM Update the PATH value for the current session
+    REM Update the PATH value to activate the command on system level
     setx PATH "!new_path!" > nul
     echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% %green_fg_strong%ffmpeg added to PATH.%reset%
 ) else (
     set "new_path=%current_path%"
     echo %blue_fg_strong%[INFO] ffmpeg already exists in PATH.%reset%
 )
-del "%ffdownload_path%"
-echo %green_fg_strong%FFmpeg is installed. Please restart the Launcher.%reset%
+
+rem Update the PATH value for the current session
+set PATH=%new_path%
+
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Downloading Miniconda...
+curl -L -o "%miniconda_download_path%" "%miniconda_download_url%" 
 
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Installing Miniconda...
-winget install -e --id Anaconda.Miniconda3
+start /wait "" "%miniconda_download_path%" /InstallationType=JustMe /NoShortcuts=1 /AddToPath=0 /RegisterPython=0 /NoRegistry=1 /S /D=%miniconda_install_path%
+del "%miniconda_download_path%"
 
-REM Run conda activate from the Miniconda installation
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Miniconda environment...
-call "%miniconda_path%\Scripts\activate.bat"
+REM Create a Conda environment named audiobookmaker
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Creating Conda environment: %cyan_fg_strong%audiobookmaker%reset%
+call "%miniconda_install_path%\_conda.exe" create -k --no-shortcuts --prefix "%miniconda_env_audiobookmaker_path%" python=3.11 git -y
 
-REM Create a Conda environment named audiobook-maker
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Creating Conda environment audiobook-maker...
-call conda create -n audiobook-maker python=3.11 -y
+REM check if conda environment was actually created
+if not exist "%miniconda_env_audiobookmaker_path%\python.exe" ( echo. && echo Conda environment is empty. && goto end )
 
-REM Activate the audiobook-maker Maker environment
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Conda environment audiobook-maker...
-call conda activate audiobook-maker
+REM environment isolation
+set PYTHONNOUSERSITE=1
+set PYTHONPATH=
+set PYTHONHOME=
+set "CUDA_PATH=%miniconda_env_audiobookmaker_path%"
+set "CUDA_HOME=%CUDA_PATH%"
+
+REM Activate the environment
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Conda environment %cyan_fg_strong%audiobookmaker%reset%
+call "%miniconda_install_path%\condabin\conda.bat" activate "%miniconda_env_audiobookmaker_path%" || ( echo. && echo Miniconda hook not found. && goto end )
 
 cd /d "%audiobookmaker_install_path%"
 
-REM Install pip requirements
+REM Install pip requirements in the activated environment
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Installing pip requirements
 pip install -r requirements.txt
+
+REM Initialize and update git submodules
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Initializing and updating git submodules
 git submodule init
 git submodule update --remote
 
@@ -381,18 +449,22 @@ goto :abm_installer_menu
 
 
 :install_tortoise_tts
-REM Activate the audiobook-maker environment
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Conda environment: %cyan_fg_strong%audiobook-maker%reset%
-call conda activate audiobook-maker
+REM Activate the audiobookmaker environment
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Conda environment: %cyan_fg_strong%audiobookmaker%reset%
+call "%miniconda_install_path%\condabin\conda.bat" activate "%miniconda_env_audiobookmaker_path%" || ( echo. && echo Miniconda hook not found. && goto end )
+cd /d "%audiobookmaker_modules_tortoise_path%"
+
+REM Initialize and update git submodules
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Initializing and updating git submodules
+git submodule init
+git submodule update --remote
 
 REM Install pip requirements
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Installing pip requirements
-cd /d "%audiobookmaker_modules_tortoise_path%"
-git submodule init
-git submodule update --remote
 pip install modules\tortoise_tts
 pip install modules\dlas
 pip install .
+
 cd /d "%audiobookmaker_install_path%"
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Uninstalling Torch...
 pip uninstall torch -y
@@ -404,20 +476,20 @@ goto :abm_installer_menu
 
 
 :install_rvc
-REM Activate the audiobook-maker environment
-echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Conda environment: %cyan_fg_strong%audiobook-maker%reset%
-call conda activate audiobook-maker
+REM Activate the audiobookmaker environment
+echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Activating Conda environment: %cyan_fg_strong%audiobookmaker%reset%
+call "%miniconda_install_path%\condabin\conda.bat" activate "%miniconda_env_audiobookmaker_path%" || ( echo. && echo Miniconda hook not found. && goto end )
 
 REM Install pip requirements
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Installing pip requirements
-cd /d "%audiobookmaker_install_path%"
-curl -L -o "%audiobookmaker_install_path%\fairseq-0.12.4-cp311-cp311-win_amd64.whl" "https://huggingface.co/Jmica/rvc/resolve/main/fairseq-0.12.4-cp311-cp311-win_amd64.whl" 
+cd /d "%audiobookmaker_userdata_path%"
+curl -L -o "%fairseq_download_path%" "%fairseq_download_url%" 
 pip install .\fairseq-0.12.4-cp311-cp311-win_amd64.whl
 pip install git+https://github.com/JarodMica/rvc-python
 pip show torch
 
 REM Cleanup the downloaded file
-del fairseq-0.12.4-cp311-cp311-win_amd64.whl
+del "%fairseq_download_path%"
 echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% %green_fg_strong%RVC successfully installed.%reset%
 pause
 goto :abm_installer_menu
@@ -543,8 +615,8 @@ cls
 echo %blue_fg_strong%/ Home / Start Audiobook Maker%reset%
 echo ---------------------------------------------------------------
 
-REM Activate the audiobook-maker environment
-call conda activate audiobook-maker
+REM Activate the audiobookmaker environment
+call "%miniconda_install_path%\condabin\conda.bat" activate "%miniconda_env_audiobookmaker_path%" || ( echo. && echo Miniconda hook not found. && goto end )
 
 REM Start Audiobook Maker
 start cmd /k "title Audiobook Maker && cd /d %audiobookmaker_install_path% && python src\controller.py"
@@ -592,15 +664,17 @@ set /p "confirmation=Are you sure you want to proceed? [Y/N]: "
 if /i "%confirmation%"=="Y" (
 
     REM Remove the Conda environment
-    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Removing the Conda environment 'audiobook-maker'...
-    call conda deactivate
-    call conda remove --name audiobook-maker --all -y
-    call conda clean -a -y
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Deactivating any active Conda environment...
+    call "%miniconda_install_path%\condabin\conda.bat" deactivate
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Cleaning up Conda package cache and temporary files...
+    call "%miniconda_install_path%\_conda.exe" clean -a -y
+    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Removing userdata directory: %cyan_fg_strong%%audiobookmaker_userdata_path%%reset%
+    rmdir /s /q "%audiobookmaker_userdata_path%"
 
     REM Remove the folder audiobook_maker
-    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Removing the audiobook_maker Maker directory...
-    cd /d "%~dp0"
-    rmdir /s /q audiobook_maker
+REM    echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% Removing the audiobook_maker Maker directory...
+REM    cd /d "%~dp0"
+REM    rmdir /s /q audiobook_maker
 
     echo %blue_bg%[%time%]%reset% %blue_fg_strong%[INFO]%reset% %green_fg_strong%Audiobook Maker uninstalled successfully.%reset%
     pause
