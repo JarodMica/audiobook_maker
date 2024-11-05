@@ -15,4 +15,7 @@ output/
 tortoise_api/
 personal/
 userdata/
+
 temp/
+input_text_files/small_jp_test.txt
+input_text_files/rezero_small_test.txt
