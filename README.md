@@ -163,6 +163,9 @@ pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a0
      ```
 6. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
+### F5-TTS Installation
+To be written
+
 ## Speech-to-Speech Engines
 ### RVC Installation
 0. Make sure your venv is still activated, if not, activate it:
@@ -189,11 +192,11 @@ Check torch version:
 pip show torch
 ```
 
-As long as torch `Version: 2.3.1+cu121`, you should be fine.  If not, follow below:
-
+As long as torch `Version: 2.4.0+cu121`, you should be fine.  If not, follow below:
+> F5-TTS update moves it to 2.4.0 instead of the previously require 2.3.1 (2.4.0 had previously broken whisper but we don't need that here)
 ```
 pip uninstall torch -y
-pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 ```
 
 Torch is a pretty large download, so it may take a bit of time.  Once you have it installed here, it should be fine following the other install.  However, sometimes, newer versions of torch may uninstall the one we just did, so you may need to uninstall and reinstall after each engine to make sure you have the correction version.  After the first install, it will have been cached, so you won't have to wait each time afterwards.

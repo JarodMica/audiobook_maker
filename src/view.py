@@ -1159,9 +1159,10 @@ class AudiobookMakerView(QMainWindow):
                 self.show_message("Error", f"Error reading directory {folder_path}: {e}", QMessageBox.Warning)
                 return items
         elif look_for == 'files':
+            patterns = file_filter.split(';')
             try:
                 for entry in os.scandir(folder_path):
-                    if entry.is_file() and fnmatch.fnmatch(entry.name, file_filter):
+                    if any(fnmatch.fnmatch(entry.name, pattern) for pattern in patterns):
                         items.append(entry.name)
             except Exception as e:
                 self.show_message("Error", f"Error reading directory {folder_path}: {e}", QMessageBox.Warning)

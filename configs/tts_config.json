@@ -175,17 +175,59 @@
             ]
         },
         {
-            "name": "F5TTS (in progress)",
+            "name": "F5TTS",
             "parameters": [
                 {
-                    "label": "Parameter 1",
-                    "type": "text",
-                    "attribute": "param1"
+                    "label":"Voice to Use",
+                    "type":"combobox",
+                    "attribute":"f5tts_voice",
+                    "function":"get_combobox_items",
+                    "folder_path":"voices/f5tts",
+                    "look_for":"folders",
+                    "include_none_option":false
                 },
                 {
-                    "label": "Parameter 2",
+                    "label": "Model to Use",
+                    "type": "combobox",
+                    "attribute": "f5tts_model",
+                    "function" : "get_combobox_items",
+                    "folder_path": "engines/f5tts/models",
+                    "look_for": "files",
+                    "file_filter": "*.pt;*.safetensors",
+                    "include_none_option":true
+                },
+                {
+                    "label": "Tokenizer to Use",
+                    "type": "combobox",
+                    "attribute": "f5tts_tokenizer",
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/f5tts/tokenizers",
+                    "look_for":"files",
+                    "file_filter":"*.txt",
+                    "include_none_option":true
+                },
+                {
+                    "label": "Vocoder",
+                    "type": "combobox",
+                    "attribute": "f5tts_vocoder",
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/f5tts/vocoders",
+                    "look_for":"custom",
+                    "custom_options": ["vocos", "bigvgan"]
+                },
+                {
+                    "label": "Use Duration Prediction Model?",
                     "type": "checkbox",
-                    "attribute": "param2"
+                    "attribute": "f5tts_duration_model",
+                    "folder_path": "engines/f5tts/duration"
+                },
+                {
+                    "label":"Seed (-1 is random)",
+                    "type": "spinbox",
+                    "attribute": "f5tts_seed",
+                    "min" : -1,
+                    "max" : 999999,
+                    "default": -1
                 }
             ]
         }
