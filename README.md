@@ -15,7 +15,7 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 
 ### Install Specific Engines
 - [TortoiseTTS Installation](#tortoisetts-installation)
-- [StyleTTS 2 Installation](#styletts2-installation)
+- [StyleTTS 2 Installation](#styletts-2-installation)
 - [RVC Installation](#rvc-installation)
 
 ## Features
@@ -151,15 +151,20 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    pip install .
    cd ..\..
    ```
-5. Install monotonic align:
+5. Install monotonic align - if you run into issues, you will need microsoft c++ build tools: https://visualstudio.microsoft.com/downloads/?q=build+tools
 ```
 pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a03d08bc3acc01c4df0442105366f
 ```
+6. Install eSpeak-NG onto your computer. Head over to https://github.com/espeak-ng/espeak-ng/releases and select the espeak-ng-X64.msi the assets dropdown. Download, run, and follow the prompts to set it up on your device. As of this write-up, it'll be at the bottom of 1.51 on the github releases page
+   - You will also need to add the following to your envrionment path:
+     ```
+     PHONEMIZER_ESPEAK_LIBRARY="c:\Program Files\eSpeak NG\libespeak-ng.dll"
+     PHONEMIZER_ESPEAK_PATH =“c:\Program Files\eSpeak NG”
+     ```
 6. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ### F5-TTS Installation
 To be written
-
 
 ## Speech-to-Speech Engines
 ### RVC Installation
