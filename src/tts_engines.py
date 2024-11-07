@@ -7,13 +7,17 @@ try:
     from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
     from tortoise_tts_api.inference.generate import generate as tortoise_generate
 except Exception as e:
-    print(f"Tortoise not installed, received error: {e}")
+    print(f"Tortoise not available, received error: {e}")
     
 try:
     from styletts_api.inference.load import load_all_models
     from styletts_api.inference.generate import generate_audio as stts_generate
 except Exception as e:
-    print(f"StyleTTS not installed, received error: {e}")
+    print(f"StyleTTS not available, received error: {e}")
+try:
+    from f5_tts.api import F5TTS
+except Exception as e:
+    print(f"F5-TTS is not available, received error: {e}")
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -25,6 +29,8 @@ def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audi
         return generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path)
     elif tts_engine_name == 'xtts':
         return generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'f5tts':
+        return generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path)
     else:
         # Handle unknown engine
         return False
@@ -108,7 +114,34 @@ def generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path):
     # Implement xtts TTS engine generation here
     pass
 
-##### Loading TTS Engines Below                           
+def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
+    engine_name = "f5tts"
+    tts_settings = load_tts_config()
+    f5tts_engine_config = find_engine_config(engine_name, tts_settings)
+    
+    voice_name = voice_parameters.get("f5tts_voice")
+    ref_file_root = next((param.folder_path for param in f5tts_engine_config.parameters if param.attribute == "f5tts_voice" ))
+    
+    ref_file_path = os.path.join(ref_file_root, voice_name, f"{voice_name}.wav")
+    ref_text = os.path.join(ref_file_root, voice_name, f"{voice_name}.txt")
+    with open(ref_text, "r", encoding="utf-8") as f:
+        ref_text = f.readline()
+        
+    seed = voice_parameters.get("seed", -1)
+        
+    tts_engine.infer(
+        ref_file=ref_file_path,
+        ref_text=ref_text,
+        gen_text=sentence,
+        file_wave=audio_path,
+        seed=seed
+    )
+    
+    return audio_path
+    
+#################################################
+############### Loading Functions ###############
+#################################################                         
 
 def load_tts_engine(tts_engine_name, **kwargs):
     tts_engine_name = tts_engine_name.lower()
@@ -121,6 +154,8 @@ def load_tts_engine(tts_engine_name, **kwargs):
             return load_with_tortoise(**kwargs)
         elif tts_engine_name == 'xtts':
             return load_with_xtts(**kwargs)
+        elif tts_engine_name == "f5tts":
+            return load_with_f5tts(**kwargs)
         else:
             # Handle unknown engine
             raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
@@ -130,13 +165,8 @@ def load_tts_engine(tts_engine_name, **kwargs):
 
 def load_with_styletts2(**kwargs):
     engine_name = "StyleTTS2" 
-    tts_config = load_config("configs/tts_config.json")
-    tts_settings = dict_to_object(tts_config)
-    styletts_engine_config = None
-    for engine in tts_settings.tts_engines:
-        if engine.name.lower() == engine_name.lower():
-            styletts_engine_config = engine
-            break
+    tts_settings = load_tts_config()
+    styletts_engine_config = find_engine_config(engine_name, tts_settings)
     
     model_root = next((param.folder_path for param in styletts_engine_config.parameters if param.attribute == "stts_model_path"))
     model_folder_name = kwargs.get("stts_model_path")
@@ -152,16 +182,8 @@ def load_with_styletts2(**kwargs):
 
 def load_with_tortoise(**kwargs):
     engine_name = "Tortoise" 
-    # Load the config and convert it to an object
-    tts_config = load_config("configs/tts_config.json")
-    tts_settings = dict_to_object(tts_config)
-
-    # Find the Tortoise engine in the config
-    tortoise_engine_config = None
-    for engine in tts_settings.tts_engines:
-        if engine.name.lower() == engine_name.lower():  # Case-insensitive matching
-            tortoise_engine_config = engine
-            break
+    tts_settings = load_tts_config()
+    tortoise_engine_config = find_engine_config(engine_name, tts_settings)
         
     # Find the folder paths for autoregressive model and tokenizer in the config
     ar_folder_path = next((param.folder_path for param in tortoise_engine_config.parameters if param.attribute == "autoregressive_model_path"), None)
@@ -195,6 +217,61 @@ def load_with_tortoise(**kwargs):
 def load_with_xtts(**kwargs):
     # Implement loading for xtts TTS engine here
     pass
+
+def load_with_f5tts(**kwargs):
+    engine_name = "f5tts"
+    tts_settings = load_tts_config()
+    f5tts_engine_config = find_engine_config(engine_name, tts_settings)
+    
+    model_file = kwargs.get("f5tts_model")
+    model_file_root = next((param.folder_path for param in f5tts_engine_config.parameters if param.attribute == "f5tts_model"))
+    if model_file:
+        model_file_path = os.path.join(model_file_root, model_file)
+    else:
+        model_file_path=""
+        
+    tokenizer = kwargs.get("f5tts_tokenizer")
+    if tokenizer:
+        tokenizer_root = next((param.folderpath for param in f5tts_engine_config.parameters if param.attribute == "f5tts_tokenizer"))
+        tokenizer_path = os.path.join(tokenizer_root, tokenizer)
+    else:
+        tokenizer_path = ""
+        
+    vocos = kwargs.get("f5tts_vocoder", "vocos")
+    vocos_local_path = next((param.folder_path for param in f5tts_engine_config.parameters if param.attribute == "f5tts_vocoder"))
+    
+    duration_model = kwargs.get("f5tts_duration_model", False)
+    duration_model_path = next((param.folder_path for param in f5tts_engine_config.parameters if param.attribute == "f5tts_duration_model"))
+    
+    model = F5TTS(
+        model_type="F5-TTS",
+        ckpt_file=model_file_path,
+        vocab_file=tokenizer_path,
+        ode_method="euler",
+        use_ema=True,
+        vocoder_name=vocos,
+        vocos_local_path=vocos_local_path,
+        model_local_path=model_file_root,
+        duration_model=duration_model,
+        duration_model_path=duration_model_path,
+        device="cuda"
+    )
+    return model
+
+#################################################
+############### Utility Functions ###############
+#################################################
+
+def find_engine_config(engine_name, tts_settings):
+    for engine in tts_settings.tts_engines:
+        if engine.name.lower() == engine_name.lower():
+            engine_config = engine
+            return engine_config
+
+def load_tts_config(path="configs/tts_config.json"):
+    tts_config = load_config(path)
+    tts_settings = dict_to_object(tts_config)
+    return tts_settings
 
 def load_config(config_path):
     if not os.path.exists(config_path):

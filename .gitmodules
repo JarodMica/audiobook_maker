@@ -4,3 +4,6 @@
 [submodule "modules/styletts-api"]
 	path = modules/styletts-api
 	url = https://github.com/JarodMica/styletts-api.git
+[submodule "modules/F5-TTS"]
+	path = modules/F5-TTS
+	url = https://github.com/JarodMica/F5-TTS.git
