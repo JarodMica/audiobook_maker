@@ -14,7 +14,18 @@ if os.path.exists("runtime"):
     # Add this directory to sys.path
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-
+        
+try:
+    import styletts2
+    espeak_path = os.path.join(os.path.dirname(__file__), '..', 'espeak NG')
+    espeak_library = os.path.join(os.path.dirname(__file__), '..', 'espeak NG', 'libespeak-ng.dll')
+    espeak_data_path = os.path.join(espeak_path, 'espeak-ng-data')
+    os.environ['PHONEMIZER_ESPEAK_PATH'] = espeak_path
+    os.environ['PHONEMIZER_ESPEAK_LIBRARY'] = espeak_library
+    os.environ['ESPEAK_DATA_PATH'] = espeak_data_path    
+except:
+    # Styletts2 not installed, so espeak not added to path
+    pass
 
 from model import AudiobookModel
 from view import AudiobookMakerView
