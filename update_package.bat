@@ -62,6 +62,7 @@ xcopy %REPO_NAME%\configs configs /E /I /H /Y
 xcopy %REPO_NAME%\modules\tortoise_tts_api modules\tortoise_tts_api /E /I /H /Y
 xcopy %REPO_NAME%\modules\styletts-api modules\styletts-api /E /I /H /Y
 
+REM Start of TortoiseTTS install
 cd modules\tortoise_tts_api
 git submodule init
 git submodule update --remote
@@ -74,6 +75,7 @@ runtime\python.exe -m pip install modules\tortoise_tts_api\modules\tortoise_tts
 runtime\python.exe -m pip install modules\tortoise_tts_api\modules\dlas
 runtime\python.exe -m pip install modules\tortoise_tts_api
 
+REM Start of StyleTTS install
 set download_monotonic_align=https://huggingface.co/Jmica/audiobook_models/resolve/main/monotonic_align-1.2-cp311-cp311-win_amd64.whl?download=true
 set file_name_ma=monotonic_align-1.2-cp311-cp311-win_amd64.wh
 if not exist "%file_name_ma%" (
@@ -98,10 +100,39 @@ runtime\python.exe -m pip uninstall -y styletts-api
 runtime\python.exe -m pip install modules\styletts-api\modules\StyleTTS2
 runtime\python.exe -m pip install modules\styletts-api
 
+REM Start of F5TTS install
+runtime\python.exe -m pip uninstall -y f5_tts
+runtime\python.exe -m pip install %REPO_NAME%\modules\F5-TTS
+
+REM Start of RVC install
 runtime\python.exe -m pip uninstall -y rvc-python
 runtime\python.exe -m pip install git+https://github.com/JarodMica/rvc-python
 
+REM Check torch and reinstall if needed
+for /f "tokens=2" %%a in ('runtime\python.exe -m pip show torch ^| findstr "^Version:"') do set CURRENT_VERSION=%%a
+
+set TARGET_VERSION=2.4.0+cu121
+echo Current torch version: %CURRENT_VERSION%
+echo Target torch version: %TARGET_VERSION%
+
+if "%CURRENT_VERSION%" == "%TARGET_VERSION%" (
+    echo Torch is already at the target version %TARGET_VERSION%, no action needed.
+) else (
+    echo Torch is not at the target version.
+    runtime\python.exe -m pip uninstall -y torch
+    runtime\python.exe -m pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+)
+
 runtime\python.exe -m pip install -r requirements.txt
+
+mkdir voices\styletts
+mkdir voices\f5tts
+
+mkdir engines\styletts
+mkdir engines\f5tts\duration
+mkdir engines\f5tts\models
+mkdir engines\f5tts\tokenizers
+mkdir engines\f5tts\vocoders
 
 @echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 @echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
