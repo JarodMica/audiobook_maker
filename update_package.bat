@@ -62,6 +62,7 @@ xcopy %REPO_NAME%\src src /E /I /H /Y
 xcopy %REPO_NAME%\configs configs /E /I /H /Y
 xcopy %REPO_NAME%\modules\tortoise_tts_api modules\tortoise_tts_api /E /I /H /Y
 xcopy %REPO_NAME%\modules\styletts-api modules\styletts-api /E /I /H /Y
+xcopy %REPO_NAME%\modules\F5-TTS modules\F5-TTS /E /I /H /Y
 
 REM Start of TortoiseTTS install
 cd modules\tortoise_tts_api
