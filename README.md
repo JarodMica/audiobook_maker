@@ -62,7 +62,8 @@ Will be available for Youtube Channel Members at the Supporter (Package) level: 
 
 And that's it! (maybe)
 
-If you run into issues, check your drivers and make sure they're up to date.  If you don't run into issues, I recommend not updating.
+If you run into `CUDA_HOME` issues, please install the CUDA DEV toolkit here: https://developer.nvidia.com/cuda-12-1-0-download-archive?target_os=Windows&target_arch=x86_64&target_version=11&target_type=exe_local
+
 
 ## Manual Installation Windows 10/11
 ### Pre-requistites
@@ -92,7 +93,7 @@ If you run into issues, check your drivers and make sure they're up to date.  If
 4. Pull submodules
    ```
    git submodule init
-   git submodule update --remote
+   git submodule update
    ```  
 5. Launch the interface
    ```
@@ -109,66 +110,83 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
 
 ## Text-to-Speech Engines
 ### TortoiseTTS Installation
-0. Make sure your venv is still activated, if not, activate it:
+0. Make sure your venv is still activated, if not, activate it, then [pull the repo to update if you are updating an older install](#updating-the-package):
    ```
    .\venv\Scripts\activate
    ```
-2. Change directory to tortoise submodule, then pull its submodules:
+1. Change directory to tortoise submodule, then pull its submodules:
    ```
    cd .\modules\tortoise_tts_api\
    git submodule init
    git submodule update
    ```
-3. Install the submodules:
+2. Install the submodules:
    ```
    pip install modules\tortoise_tts
    pip install modules\dlas
    ```
-4. Install the tortoise tts api repo, then cd back to root:
+3. Install the tortoise tts api repo, then cd back to root:
    ```
    pip install .
    cd ..\..
    ```
-5. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
+4. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ### StyleTTS 2 Installation
-0. Make sure your venv is still activated, if not, activate it:
+0. Make sure your venv is still activated, if not, activate it, then [pull the repo to update if you are updating an older install](#updating-the-package):
    ```
    .\venv\Scripts\activate
    ```
-2. Change directory to styletts submodule, then pull its submodules:
+1. Change directory to styletts submodule, then pull its submodules:
    ```
    cd .\modules\styletts-api\
    git submodule init
    git submodule update
    ```
-3. Install the submodules:
+2. Install the submodules:
    ```
    pip install modules\StyleTTS2
    ```
-4. Install the styletts api repo, then cd back to root:
+3. Install the styletts api repo, then cd back to root:
    ```
    pip install .
    cd ..\..
    ```
-5. Install monotonic align - if you run into issues, you will need microsoft c++ build tools: https://visualstudio.microsoft.com/downloads/?q=build+tools
-```
-pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a03d08bc3acc01c4df0442105366f
-```
-6. Install eSpeak-NG onto your computer. Head over to https://github.com/espeak-ng/espeak-ng/releases and select the espeak-ng-X64.msi the assets dropdown. Download, run, and follow the prompts to set it up on your device. As of this write-up, it'll be at the bottom of 1.51 on the github releases page
-   - You will also need to add the following to your envrionment path:
-     ```
-     PHONEMIZER_ESPEAK_LIBRARY="c:\Program Files\eSpeak NG\libespeak-ng.dll"
-     PHONEMIZER_ESPEAK_PATH =“c:\Program Files\eSpeak NG”
-     ```
+4. Install monotonic align with the precompiled wheels that I've built [here](https://huggingface.co/Jmica/audiobook_models/blob/main/monotonic_align-1.2-cp311-cp311-win_amd64.whl), put in the repo root, and run the below command.  Will NOT work if you wanna use a different version of python:
+   ```
+   pip install monotonic_align-1.2-cp311-cp311-win_amd64.whl
+   ```
+   - Alternatively, if you are running a different python version, you will need microsoft c++ build tools to install it yourself: https://visualstudio.microsoft.com/downloads/?q=build+tools
+      ```
+      pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a03d08bc3acc01c4df0442105366f
+      ```
+   
+5. Get eSpeak-NG files by running the `finish_styletts_install.bat`:
+   ```
+   .\finish_styletts_install.bat
+   ```
+   - Alternatively, install eSpeak-NG onto your computer. Head over to https://github.com/espeak-ng/espeak-ng/releases and select the espeak-ng-X64.msi the assets dropdown. Download, run, and follow the prompts to set it up on your device. As of this write-up, it'll be at the bottom of 1.51 on the github releases page
+      - You will also need to add the following to your envrionment path:
+      ```
+      PHONEMIZER_ESPEAK_LIBRARY="c:\Program Files\eSpeak NG\libespeak-ng.dll"
+      PHONEMIZER_ESPEAK_PATH =“c:\Program Files\eSpeak NG”
+      ```
 6. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ### F5-TTS Installation
-To be written
+0. Make sure your venv is still activated, if not, activate it, then [pull the repo to update if you are updating an older install](#updating-the-package):
+   ```
+   .\venv\Scripts\activate
+   ```
+1. Install the F5-TTS submodule as a package:
+   ```
+   pip install .\modules\F5-TTS
+   ```
+2. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ## Speech-to-Speech Engines
 ### RVC Installation
-0. Make sure your venv is still activated, if not, activate it:
+0. Make sure your venv is still activated, if not, activate it, then [pull the repo to update if you are updating an older install](#updating-the-package):
    ```
    .\venv\Scripts\activate
    ```
@@ -200,6 +218,20 @@ pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https
 ```
 
 Torch is a pretty large download, so it may take a bit of time.  Once you have it installed here, it should be fine following the other install.  However, sometimes, newer versions of torch may uninstall the one we just did, so you may need to uninstall and reinstall after each engine to make sure you have the correction version.  After the first install, it will have been cached, so you won't have to wait each time afterwards.
+
+### Updating the Package
+If there are updates to the Audiobook Maker, you may need to `pull` new files from the source repo in order to gain access to new functionality. 
+1. Open up a terminal in the Audiobook Maker folder (if not openned alread) and run:
+   ```
+   git pull
+   git submodule update
+   ```
+If you run into issues where you can't pull the updates, you may have made edits to the code base.  In this case, you will need to `stash` your updates so that you can `pull` it.  I won't go over how you can reapply custom mods as that dives into git conflicts etc.
+   ```
+   git stash
+   git pull
+   git submodule update
+   ```
 
 ## Usage
 To be written
