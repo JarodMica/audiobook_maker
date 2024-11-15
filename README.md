@@ -10,12 +10,15 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
   - [As a developer?](#as-a-developer)
 - [Windows Package Installation](#windows-package-installation)
 - [Manual Installation Windows 10/11](#manual-installation-windows-1011)
+- [Text-to-Speech Engines](#text-to-speech-engines)
+- [Speech to Speech Engines](#speech-to-speech-engines)
 - [Usage](#usage)
 - [Acknowledgements](#acknowledgements)
 
 ### Install Specific Engines
 - [TortoiseTTS Installation](#tortoisetts-installation)
 - [StyleTTS 2 Installation](#styletts-2-installation)
+- [F5-TTS Installation](#f5-tts-installation)
 - [RVC Installation](#rvc-installation)
 
 ## Features
@@ -31,7 +34,7 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 
 :heavy_check_mark: Sentence remapping in case you need to update the original text file that was used for generation
 
-:heavy_check_mark: Integration with popular open-source models like TortoiseTTS, RVC, StyleTTS (to be added), and XTTS (to be added)
+:heavy_check_mark: Integration with popular open-source models like TortoiseTTS, RVC, StyleTTS, F5TTS and XTTS (to be added)
 
 ## What changed from v1 and v2?
 ### As a user?
@@ -161,7 +164,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
       pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a03d08bc3acc01c4df0442105366f
       ```
    
-5. Get eSpeak-NG files by running the `finish_styletts_install.bat`:
+5. Get eSpeak-NG files and base STTS2 model by running the `finish_styletts_install.bat`:
    ```
    .\finish_styletts_install.bat
    ```
@@ -171,6 +174,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
       PHONEMIZER_ESPEAK_LIBRARY="c:\Program Files\eSpeak NG\libespeak-ng.dll"
       PHONEMIZER_ESPEAK_PATH =“c:\Program Files\eSpeak NG”
       ```
+
 6. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ### F5-TTS Installation
