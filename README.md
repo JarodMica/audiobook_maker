@@ -164,7 +164,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
       pip install git+https://github.com/resemble-ai/monotonic_align.git@78b985be210a03d08bc3acc01c4df0442105366f
       ```
    
-5. Get eSpeak-NG files by running the `finish_styletts_install.bat`:
+5. Get eSpeak-NG files and base STTS2 model by running the `finish_styletts_install.bat`:
    ```
    .\finish_styletts_install.bat
    ```
@@ -174,6 +174,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
       PHONEMIZER_ESPEAK_LIBRARY="c:\Program Files\eSpeak NG\libespeak-ng.dll"
       PHONEMIZER_ESPEAK_PATH =“c:\Program Files\eSpeak NG”
       ```
+
 6. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ### F5-TTS Installation
