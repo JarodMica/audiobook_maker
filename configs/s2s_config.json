@@ -46,7 +46,7 @@
             "type": "slider",
             "min": 0,
             "max": 48000,
-            "default": 48000
+            "default": 0
           },
           {
             "label": "Volume Increase",
