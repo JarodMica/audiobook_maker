@@ -55,18 +55,19 @@ I have decided to **NOT** use gradio for this.  The biggest reason being that th
 
 
 ## Windows Package Installation
-Will be available for Youtube Channel Members at the Supporter (Package) level: https://www.youtube.com/channel/UCwNdsF7ZXOlrTKhSoGJPnlQ/join
+Available for Youtube Channel Members at the Supporter (Package) level: https://www.youtube.com/channel/UCwNdsF7ZXOlrTKhSoGJPnlQ/join or via purchase here: https://buymeacoffee.com/jarodsjourney/extras
 ### Pre-requisites
 - NVIDIA GPU with at least 8GB of VRAM (for heavier inference models like Tortoise, 4-6 GB might be possible as we're not training here)
+- Please install the CUDA DEV toolkit here, else `CUDA_HOME` error will occur for RVC: https://developer.nvidia.com/cuda-12-1-0-download-archive?target_os=Windows&target_arch=x86_64&target_version=11&target_type=exe_local
 
 1. Download the zip file provided to you on the members community tab.
 2. Unzip the folder
-3. Run the `start.bat` file
+3. To get StyleTTS, double-click and run `finish_styletts_install.bat`
+4. Run the `start.bat` file
 
 And that's it! (maybe)
 
-If you run into `CUDA_HOME` issues, please install the CUDA DEV toolkit here: https://developer.nvidia.com/cuda-12-1-0-download-archive?target_os=Windows&target_arch=x86_64&target_version=11&target_type=exe_local
-
+For **F5 TTS**, an additional download will be incurred when you first use it due to licensing of the pretrained base model being cc-by-nc-4.0
 
 ## Manual Installation Windows 10/11
 ### Pre-requistites
@@ -247,7 +248,19 @@ This has been put together using a variety of open-source models and libraries. 
 TTS Engines:
 - Tortoise TTS: https://github.com/neonbjb/tortoise-tts
 - StyleTTS: https://github.com/yl4579/StyleTTS2
+- F5TTS: https://github.com/SWivid/F5-TTS/tree/main
 
 S2S Engines:
 - RVC: https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
   - Installable RVC Library: https://github.com/daswer123/rvc-python
+
+## Licensing
+Each engine being used here is MIT or Apache-2.0.  However, base-pretrained models may have their own licenses or use limitations so please be aware of that depending on your use case. I am not a lawyer, so I will just state what the licenses are.
+
+### StyleTTS 2
+The pretrained model states: 
+>*Before using these pre-trained models, you agree to inform the listeners that the speech samples are synthesized by the pre-trained models, unless you have the permission to use the voice you synthesize. That is, you agree to only use voices whose speakers grant the permission to have their voice cloned, either directly or by license before making synthesized voices public, or you have to publicly announce that these voices are synthesized if you do not have the permission to use these voices.*
+
+### F5 TTS
+The pretrained base was trained on the [Emilia dataset](https://huggingface.co/datasets/amphion/Emilia-Dataset), so it is Non-Commerical CC-By-NC-4.0.
+

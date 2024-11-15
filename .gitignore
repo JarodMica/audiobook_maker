@@ -14,6 +14,8 @@ output/
 .vscode/
 tortoise_api/
 personal/
+monotonic_align/
+eSpeak NG/
 
 temp/
 input_text_files/small_jp_test.txt
