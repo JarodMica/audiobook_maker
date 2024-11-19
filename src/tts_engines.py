@@ -232,7 +232,7 @@ def load_with_f5tts(**kwargs):
         
     tokenizer = kwargs.get("f5tts_tokenizer")
     if tokenizer:
-        tokenizer_root = next((param.folderpath for param in f5tts_engine_config.parameters if param.attribute == "f5tts_tokenizer"))
+        tokenizer_root = next((param.folder_path for param in f5tts_engine_config.parameters if param.attribute == "f5tts_tokenizer"))
         tokenizer_path = os.path.join(tokenizer_root, tokenizer)
     else:
         tokenizer_path = ""
