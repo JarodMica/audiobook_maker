@@ -1,11 +1,5 @@
 # tts_engines.py
 
-'''
-Note for sliders: Due to Qt6 sliders, to mimick decimal values, a "step" parameter is used so if a decimal value needs to be passed into some engine, the value passed from the voice settings needs to be divided by step.
-
-For example, let's take "speed" from f5tts.  It needs to be a decimal value but Qt6 slider only allows for whole numbers  The tts_config has a step=100 with min=1 and max=200, so any value between those can be chosen.  Therefore, if the slider outputs 30, it should be 0.3 as 30 // step = 0.3
-'''
-
 import os
 import json
 
@@ -133,17 +127,13 @@ def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
     with open(ref_text, "r", encoding="utf-8") as f:
         ref_text = f.readline()
         
-    seed = voice_parameters.get("f5tts_seed", -1)
-    
-    speed_step = next((param.step for param in f5tts_engine_config.parameters if param.attribute=="f5tts_speed"), 100)
-    speed = voice_parameters.get(speed) // speed_step
+    seed = voice_parameters.get("seed", -1)
         
     tts_engine.infer(
         ref_file=ref_file_path,
         ref_text=ref_text,
         gen_text=sentence,
         file_wave=audio_path,
-        speed=speed,
         seed=seed
     )
     
