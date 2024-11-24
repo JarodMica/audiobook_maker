@@ -713,6 +713,8 @@ class AudiobookMakerView(QMainWindow):
                                 widget.setCurrentIndex(index)
                             else:
                                 widget.setCurrentIndex(0)  # Default to first item
+                        elif param['type'] == 'slider':
+                            widget.setValue(value)
                     else:
                         if param['type'] == 'combobox':
                             widget.setCurrentIndex(0)  # Default to first item when value is None
