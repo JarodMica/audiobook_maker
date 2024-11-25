@@ -133,18 +133,19 @@ def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
     with open(ref_text, "r", encoding="utf-8") as f:
         ref_text = f.readline()
         
+
     seed = voice_parameters.get("f5tts_seed", -1)
     
     speed_step = next((param.step for param in f5tts_engine_config.parameters if param.attribute=="f5tts_speed"), 100)
     speed = round(voice_parameters.get("f5tts_speed") / speed_step, 2)
     print(speed)
+
         
     tts_engine.infer(
         ref_file=ref_file_path,
         ref_text=ref_text,
         gen_text=sentence,
         file_wave=audio_path,
-        speed=speed,
         seed=seed
     )
     
