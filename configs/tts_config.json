@@ -44,12 +44,28 @@
                     "file_filter": null
                 },
                 {
-                    "label": "Sample Size",
+                    "label":"Seed (-1 is random)",
+                    "type": "spinbox",
+                    "attribute": "tortoise_seed",
+                    "min" : -1,
+                    "max" : 9999999,
+                    "default": -1
+                },
+                {
+                    "label": "Number Samples to Choose From",
                     "type": "spinbox",
                     "attribute": "sample_size",
-                    "min": 1,
+                    "min": 2,
                     "max": 64,
-                    "default": 4
+                    "default":2
+                },
+                {
+                    "label": "Diffusion Iterations for each Sample",
+                    "type": "spinbox",
+                    "attribute": "tortoise_iterations",
+                    "min": 1,
+                    "max": 500,
+                    "default": 25
                 },
                 {
                     "label": "Use DeepSpeed",
@@ -118,9 +134,12 @@
                     "file_filter": "*"
                 },
                 {
-                    "label": "Seed",
-                    "type": "text",
-                    "attribute": "stts_seed"
+                    "label":"Seed (-1 is random)",
+                    "type": "spinbox",
+                    "attribute": "stts_seed",
+                    "min" : -1,
+                    "max" : 9999999,
+                    "default": -1
                 },
                 {
                     "label": "Diffusion Steps",
@@ -226,7 +245,7 @@
                     "type": "spinbox",
                     "attribute": "f5tts_seed",
                     "min" : -1,
-                    "max" : 999999,
+                    "max" : 9999999,
                     "default": -1
                 }
             ]
