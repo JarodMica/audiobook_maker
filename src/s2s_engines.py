@@ -52,7 +52,7 @@ def load_with_rvc(**kwargs):
     index_rate = kwargs.get("index_rate")/index_step
     
     filter_radius = kwargs.get("filter_radius")
-    resample_sr = kwargs.get("resample_sr")
+    resample_sr = int(str(kwargs.get("resample_sr", "0:")).split(":")[0])
     
     rms_mix_rate_step = next((param.step for param in rvc_engine_config.parameters if param.attribute == "rms_mix_rate"), 100)
     rms_mix_rate = kwargs.get("rms_mix_rate")/rms_mix_rate_step

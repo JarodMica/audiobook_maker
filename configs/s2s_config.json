@@ -41,12 +41,12 @@
             "default": 0
           },
           {
-            "label": "Resample Sample Rate",
+            "label": "Resample Sample Rate (Hz)",
             "attribute": "resample_sr",
-            "type": "slider",
-            "min": 0,
-            "max": 48000,
-            "default": 0
+            "type": "combobox",
+            "function": "get_combobox_items",
+            "look_for": "custom",
+            "custom_options": ["0:None", "40000:v1 Models", "48000:v2 Models"]
           },
           {
             "label": "Volume Increase",
