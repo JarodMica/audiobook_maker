@@ -1,5 +1,11 @@
 # tts_engines.py
 
+'''
+Note for sliders: Due to Qt6 sliders, to mimick decimal values, a "step" parameter is used so if a decimal value needs to be passed into some engine, the value passed from the voice settings needs to be divided by step.
+
+For example, let's take "speed" from f5tts.  It needs to be a decimal value but Qt6 slider only allows for whole numbers  The tts_config has a step=100 with min=1 and max=200, so any value between those can be chosen.  Therefore, if the slider outputs 30, it should be 0.30 as round(30 / step, 2) = 0.30
+'''
+
 import os
 import json
 
@@ -69,13 +75,13 @@ def generate_with_styletts2(tts_engine, sentence, voice_parameters, audio_path):
     diffusion_steps = voice_parameters.get("stts_diffusion_steps")
     
     alpha_step = next((param.step for param in styletts_engine_config.parameters if param.attribute=="stts_alpha"), 100)
-    alpha = voice_parameters.get("stts_alpha") // alpha_step
+    alpha = round(voice_parameters.get("stts_alpha", 70) / alpha_step, 2)
     
     beta_step = next((param.step for param in styletts_engine_config.parameters if param.attribute=="stts_beta"), 100)
-    beta = voice_parameters.get("stts_beta") // beta_step 
+    beta = round(voice_parameters.get("stts_beta", 30) / beta_step, 2)
     
     embedding_scale_step = next((param.step for param in styletts_engine_config.parameters if param.attribute=="stts_embedding_scale"), 100)
-    embedding_scale = voice_parameters.get("stts_embedding_scale") // embedding_scale_step
+    embedding_scale = round(voice_parameters.get("stts_embedding_scale", 50) / embedding_scale_step, 2)
     
     audio_path = stts_generate(
         text=sentence, 
@@ -127,7 +133,13 @@ def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
     with open(ref_text, "r", encoding="utf-8") as f:
         ref_text = f.readline()
         
-    seed = voice_parameters.get("seed", -1)
+
+    seed = voice_parameters.get("f5tts_seed", -1)
+    
+    speed_step = next((param.step for param in f5tts_engine_config.parameters if param.attribute=="f5tts_speed"), 100)
+    speed = round(voice_parameters.get("f5tts_speed") / speed_step, 2)
+    print(speed)
+
         
     tts_engine.infer(
         ref_file=ref_file_path,
