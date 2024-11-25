@@ -105,13 +105,17 @@ def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
     sample_size = voice_parameters.get('sample_size', 4)
     use_hifigan = voice_parameters.get('use_hifigan', False)
     num_autoregressive_samples = sample_size
+    seed = voice_parameters.get("tortoise_seed", -1)
+    iterations = voice_parameters.get("tortoise_iterations", 25)
 
     result = tortoise_generate(
         tts=tts_engine,
         text=sentence,
         voice=voice,
+        seed=seed,
         use_hifigan=use_hifigan,
         num_autoregressive_samples=num_autoregressive_samples,
+        diffusion_iterations=iterations,
         audio_path=audio_path
     )
     return os.path.exists(audio_path)
