@@ -241,6 +241,15 @@
                     "folder_path": "engines/f5tts/duration"
                 },
                 {
+                    "label": "Speed of Output",
+                    "type": "slider",
+                    "attribute": "f5tts_speed",
+                    "min": 1,
+                    "max": 200,
+                    "default": 100,
+                    "step": 100
+                },
+                {
                     "label":"Seed (-1 is random)",
                     "type": "spinbox",
                     "attribute": "f5tts_seed",

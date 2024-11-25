@@ -150,6 +150,7 @@ def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
         ref_text=ref_text,
         gen_text=sentence,
         file_wave=audio_path,
+        speed=speed,
         seed=seed
     )
     
