@@ -1055,6 +1055,14 @@ class AudiobookMakerView(QMainWindow):
                         widget.blockSignals(True)
                         widget.clear()
                         widget.addItems(items)
+                        # Needed to update generation settings based on dependent combobox
+                        if items:
+                            widget.setCurrentIndex(0)
+                            value = widget.currentText()
+                            self.on_parameter_changed(attribute, value)
+                        else:
+                            self.on_parameter_changed(attribute, None)
+                        widget.blockSignals(False)
                         widget.blockSignals(False)
                     # Connect the slot to the currentTextChanged signal of the relies_on widget
                     relies_on_widget.currentTextChanged.connect(update_items_based_on_dependency)
