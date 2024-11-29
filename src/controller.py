@@ -191,7 +191,7 @@ class AudiobookController:
         self.view.s2s_engine_changed.connect(self.on_s2s_engine_changed)
         self.view.stop_generation_requested.connect(self.stop_generation)
 
-
+        self.view.search_sentences_requested.connect(self.search_sentences)
         # No need to connect font size and voice setting signals if they are handled in the view
         
     def change_regen_mode(self, regen_mode):
@@ -815,6 +815,52 @@ class AudiobookController:
     def clear_background_image(self):
         self.model.clear_background_image()
         self.view.background_label.clear()  # Clear the background in the view
+
+    def extract_text(self, idx: int, concat_sentences:bool, length_search_text: int) -> str:
+        text = self.model.text_audio_map[str(idx)]['sentence']
+        if concat_sentences:
+            additional_text =  ""
+            offset = 1
+            while len(additional_text) < length_search_text and idx+offset < len(self.model.text_audio_map):
+                text_at_offset = self.model.text_audio_map[str(idx+offset)]['sentence']
+                if len(text_at_offset) < length_search_text:
+                    additional_text += text_at_offset
+                    length_search_text -= len(text_at_offset)
+                else:
+                    additional_text += text_at_offset[:length_search_text - 1]
+                    ## adding only so much to the sentence, that the search result can be found only if it overlaps with the sentence border.
+                    ## and not if it is completely within the next sentence
+                    break
+                offset += 1
+            text += additional_text
+        return text.lower()
+
+    def search_sentences(self, start_idx:int, forward:bool, search_text:str, concat_sentences:bool):
+        if not search_text:
+            return
+        length_search_text = len(search_text)
+        search_text = search_text.lower()
+        if forward:
+            for idx in range(start_idx + 1, len(self.model.text_audio_map)):
+                if search_text in self.extract_text(idx, concat_sentences, length_search_text):
+                    self.view.select_table_row(idx)
+                    return
+            for idx in range(0, start_idx):
+                if search_text in self.extract_text(idx, concat_sentences, length_search_text):
+                    self.view.select_table_row(idx)
+                    return
+        else:
+            for idx in range(start_idx - 1, -1, -1):
+                if search_text in self.extract_text(idx, concat_sentences, length_search_text):
+                    self.view.select_table_row(idx)
+                    return
+            for idx in range(len(self.model.text_audio_map)-1, start_idx, -1):
+                if search_text in self.extract_text(idx, concat_sentences, length_search_text):
+                    self.view.select_table_row(idx)
+                    return
+
+
+
 
 if __name__ == '__main__':
     controller = AudiobookController()
