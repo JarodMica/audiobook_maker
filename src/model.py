@@ -2,7 +2,6 @@
 
 import os
 import json
-import math
 import shutil
 from pydub import AudioSegment
 import pyttsx3
@@ -11,10 +10,8 @@ import tempfile
 import tts_engines  # Import your TTS_engines module
 import s2s_engines
 from collections import defaultdict
-from pathlib import Path
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
-from typing import List
 
 class AudiobookModel:
     def __init__(self):
