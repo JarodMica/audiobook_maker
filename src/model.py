@@ -2,6 +2,7 @@
 
 import os
 import json
+import math
 import shutil
 from pydub import AudioSegment
 import pyttsx3
@@ -10,8 +11,10 @@ import tempfile
 import tts_engines  # Import your TTS_engines module
 import s2s_engines
 from collections import defaultdict
+from pathlib import Path
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
+from typing import List
 
 class AudiobookModel:
     def __init__(self):
@@ -319,6 +322,16 @@ class AudiobookModel:
             return s2s_audio_path
         else:
             return audio_path
+
+    def execute_subprocess(self, cmd):
+        from subprocess import Popen, PIPE, CalledProcessError
+
+        with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
+            for line in p.stdout:
+                print(line, end='')  # process line here
+
+        if p.returncode != 0:
+            raise CalledProcessError(p.returncode, p.args)
         
 
     def export_audiobook(self, directory_path, pause_duration):
@@ -329,16 +342,6 @@ class AudiobookModel:
         exported_dir = os.path.join(directory_path, "exported_audiobooks")
         if not os.path.exists(exported_dir):
             os.makedirs(exported_dir)
-
-        # Find a suitable audio file name with an incrementing suffix
-        while True:
-            new_audiobook_name = f"{dir_name}_audiobook_{idx}.mp3"
-            new_audiobook_path = os.path.join(exported_dir, new_audiobook_name)
-            if not os.path.exists(new_audiobook_path):
-                break  # Exit the loop once a suitable name is found
-            idx += 1
-
-        output_filename = new_audiobook_path
 
         # Load the JSON file
         audio_map_path = os.path.join(directory_path, 'text_audio_map.json')
@@ -351,25 +354,40 @@ class AudiobookModel:
         # Sort the keys (converted to int), then get the corresponding audio paths
         sorted_audio_paths = [text_audio_map[key]['audio_path'] for key in sorted(text_audio_map, key=lambda k: int(k))]
 
-        combined_audio = AudioSegment.empty()  # Create an empty audio segment
+        # Create a silent audio segment for the pause duration
+        silence_concat_command = ""
+        if pause_duration > 0:
+            pause_length = pause_duration * 1000  # convert to milliseconds
+            silence = AudioSegment.silent(duration=pause_length)
+            silence_path = os.path.join(directory_path, "silence.wav")
+            silence.export(silence_path, format="wav")
+            silence_concat_command = f"file {os.path.basename(silence_path)}\n"
 
-        pause_length = pause_duration * 1000  # convert to milliseconds
-        silence = AudioSegment.silent(duration=pause_length)  # Create a silent audio segment of pause_length
+        # Create a file list for ffmpeg concat demuxer
+        first = True
+        file_list_path = os.path.join(directory_path, 'file_list.txt')
+        with open(file_list_path, 'w') as file:
+            for sap in sorted_audio_paths:
+                if first:
+                    first = False
+                else:
+                    file.write(silence_concat_command)
+                file.write(f"file {os.path.basename(sap)}\n")
 
-        for audio_path in sorted_audio_paths:
-            audio_segment = AudioSegment.from_wav(audio_path)
-            combined_audio += audio_segment + silence  # Append the audio segment followed by silence
+        # Find a suitable audio file name with an incrementing suffix
+        while True:
+            new_audiobook_name = f"{dir_name}_audiobook_{idx}.mp3"
+            new_audiobook_path = os.path.join(exported_dir, new_audiobook_name)
+            if not os.path.exists(new_audiobook_path):
+                break  # Exit the loop once a suitable name is found
+            idx += 1
 
-        # If you don't want silence after the last segment, you might need to trim it
-        if pause_length > 0:
-            combined_audio = combined_audio[:-pause_length]
+        self.execute_subprocess([AudioSegment.silent(0).ffmpeg, '-f', 'concat', '-safe', '0', '-i', file_list_path, new_audiobook_path])
 
-        # Export the combined audio
-        combined_audio.export(output_filename, format="mp3")
 
-        print(f"Combined audiobook saved as {output_filename}")
-        return output_filename
 
+        print(f"Combined audiobook saved in {new_audiobook_name}")
+        return new_audiobook_name
 
 
     def update_audiobook(self, directory_path, new_sentences_list):
@@ -618,3 +636,4 @@ class AudiobookModel:
                     data[i] = None
                 elif isinstance(value, (dict, list)):
                     self.replace_default_with_none(value)
+
