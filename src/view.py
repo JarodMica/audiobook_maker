@@ -1,4 +1,5 @@
 # view.py
+import sys
 
 from PySide6.QtWidgets import (
     QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QPushButton,
@@ -144,6 +145,8 @@ class AudiobookMakerView(QMainWindow):
     generation_settings_changed = Signal()
     stop_generation_requested = Signal()
     regen_mode_activated = Signal(bool)
+    search_sentences_requested = Signal(int, bool, str, bool)
+
 
 
 
@@ -374,13 +377,41 @@ class AudiobookMakerView(QMainWindow):
         # Create a horizontal layout to hold the table and options
         right_inner_layout = QHBoxLayout()
 
+        # Contains Sentence Table and search bar
+        sentence_area = QVBoxLayout()
+
         # Table widget
         self.tableWidget = QTableWidget(self)
         self.tableWidget.setColumnCount(1)
         self.tableWidget.setHorizontalHeaderLabels(['Sentence'])
         self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
-        right_inner_layout.addWidget(self.tableWidget)
+        sentence_area.addWidget(self.tableWidget)
+
+        # create a search bar
+        search_layout = QHBoxLayout()
+        self.previous_search = QPushButton("Search previous")
+        self.previous_search.clicked.connect(self.on_previous_search)
+        self.next_search = QPushButton("Search next")
+        self.next_search.clicked.connect(self.on_next_search)
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search for")
+        self.search_across_sentences = QCheckBox("Search across sentences limits")
+        self.search_across_sentences.setChecked(False)
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.previous_search)
+        search_layout.addWidget(self.next_search)
+        search_layout.addWidget(self.search_across_sentences)
+        self.go_to_sentence = QPushButton("Go to sentence number:")
+        self.go_to_sentence_input = QSpinBox()
+        self.go_to_sentence_input.setMinimum(1)
+        self.go_to_sentence_input.setMaximum(2**31 - 1) # necessary so that the field has a decent size
+        self.go_to_sentence.clicked.connect(self.on_go_to_sentence)
+        search_layout.addWidget(self.go_to_sentence)
+        search_layout.addWidget(self.go_to_sentence_input)
+        sentence_area.addLayout(search_layout)
+
+        right_inner_layout.addLayout(sentence_area)
 
         # Add the options layout
         right_inner_layout.addLayout(self.options_layout)
@@ -1364,7 +1395,7 @@ class AudiobookMakerView(QMainWindow):
     
     def release_media_player_resources(self):
         # Reinitialize the media player to release any file handles
-        # This way is NECESSARY to prevent the gui from freezing (for somne unknown reason)
+        # This way is NECESSARY to prevent the gui from freezing (for some unknown reason)
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
@@ -1393,3 +1424,20 @@ class AudiobookMakerView(QMainWindow):
 
         # Load settings for current speaker
         self.load_speaker_settings(default_speaker_id)
+
+    def get_search_start(self):
+        selected_rows = self.tableWidget.selectionModel().selectedRows()
+        if selected_rows:
+            return selected_rows[0].row()
+        return 0
+
+    def on_previous_search(self):
+        self.search_sentences_requested.emit(self.get_search_start(), False, self.search_input.text(), self.search_across_sentences.isChecked())
+
+    def on_next_search(self):
+        self.search_sentences_requested.emit(self.get_search_start(), True, self.search_input.text(), self.search_across_sentences.isChecked())
+
+    def on_go_to_sentence(self):
+        self.select_table_row(min(self.tableWidget.rowCount(), self.go_to_sentence_input.value()) - 1)
+
+
