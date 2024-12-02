@@ -6,12 +6,16 @@ import shutil
 from pydub import AudioSegment
 import pyttsx3
 import re
+import subprocess
 import tempfile
-import tts_engines  # Import your TTS_engines module
+
+import tts_engines
 import s2s_engines
+
 from collections import defaultdict
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
+from subprocess import Popen, PIPE, CalledProcessError
 
 class AudiobookModel:
     def __init__(self):
@@ -321,7 +325,7 @@ class AudiobookModel:
             return audio_path
 
     def execute_subprocess(self, cmd):
-        from subprocess import Popen, PIPE, CalledProcessError
+        
 
         with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
             for line in p.stdout:
@@ -350,15 +354,41 @@ class AudiobookModel:
 
         # Sort the keys (converted to int), then get the corresponding audio paths
         sorted_audio_paths = [text_audio_map[key]['audio_path'] for key in sorted(text_audio_map, key=lambda k: int(k))]
+        
+        def probe_audio_properties(file_path):
+            cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-select_streams', 'a:0',
+                '-show_entries', 'stream=sample_rate,channels,bits_per_sample',
+                '-of', 'default=noprint_wrappers=1:nokey=1',
+                file_path
+            ]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(f"ffprobe error: {result.stderr}")
+            lines = result.stdout.strip().split('\n')
+            if len(lines) != 3:
+                raise ValueError("ffprobe did not return sample_rate, channels, and bits_per_sample")
+            sample_rate, channels, bits_per_sample = lines
+            return int(sample_rate), int(channels), int(bits_per_sample)
 
         # Create a silent audio segment for the pause duration
         silence_concat_command = ""
         if pause_duration > 0:
             pause_length = pause_duration * 1000  # convert to milliseconds
-            silence = AudioSegment.silent(duration=pause_length)
+            if not sorted_audio_paths:
+                raise ValueError("No audio files found to determine silence properties.")
+            first_audio_path = sorted_audio_paths[0]
+            sample_rate, channels, bits_per_sample = probe_audio_properties(first_audio_path)
+            
+            silence = AudioSegment.silent(duration=pause_length, frame_rate=sample_rate)
+            silence = silence.set_channels(channels)
+            silence = silence.set_sample_width(bits_per_sample // 8)  # Convert bits to bytes
+            
             silence_path = os.path.join(directory_path, "silence.wav")
             silence.export(silence_path, format="wav")
-            silence_concat_command = f"file {os.path.basename(silence_path)}\n"
+            silence_concat_command = f"file '{os.path.basename(silence_path)}'\n"
 
         # Create a file list for ffmpeg concat demuxer
         first = True
