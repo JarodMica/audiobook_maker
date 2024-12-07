@@ -30,6 +30,10 @@ except:
 from model import AudiobookModel
 from view import AudiobookMakerView
 
+#*****************************************************************************************
+from WordReplacer import WordReplacerView
+#from pathlib import Path
+#*****************************************************************************************
 
 class AudioGenerationWorker(QThread):
     progress_signal = Signal(int)
@@ -144,6 +148,10 @@ class AudiobookController:
         self.app = QApplication(sys.argv)
         self.model = AudiobookModel()
         self.view = AudiobookMakerView()
+        #*************************************************************************************
+        self.WordReplacer = WordReplacerView()
+        self.WordListActive = False
+        #*************************************************************************************
         self.current_sentence_idx = 0
         self.tts_engine = None
         self.view.audio_finished_signal.connect(self.on_audio_finished)
@@ -192,6 +200,70 @@ class AudiobookController:
         self.view.stop_generation_requested.connect(self.stop_generation)
 
         self.view.search_sentences_requested.connect(self.search_sentences)
+        #***************************************************************************************
+        self.view.Word_Replacer_Window_On.connect(self.ToggleWordRec)
+        self.WordReplacer.TestReplS.connect(self.TestWord)
+
+    def ToggleWordRec(self, checked):
+        if checked:
+            self.WordReplacer.show()
+            self.WordListActive = True
+        else:
+            self.WordListActive = False
+            self.WordReplacer.hide()
+        
+    def TestWord(self,str):
+        self.view.toggle_regeneration_mode(False)
+
+        testdir = os.path.join(os.getcwd(),'test')
+        if os.path.exists(testdir) == False:os.mkdir(testdir)
+        testpath = os.path.join(testdir,'test.wav')
+
+        self.model.save_generation_settings(testdir, self.model.speakers)
+        
+        selected_sentence = str
+        old_audio_path = testpath
+        speaker_id = 1
+        audio_path_parent = testdir
+        generation_settings = self.model.load_generation_settings(testdir)
+
+        generation_settings_path = os.path.join(testdir, "generation_settings.json")
+        # voice_parameters = generation_settings
+
+        #self.view.stop_audio()
+        # Check if the audio file is being played
+        if self.view.is_audio_playing(old_audio_path):
+            self.view.stop_audio()
+
+        # Prepare new audio path (use a temporary file)
+        new_audio_path = old_audio_path  # We'll overwrite the old file
+
+        # Get speaker settings
+        speaker = self.model.speakers.get(speaker_id, {})
+        combined_parameters = speaker.get('settings', {})
+
+        # Start the regeneration worker
+        self.regen_worker = RegenerateAudioWorker(
+            self.model,
+            old_audio_path,
+            selected_sentence,
+            combined_parameters,
+            new_audio_path,
+            speaker_id
+        )
+        
+        # Modify the connection to pass speaker_id to the handler
+        # print(speaker_id)
+        self.regen_worker.finished_signal.connect(self.on_TestWord_finished)
+        
+        self.regen_worker.error_signal.connect(self.on_regeneration_error)
+
+        self.regen_worker.start()
+        
+    def on_TestWord_finished(self,AudioPath,ID):
+        self.view.play_audio(AudioPath)
+        
+    #*****************************************************************************************
         # No need to connect font size and voice setting signals if they are handled in the view
         
     def change_regen_mode(self, regen_mode):
@@ -329,7 +401,12 @@ class AudiobookController:
         )
         if filepath:
             self.model.filepath = filepath
-            sentences = self.model.load_sentences(filepath)
+#*************************************************************************************
+            if not self.WordListActive:
+                sentences = self.model.load_sentences(filepath)
+            else:
+                sentences = self.WordReplacer.load_sentencesWR(filepath)
+#*************************************************************************************
             if sentences:
                 self.model.create_audio_text_map("", sentences)
                 self.update_table_with_sentences()
@@ -436,7 +513,12 @@ class AudiobookController:
             else:
                 self.model.text_audio_map.clear()
 
-            sentence_list = self.model.load_sentences(self.model.filepath)
+#*************************************************************************************
+            if not self.WordListActive:
+                sentence_list = self.model.load_sentences(self.model.filepath)
+            else:
+                sentence_list = self.WordReplacer.load_sentencesWR(self.model.filepath)
+#*************************************************************************************
 
             # Update text_audio_map with new sentences
             self.model.update_text_audio_map(sentence_list)
@@ -756,7 +838,13 @@ class AudiobookController:
 
         self.view.clear_table()
         self.model.text_audio_map.clear()
-        sentence_list = self.model.load_sentences(filePath)
+
+#*************************************************************************************
+        if not self.WordListActive:
+            sentence_list = self.model.load_sentences(filePath)
+        else:
+            sentence_list = self.WordReplacer.load_sentencesWR(filePath)
+#*************************************************************************************
 
         proceed = self.view.ask_question(
             'Update Existing Audiobook',
