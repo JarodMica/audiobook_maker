@@ -145,6 +145,9 @@ class AudiobookMakerView(QMainWindow):
     generation_settings_changed = Signal()
     stop_generation_requested = Signal()
     regen_mode_activated = Signal(bool)
+    #******************************************************************
+    Word_Replacer_Window_On = Signal(bool)
+    #******************************************************************
     search_sentences_requested = Signal(int, bool, str, bool)
 
 
@@ -528,6 +531,15 @@ class AudiobookMakerView(QMainWindow):
         self.regen_mode_action.triggered.connect(self.toggle_regeneration_mode)
         self.tools_menu.addAction(self.regen_mode_action)
 
+        #******************************************************************
+        #self.WordReplacer = WordReplacerView()
+        # Add Word Replacer action
+        self.Word_Replacer_Window_action = QAction("Word Replacer Window", self, checkable=True)
+        self.Word_Replacer_Window_action.setChecked(False)
+        self.Word_Replacer_Window_action.triggered.connect(self.toggle_Word_Replacer_Window_Visible)
+        self.tools_menu.addAction(self.Word_Replacer_Window_action)
+        #******************************************************************
+
         # Window settings
         self.setWindowTitle("Audiobook Maker")
         screen = QScreen().availableGeometry()  # Get the available screen geometry
@@ -543,6 +555,18 @@ class AudiobookMakerView(QMainWindow):
         # Set the calculated geometry for the window
         self.setGeometry(100, 100, int(width), int(height))
         
+    #******************************************************************
+    def toggle_Word_Replacer_Window_Visible(self, checked):
+        if checked:
+            self.Word_Replacer_Window_On.emit(True)
+            #self.WordReplacer.show()
+            self.Word_Replacer_Window_action.setChecked(True)
+        else:
+            self.Word_Replacer_Window_On.emit(False)
+            #self.WordReplacer.hide()
+            self.Word_Replacer_Window_action.setChecked(False)
+    #******************************************************************
+
     def toggle_regeneration_mode(self, checked):
         if checked:
             self.regen_mode_widget.setVisible(True)
