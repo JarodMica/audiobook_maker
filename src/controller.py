@@ -267,10 +267,10 @@ class AudiobookController:
                 return
         
         # Audiobook directory exists; assign current speaker to selected sentences
-        speaker_id = self.view.get_current_speaker_id()
-        self.view.assign_speaker_to_selected(speaker_id)
+        speaker_id, speaker_name = self.view.get_current_speaker_attributes()
+        self.view.assign_speaker_to_selected(speaker_id, speaker_name)
         # Update model accordingly
-        selected_rows = self.view.tableWidget.selectionModel().selectedRows()
+        selected_rows = self.view.tableWidget.selectionModel().selectedRows(0)
         for index in selected_rows:
             row = index.row()
             self.assign_speaker_to_sentence(row, speaker_id)
@@ -497,7 +497,10 @@ class AudiobookController:
 
     def on_sentence_generated(self, idx, sentence):
         row_position = int(idx)
-        self.view.add_table_item(row_position, sentence)
+        item = self.model.text_audio_map[row_position]
+        speaker_id = item.get('speaker_id', 1)
+        speaker_name = self.model.get_speaker_name(idx)
+        self.view.add_table_item(row_position, sentence, speaker_name)
 
 
     def on_generation_finished(self):
@@ -516,9 +519,10 @@ class AudiobookController:
             item = self.model.text_audio_map[idx_str]
             sentence = item['sentence']
             row_position = int(idx_str)
-            self.view.add_table_item(row_position, sentence)
             speaker_id = item.get('speaker_id', 1)  
-            self.view.set_row_speaker(row_position, speaker_id)
+            speaker_name = self.model.get_speaker_name(speaker_id)
+            self.view.add_table_item(row_position, sentence, speaker_name)
+            self.view.set_row_speaker_color(row_position, speaker_id)
 
 
     def play_selected_audio(self):
@@ -644,7 +648,7 @@ class AudiobookController:
         self.model.text_audio_map[map_key]['speaker_id'] = speaker_id
 
         # Update the table row's background color to match the new speaker
-        self.view.set_row_speaker(int(map_key), speaker_id)
+        self.view.set_row_speaker_color(int(map_key), speaker_id)
 
         book_name = self.view.audiobook_label.text()
         directory_path = os.path.join("audiobooks", book_name)
@@ -863,4 +867,5 @@ class AudiobookController:
 
 
 if __name__ == '__main__':
+    
     controller = AudiobookController()

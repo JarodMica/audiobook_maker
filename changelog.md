@@ -1,5 +1,17 @@
 # Changelog & thoughts
 
+## 1/8/2025
+Working on several things, created a new enhancements.md file to look at some of the things I might be working on.
+
+So far, changes are:
+- Default narrator color to black from gray
+- Adjustments to GUI elements and positioning
+- Added a hide/show engines option
+- Added Speaker and Regen columns to table widget
+    - Sentence highlight only on Sentence column
+    - Speaker column updates with which speaker is being used for the sentence
+
+
 ## 9/18/2024
 Got tortoise TTS implemnted, next is styletts2
 

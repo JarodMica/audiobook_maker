@@ -4,8 +4,8 @@ import sys
 from PySide6.QtWidgets import (
     QSlider, QWidgetAction, QComboBox, QApplication, QMainWindow, QPushButton,
     QVBoxLayout, QLineEdit, QLabel, QWidget, QMessageBox, QCheckBox,
-    QHeaderView, QProgressBar, QHBoxLayout, QTableWidget, QTableWidgetItem, QFileDialog, QScrollArea,
-    QSizePolicy, QSpinBox, QSplitter, QDialog, QListWidget, QListWidgetItem, QColorDialog, QMenu
+    QHeaderView, QProgressBar, QGridLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QFileDialog, QScrollArea,
+    QSizePolicy, QSpinBox, QSplitter, QDialog, QListWidget, QListWidgetItem, QColorDialog, QMenu, QAbstractItemView
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Signal, Qt, QUrl
@@ -56,7 +56,7 @@ class SpeakerManagementDialog(QDialog):
         self.list_widget.clear()
         for speaker_id, speaker in self.speakers.items():
             item = QListWidgetItem(f"Speaker {speaker_id}: {speaker['name']}")
-            color = speaker.get('color', Qt.gray)
+            color = speaker.get('color', Qt.black)
             if isinstance(color, str):
                 color = QColor(color)  # Convert string to QColor
             item.setBackground(color)
@@ -90,7 +90,7 @@ class SpeakerManagementDialog(QDialog):
             if ok and speaker_name:
                 speaker['name'] = speaker_name
                 # Let user select a color
-                color = QColorDialog.getColor(initial=speaker.get('color', Qt.gray))
+                color = QColorDialog.getColor(initial=speaker.get('color', Qt.black))
                 if color.isValid():
                     speaker['color'] = color
                 self.populate_speaker_list()
@@ -112,7 +112,7 @@ class SpeakerManagementDialog(QDialog):
     def get_speakers(self):
         # Convert QColor to hex string for serialization
         for speaker in self.speakers.values():
-            color = speaker.get('color', Qt.gray)
+            color = speaker.get('color', Qt.black)
             if isinstance(color, QColor):
                 speaker['color'] = color.name()
         return self.speakers
@@ -186,7 +186,7 @@ class AudiobookMakerView(QMainWindow):
         self.tts_config = self.load_tts_config('configs/tts_config.json')
         self.s2s_config = self.load_s2s_config('configs/s2s_config.json')
         self.speakers = {
-                1: {'name': 'Narrator', 'color': Qt.gray, 'settings': {}}
+                1: {'name': 'Narrator', 'color': Qt.black, 'settings': {}}
             }
 
         # Initialize UI components
@@ -196,7 +196,7 @@ class AudiobookMakerView(QMainWindow):
         self.clear_table()
         self.set_audiobook_label("No Audio Book Set")
         self.speakers = {
-            1: {'name': 'Narrator', 'color': Qt.gray, 'settings': {}}
+            1: {'name': 'Narrator', 'color': Qt.black, 'settings': {}}
         }
         self.update_speaker_selection_combo()
         self.disable_speaker_menu()
@@ -226,6 +226,136 @@ class AudiobookMakerView(QMainWindow):
         left_container.setMaximumWidth(500)
         main_content_layout.addWidget(left_container)
 
+        
+
+        # -- TTS Engine Combo Box
+        self.tts_engine_layout = QHBoxLayout()
+        self.tts_engine_label = QLabel("TTS Engine: ")
+        self.tts_engine_combo = QComboBox()
+        self.tts_engine_layout.addWidget(self.tts_engine_label)
+        self.tts_engine_layout.addWidget(self.tts_engine_combo, 1)
+        self.tts_engine_combo.currentTextChanged.connect(self.on_tts_engine_changed)
+        
+        # -- s2s Engine Combo Box
+        self.s2s_engine_layout = QHBoxLayout()
+        self.s2s_engine_label = QLabel("S2S Engine: ")
+        self.s2s_engine_combo = QComboBox()
+        self.s2s_engine_layout.addWidget(self.s2s_engine_label)
+        self.s2s_engine_layout.addWidget(self.s2s_engine_combo, 1)
+        self.s2s_engine_combo.currentTextChanged.connect(self.on_s2s_engine_changed)
+        
+        
+        if self.tts_engine_combo.count() > 0:
+            self.tts_engine_combo.setCurrentIndex(0)
+
+        self.use_s2s_checkbox = QCheckBox("Use s2s Engine", self)
+
+        self.use_s2s_checkbox.stateChanged.connect(self.on_use_s2s_changed)
+
+        self.load_text = QPushButton("Select Text File", self)
+        self.load_text.clicked.connect(self.on_load_text_clicked)
+        
+
+        # Book Name Widget
+        self.book_layout = QHBoxLayout()
+        self.book_name_label = QLabel("Book Name:")
+        self.book_layout.addWidget(self.book_name_label)
+        self.book_name_input = QLineEdit(self)
+        self.book_layout.addWidget(self.book_name_input)
+        
+
+        # -- Export Pause Slider
+        pause = 0
+        self.export_pause_value_label = QLabel(f"{pause / 10}")  # 0 is the initial value of the slider
+        max_pause = "5"  # the maximum value the label will show
+        estimated_width = len(max_pause) * 50
+        self.export_pause_value_label.setFixedWidth(estimated_width)
+
+        self.export_pause_layout = QHBoxLayout()
+        self.export_pause_label = QLabel("Pause Between Sentences (sec): ")
+        self.export_pause_slider = QSlider(Qt.Horizontal)
+        self.export_pause_slider.setMinimum(0)
+        self.export_pause_slider.setMaximum(50)
+        self.export_pause_slider.setValue(pause)
+        self.export_pause_slider.setTickPosition(QSlider.TicksBelow)
+        self.export_pause_slider.setTickInterval(1)
+
+        self.export_pause_slider.valueChanged.connect(self.on_export_pause_slider_changed)
+
+        self.export_pause_layout.addWidget(self.export_pause_label)
+        self.export_pause_layout.addWidget(self.export_pause_slider)
+        self.export_pause_layout.addWidget(self.export_pause_value_label)
+
+        
+
+        # -- Start and Stop Buttons
+        self.generation_buttons_layout = QHBoxLayout()
+        self.start_generation_button = QPushButton("Start Audiobook Generation", self)
+        self.start_generation_button.clicked.connect(self.on_generate_button_clicked)
+        self.stop_generation_button = QPushButton("Stop", self)
+        self.stop_generation_button.clicked.connect(self.on_stop_button_clicked)
+        self.stop_generation_button.setEnabled(False)  # Disabled initially
+        self.stop_generation_button.setStyleSheet("QPushButton { color: #A9A9A9; }")
+        self.generation_buttons_layout.addWidget(self.start_generation_button)
+        self.generation_buttons_layout.addWidget(self.stop_generation_button)
+        
+
+        # -- Play Audio Button
+        self.play_button = QPushButton("Play Audio", self)
+        self.play_button.clicked.connect(self.on_play_button_clicked)
+
+        # -- Pause Audio Button
+        self.pause_button = QPushButton("Pause", self)
+        self.pause_button.clicked.connect(self.on_pause_button_clicked)
+
+        # Arrange the play and pause buttons side by side
+        self.play_pause_layout = QHBoxLayout()
+        self.play_pause_layout.addWidget(self.play_button)
+        self.play_pause_layout.addWidget(self.pause_button)
+    
+
+        # -- Play All Audio Button
+        self.play_all_button = QPushButton("Play All from Selected", self)
+        self.play_all_button.clicked.connect(self.on_play_all_button_clicked)
+    
+
+        # -- Regen Audio Button
+        self.regenerate_button = QPushButton("Regenerate Chosen Sentence", self)
+        self.regenerate_button.clicked.connect(self.on_regenerate_button_clicked)
+        
+        self.continue_audiobook_button = QPushButton("Regenerate/Continue Audiobook Generation", self)
+        self.continue_audiobook_button.clicked.connect(self.on_continue_button_clicked)
+        
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+        
+        # Right side Widget
+        right_layout = QVBoxLayout()
+
+        # Audiobook label
+        self.audiobook_name = "No Audio Book Set"
+        self.audiobook_label = QLabel(self)
+        self.audiobook_label.setText(f"{self.audiobook_name}")
+        self.audiobook_label.setAlignment(Qt.AlignCenter)
+        self.audiobook_label.setStyleSheet("font-size: 16pt; color: #eee;")
+        right_layout.addWidget(self.audiobook_label)
+        
+        # Table widget
+        self.tableWidget = QTableWidget(self)
+        self.tableWidget.setColumnCount(3)
+        self.tableWidget.setHorizontalHeaderLabels(['Sentence', 'Speaker', 'Regen?'])
+        self.tableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.tableWidget.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
+        
+        # Contains Sentence Table and search bar
+        sentence_area = QVBoxLayout()
+        sentence_area.addWidget(self.tableWidget)
+        self.tableWidget.setColumnWidth(1, 150)  # Set width for the second column
+        self.tableWidget.setColumnWidth(2, 100)  # Set width for the third column
+        
         # Initialize TTS Options
         self.tts_options_widget = QWidget()
         self.tts_options_layout = QVBoxLayout()
@@ -251,180 +381,59 @@ class AudiobookMakerView(QMainWindow):
         self.s2s_options_scroll_area.setWidget(self.s2s_options_widget)
         self.s2s_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        # Update options layout
         self.options_layout = QVBoxLayout()
+        self.options_layout.addLayout(self.tts_engine_layout)
+        self.options_layout.addLayout(self.s2s_engine_layout)
+        self.options_layout.addWidget(self.use_s2s_checkbox)
         self.options_layout.addWidget(self.s2s_options_scroll_area, stretch=1)
         self.options_layout.addWidget(self.tts_options_scroll_area, stretch=1)
-
-        # -- TTS Engine Combo Box
-        self.tts_engine_layout = QHBoxLayout()
-        self.tts_engine_label = QLabel("TTS Engine: ")
-        self.tts_engine_combo = QComboBox()
-        self.tts_engine_layout.addWidget(self.tts_engine_label)
-        self.tts_engine_layout.addWidget(self.tts_engine_combo, 1)
-        self.tts_engine_combo.currentTextChanged.connect(self.on_tts_engine_changed)
-        left_layout.addLayout(self.tts_engine_layout)
         
-        # -- s2s Engine Combo Box
-        self.s2s_engine_layout = QHBoxLayout()
-        self.s2s_engine_label = QLabel("S2S Engine: ")
-        self.s2s_engine_combo = QComboBox()
-        self.s2s_engine_layout.addWidget(self.s2s_engine_label)
-        self.s2s_engine_layout.addWidget(self.s2s_engine_combo, 1)
-        self.s2s_engine_combo.currentTextChanged.connect(self.on_s2s_engine_changed)
-        left_layout.addLayout(self.s2s_engine_layout)
-        
-        if self.tts_engine_combo.count() > 0:
-            self.tts_engine_combo.setCurrentIndex(0)
+        self.options_widget = QWidget()
+        self.options_widget.setLayout(self.options_layout)
+        self.options_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        self.use_s2s_checkbox = QCheckBox("Use s2s Engine", self)
-        left_layout.addWidget(self.use_s2s_checkbox)
-        self.use_s2s_checkbox.stateChanged.connect(self.on_use_s2s_changed)
-
-        self.load_text = QPushButton("Select Text File", self)
-        self.load_text.clicked.connect(self.on_load_text_clicked)
-        left_layout.addWidget(self.load_text)
-
-        # Book Name Widget
-        self.book_layout = QHBoxLayout()
-        self.book_name_label = QLabel("Book Name:")
-        self.book_layout.addWidget(self.book_name_label)
-        self.book_name_input = QLineEdit(self)
-        self.book_layout.addWidget(self.book_name_input)
-        left_layout.addLayout(self.book_layout)
-
-        # -- Export Pause Slider
-        pause = 0
-        self.export_pause_value_label = QLabel(f"{pause / 10}")  # 0 is the initial value of the slider
-        max_pause = "5"  # the maximum value the label will show
-        estimated_width = len(max_pause) * 50
-        self.export_pause_value_label.setFixedWidth(estimated_width)
-
-        self.export_pause_layout = QHBoxLayout()
-        self.export_pause_label = QLabel("Pause Between Sentences (sec): ")
-        self.export_pause_slider = QSlider(Qt.Horizontal)
-        self.export_pause_slider.setMinimum(0)
-        self.export_pause_slider.setMaximum(50)
-        self.export_pause_slider.setValue(pause)
-        self.export_pause_slider.setTickPosition(QSlider.TicksBelow)
-        self.export_pause_slider.setTickInterval(1)
-
-        self.export_pause_slider.valueChanged.connect(self.on_export_pause_slider_changed)
-
-        self.export_pause_layout.addWidget(self.export_pause_label)
-        self.export_pause_layout.addWidget(self.export_pause_slider)
-        self.export_pause_layout.addWidget(self.export_pause_value_label)
-
-        left_layout.addLayout(self.export_pause_layout)
-
-        # -- Start and Stop Buttons
-        self.generation_buttons_layout = QHBoxLayout()
-        self.start_generation_button = QPushButton("Start Audiobook Generation", self)
-        self.start_generation_button.clicked.connect(self.on_generate_button_clicked)
-        self.stop_generation_button = QPushButton("Stop", self)
-        self.stop_generation_button.clicked.connect(self.on_stop_button_clicked)
-        self.stop_generation_button.setEnabled(False)  # Disabled initially
-        self.stop_generation_button.setStyleSheet("QPushButton { color: #A9A9A9; }")
-        self.generation_buttons_layout.addWidget(self.start_generation_button)
-        self.generation_buttons_layout.addWidget(self.stop_generation_button)
-        left_layout.addLayout(self.generation_buttons_layout)
-
-        # -- Play Audio Button
-        self.play_button = QPushButton("Play Audio", self)
-        self.play_button.clicked.connect(self.on_play_button_clicked)
-
-        # -- Pause Audio Button
-        self.pause_button = QPushButton("Pause", self)
-        self.pause_button.clicked.connect(self.on_pause_button_clicked)
-
-        # Arrange the play and pause buttons side by side
-        self.play_pause_layout = QHBoxLayout()
-        self.play_pause_layout.addWidget(self.play_button)
-        self.play_pause_layout.addWidget(self.pause_button)
-        left_layout.addLayout(self.play_pause_layout)
-
-        # -- Play All Audio Button
-        self.play_all_button = QPushButton("Play All from Selected", self)
-        self.play_all_button.clicked.connect(self.on_play_all_button_clicked)
-        left_layout.addWidget(self.play_all_button)
-
-        # -- Regen Audio Button
-        self.regenerate_button = QPushButton("Regenerate Chosen Sentence", self)
-        self.regenerate_button.clicked.connect(self.on_regenerate_button_clicked)
-        left_layout.addWidget(self.regenerate_button)
-
-        self.continue_audiobook_button = QPushButton("Regenerate/Continue Audiobook Generation", self)
-        self.continue_audiobook_button.clicked.connect(self.on_continue_button_clicked)
-        left_layout.addWidget(self.continue_audiobook_button)
-
-        self.progress_bar = QProgressBar(self)
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setValue(0)
-        left_layout.addWidget(self.progress_bar)
-        left_layout.addStretch(1)  # Add stretchable empty space
-
-        # Right side Widget
-        right_layout = QVBoxLayout()
-
-        # Audiobook label
-        self.audiobook_name = "No Audio Book Set"
-        self.audiobook_label = QLabel(self)
-        self.audiobook_label.setText(f"{self.audiobook_name}")
-        self.audiobook_label.setAlignment(Qt.AlignCenter)
-        self.audiobook_label.setStyleSheet("font-size: 16pt; color: #eee;")
-        right_layout.addWidget(self.audiobook_label)
-
-        # Create a horizontal layout to hold the table and options
-        right_inner_layout = QHBoxLayout()
-
-        # Contains Sentence Table and search bar
-        sentence_area = QVBoxLayout()
-
-        # Table widget
-        self.tableWidget = QTableWidget(self)
-        self.tableWidget.setColumnCount(1)
-        self.tableWidget.setHorizontalHeaderLabels(['Sentence'])
-        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
-        sentence_area.addWidget(self.tableWidget)
+        self.options_widget.setVisible(False)  # Initially hidden
 
         # create a search bar
         search_layout = QHBoxLayout()
         self.previous_search = QPushButton("Search previous")
         self.previous_search.clicked.connect(self.on_previous_search)
+        
         self.next_search = QPushButton("Search next")
         self.next_search.clicked.connect(self.on_next_search)
+        
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search for")
         self.search_across_sentences = QCheckBox("Search across sentences limits")
         self.search_across_sentences.setChecked(False)
-        search_layout.addWidget(self.search_input)
-        search_layout.addWidget(self.previous_search)
-        search_layout.addWidget(self.next_search)
-        search_layout.addWidget(self.search_across_sentences)
+        
         self.go_to_sentence = QPushButton("Go to sentence number:")
         self.go_to_sentence_input = QSpinBox()
         self.go_to_sentence_input.setMinimum(1)
         self.go_to_sentence_input.setMaximum(2**31 - 1) # necessary so that the field has a decent size
         self.go_to_sentence.clicked.connect(self.on_go_to_sentence)
+        
+        self.toggle_engines_button = QPushButton("Toggle TTS/S2S")
+        self.toggle_engines_button.clicked.connect(self.toggle_engines_column)
+        
+        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.previous_search)
+        search_layout.addWidget(self.next_search)
+        search_layout.addWidget(self.search_across_sentences)
         search_layout.addWidget(self.go_to_sentence)
         search_layout.addWidget(self.go_to_sentence_input)
-        sentence_area.addLayout(search_layout)
+        search_layout.addWidget(self.toggle_engines_button)
 
-        right_inner_layout.addLayout(sentence_area)
+        # Create a horizontal layout to hold the table and options
+        right_inner_layout = QHBoxLayout()
 
         # Add the options layout
-        right_inner_layout.addLayout(self.options_layout)
+        right_inner_layout.addLayout(sentence_area)
+        right_inner_layout.addWidget(self.options_widget)
 
         # Set Stretch Factors: Table = 3, Options = 1
-        right_inner_layout.setStretch(0, 3)  # Table takes 3 parts
-        right_inner_layout.setStretch(1, 1)  # Options take 1 part
-
-        right_layout.addLayout(right_inner_layout)
-        main_content_layout.addLayout(right_layout)
-
-        # Add the main content layout to the main vertical layout
-        main_layout.addLayout(main_content_layout)
+        right_inner_layout.setStretch(0, 2)  # Table takes 2 parts
+        # right_inner_layout.setStretch(1, 1)  # Options take 1 part
 
         # Create the bottom rectangular box for Regeneration Mode
         self.regen_mode_widget = QWidget(self)
@@ -438,9 +447,24 @@ class AudiobookMakerView(QMainWindow):
         self.regen_mode_widget.setVisible(False)  # Initially hidden
         self.regen_mode_widget.setFixedHeight(50)  # Set a fixed height for the box
 
-        # Add the regen mode widget to the main layout
+        # addLayout (main gui organzaiton)
+        left_layout.addWidget(self.load_text)
+        left_layout.addLayout(self.book_layout)
+        left_layout.addLayout(self.generation_buttons_layout)
+        left_layout.addLayout(self.play_pause_layout)
+        left_layout.addWidget(self.play_all_button)
+        left_layout.addWidget(self.regenerate_button)
+        left_layout.addWidget(self.continue_audiobook_button)
+        left_layout.addWidget(self.progress_bar)
+        left_layout.addLayout(self.export_pause_layout)
+        left_layout.addStretch(1)  # Add stretchable empty space
+        right_layout.addLayout(right_inner_layout)
+        main_content_layout.addLayout(right_layout)
+        main_layout.addLayout(main_content_layout)
+        main_layout.addLayout(search_layout)
+        
         main_layout.addWidget(self.regen_mode_widget)
-
+        
         # Create a QWidget for the main window's central widget
         central_widget = QWidget(self)
         central_widget.setLayout(main_layout)
@@ -543,6 +567,14 @@ class AudiobookMakerView(QMainWindow):
         # Set the calculated geometry for the window
         self.setGeometry(100, 100, int(width), int(height))
         
+    def toggle_engines_column(self):
+        is_visible = self.options_widget.isVisible()
+        self.options_widget.setVisible(not is_visible)
+        if is_visible:
+            self.toggle_engines_button.setText("Show TTS/S2S")
+        else:
+            self.toggle_engines_button.setText("Hide TTS/S2S")
+           
     def toggle_regeneration_mode(self, checked):
         if checked:
             self.regen_mode_widget.setVisible(True)
@@ -600,7 +632,7 @@ class AudiobookMakerView(QMainWindow):
             self.show_message("Error", "Default speaker not found.", QMessageBox.Critical)
 
     def update_current_speaker_setting(self, attribute, value):
-        current_speaker_id = self.get_current_speaker_id()
+        current_speaker_id, _ = self.get_current_speaker_attributes()
         if current_speaker_id in self.speakers:
             speaker = self.speakers[current_speaker_id]
             speaker_settings = speaker.setdefault('settings', {})
@@ -608,21 +640,22 @@ class AudiobookMakerView(QMainWindow):
         else:
             pass
 
-    def get_current_speaker_id(self):
+    def get_current_speaker_attributes(self):
         index = self.speaker_selection_combo.currentIndex()
         speaker_id = self.speaker_selection_combo.itemData(index)
+        speaker_name = self.speaker_selection_combo.itemText(index)
         if speaker_id is not None:
-            return speaker_id
+            return speaker_id, speaker_name
         else:
             return 1  # Default speaker
 
+        
 
-
-    def assign_speaker_to_selected(self, speaker_id):
+    def assign_speaker_to_selected(self, speaker_id, speaker_name):
         selected_rows = self.tableWidget.selectionModel().selectedRows()
         for index in selected_rows:
             row = index.row()
-            self.set_row_speaker(row, speaker_id)
+            self.set_row_speaker(row, speaker_id, speaker_name)
             self.sentence_speaker_changed.emit(row, speaker_id)
 
     
@@ -635,18 +668,22 @@ class AudiobookMakerView(QMainWindow):
         # print("Before emitting, speakers:", self.speakers)
         self.speakers_updated.emit(self.speakers)
 
+    def set_row_speaker(self, row, speaker_id, speaker_name):
+        self.set_row_speaker_color(row, speaker_id)
+        speaker_item = QTableWidgetItem(speaker_name)
+        speaker_item.setFlags(speaker_item.flags() & ~Qt.ItemIsEditable)
+        self.tableWidget.setItem(row, 1, speaker_item)
 
-    def set_row_speaker(self, row, speaker_id):
+    def set_row_speaker_color(self, row, speaker_id):
         speaker = self.speakers.get(str(speaker_id), None)
         if not speaker: # HOT FIX, should figure out why speaker_id needs to be a string for one check, and then int for another for color
             speaker = self.speakers.get(speaker_id, None)
-        color = speaker.get('color', Qt.gray)
+        color = speaker.get('color', Qt.black)
         if isinstance(color, str):
             color = QColor(color)
-        for col in range(self.tableWidget.columnCount()):
-            item = self.tableWidget.item(row, col)
-            if item:
-                item.setBackground(color)
+        item = self.tableWidget.item(row, 0) # Explicit sentence column
+        if item:
+            item.setBackground(color)
                 
     def load_speaker_settings(self, speaker_id):
         speaker = self.speakers.get(speaker_id, {})
@@ -921,15 +958,31 @@ class AudiobookMakerView(QMainWindow):
     def clear_table(self):
         self.tableWidget.setRowCount(0)
 
-    def add_table_item(self, row, text):
+    def add_table_item(self, row, text, speaker_name):
         # Ensure the table has enough rows
         current_row_count = self.tableWidget.rowCount()
         if current_row_count <= row:
             self.tableWidget.setRowCount(row + 1)
         sentence_item = QTableWidgetItem(text)
         sentence_item.setFlags(sentence_item.flags() & ~Qt.ItemIsEditable)
+        sentence_item.setText(text)
+        speaker_item = QTableWidgetItem(speaker_name)
+        speaker_item.setFlags(speaker_item.flags() & ~Qt.ItemIsEditable)
+        speaker_item.setTextAlignment(Qt.AlignCenter)
         self.tableWidget.setItem(row, 0, sentence_item)
-
+        self.tableWidget.setItem(row, 1, speaker_item)
+        check_box = QCheckBox()
+        check_box.setChecked(False)
+        
+        # Wrap the checkbox in a layout so it stays centered
+        check_box_widget = QWidget()
+        check_box_layout = QHBoxLayout(check_box_widget)
+        check_box_layout.setContentsMargins(0, 0, 0, 0)
+        check_box_layout.setAlignment(Qt.AlignCenter)
+        check_box_layout.addWidget(check_box)
+        
+        self.tableWidget.setCellWidget(row, 2, check_box_widget)
+        self.tableWidget.resizeRowToContents(row)
 
     def get_selected_table_row(self):
         return self.tableWidget.currentRow()

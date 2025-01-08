@@ -49,6 +49,10 @@ class AudiobookModel:
                 return self.settings
         return {}
     
+    def get_speaker_name(self, speaker_id):
+        speaker_name = self.speakers[speaker_id]['name']
+        return speaker_name
+    
     def get_tts_engines(self):
         tts_config = self.load_config(os.path.join('configs', 'tts_config.json'))
         return [engine['name'] for engine in tts_config.get('tts_engines', [])]
@@ -544,7 +548,7 @@ class AudiobookModel:
             if isinstance(color, QColor):
                 # Convert QColor to hex string
                 speaker['color'] = color.name()
-            elif color == Qt.gray:  # Compare directly with Qt.GlobalColor (integer enum value)
+            elif color == Qt.black:  # Compare directly with Qt.GlobalColor (integer enum value)
                 # Convert Qt.GlobalColor (integer) to QColor and then to hex string
                 speaker['color'] = QColor(color).name()
             elif isinstance(color, str):
@@ -575,7 +579,7 @@ class AudiobookModel:
             if isinstance(color, QColor):
                 # Convert QColor to hex string
                 speaker['color'] = color.name()
-            elif color == Qt.gray:  # Compare directly with Qt.GlobalColor (integer enum value)
+            elif color == Qt.black:  # Compare directly with Qt.GlobalColor (integer enum value)
                 # Convert Qt.GlobalColor (integer) to QColor and then to hex string
                 speaker['color'] = QColor(color).name()
             elif isinstance(color, str):
