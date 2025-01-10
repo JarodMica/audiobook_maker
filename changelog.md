@@ -1,16 +1,22 @@
 # Changelog & thoughts
 
-## 1/8/2025
-Working on several things, created a new enhancements.md file to look at some of the things I might be working on.
+## v3.4
+- Remove regen mode (Unintuitive and glad to be rid of it)
+- Bulk regeneration replaces regen mode and is now handled with a "Regenerate in Bulk" button and a "Regen" column where users can individually toggle which sentences they want to toggle
+    - The column setting is stored, so if you exit out or crash, when loading the audiobook the checkboxes will repopulate with what to regenerate
+    - Regen column can be reset with a button that clears all checkboxes
+- Added Speaker and Regen columns to table widget
+    - Sentence highlight only on Sentence column
+    - Speaker column displays which speaker is being used for the sentence
+- Allow for editting sentences inside of the GUI
+    - After editting a sentence, it will need to be re-generated which can be done with "Continue Audiobook Generation" as they will be marked "False" as generated
 
-So far, changes are:
+**Misc**
+- New enhancements md file to look at some of the things I might be working on.
 - Default narrator color to black from gray
 - Adjustments to GUI elements and positioning
 - Added a hide/show engines option
-- Added Speaker and Regen columns to table widget
-    - Sentence highlight only on Sentence column
-    - Speaker column updates with which speaker is being used for the sentence
-
+- Changed the way book_text.txt is created to reflect what is actually stored in the audio_text_map and not based on the original text file. The original text is now stored in "original_text_file.txt"
 
 ## 9/18/2024
 Got tortoise TTS implemnted, next is styletts2
