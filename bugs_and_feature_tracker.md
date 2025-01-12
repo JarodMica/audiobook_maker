@@ -4,7 +4,7 @@ This is a page of some of the enhancements and ideas that I'd like to work on, s
 ## Enhancements
 
 ## In Progress
-- Be able to edit the sentences in the table and or delete them - https://github.com/JarodMica/audiobook_maker/issues/80
+- N/a
 
 ### Need to Add
 - Missing generations, check and verify that all sentences have audio generated for them - https://github.com/JarodMica/audiobook_maker/issues/72
@@ -31,9 +31,11 @@ This is a page of some of the enhancements and ideas that I'd like to work on, s
 - Hangs while listening - https://github.com/JarodMica/audiobook_maker/issues/81
 
 ### Low Priority
-- If user does not make any generation setting modifications, generation_settings.json will not be created for the audiobook, causing "Load Existing Audiobook" to fail if they want to reload in the AB from maybe a previous section
+- Speaker name left aligns on speaker assignment
 
 ## Completed
+[x] - Be able to edit the sentences in the table and or delete them - https://github.com/JarodMica/audiobook_maker/issues/80
+
 [x] Turn regenerate Mode --> Regenerate column checkbox ~ v3.4
 
 [x] Speaker column to sentence in addition (or instead) of colors ~ v3.4

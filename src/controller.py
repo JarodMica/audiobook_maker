@@ -246,6 +246,7 @@ class AudiobookController:
         # Connect view signals to controller methods
         self.view.clear_regen_requested.connect(self.clear_regen_checkboxes)
         self.view.continue_audiobook_generation_requested.connect(self.continue_audiobook_generation)
+        self.view.delete_requested.connect(self.deletion_prompt)
         self.view.export_audiobook_requested.connect(self.export_audiobook)
         self.view.generation_settings_changed.connect(self.save_generation_settings)
         self.view.load_existing_audiobook_requested.connect(self.load_existing_audiobook)
@@ -267,6 +268,7 @@ class AudiobookController:
         self.view.stop_generation_requested.connect(self.stop_generation)
         self.view.tableWidget.customContextMenuRequested.connect(self.allow_speaker_assignment)
         self.view.text_item_changed.connect(self.update_sentence)
+        self.view.toggle_delete_action_requested.connect(self.toggle_delete_column)
         self.view.tts_engine_changed.connect(self.on_tts_engine_changed)
         self.view.update_audiobook_requested.connect(self.update_audiobook)
         # No need to connect font size and voice setting signals if they are handled in the view
@@ -360,6 +362,26 @@ class AudiobookController:
         
         return self.current_audiobook_directory
 
+    def deletion_prompt(self):
+        if not self.current_audiobook_directory:
+            self.view.show_message("Error", "An audiobook should be loaded first", icon=QMessageBox.Warning)
+            return
+        
+        confirm_continue = self.view.ask_question(
+            'Confirm Deletion',
+            "You are about to delete all selected sentences.\n\nStill want to proceed?",
+            default_button=QMessageBox.No
+        )
+        if not confirm_continue:
+            return #stop generation
+        
+        rows_list = self.view.get_deletion_checkboxes()
+        self.model.delete_sentences(rows_list)
+        self.model.save_text_audio_map(self.current_audiobook_directory)
+        self.model.create_book_text_file(self.current_audiobook_directory)
+        self.update_table_with_sentences()
+        
+        
     def export_audiobook(self):
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
         if not directory_path:
@@ -424,6 +446,10 @@ class AudiobookController:
     def load_text_file(self):
         if not self.check_and_reset_for_new_text_file('Load New Text File'):
             return
+        book_name = self.view.get_book_name()
+        if not book_name:
+            self.view.show_message("Error", "Please enter a book name before proceeding.", icon=QMessageBox.Warning)
+            return
 
         filepath = self.view.get_open_file_name(
             "Select Text File", "", "Text Files (*.txt);;All Files (*)"
@@ -433,8 +459,13 @@ class AudiobookController:
             sentences = self.model.load_sentences(filepath)
             if sentences:
                 self.model.create_audio_text_map("", sentences)
+                if not self.current_audiobook_directory:
+                    if_continue = self.create_audiobook_directory()
+                    if not if_continue:
+                        return
                 self.update_table_with_sentences()
                 self.view.enable_speaker_menu()
+                self.save_generation_settings()
         else:
             pass
 
@@ -571,6 +602,7 @@ class AudiobookController:
         if self.view.tts_engine_combo.count() > 0:
             self.view.tts_engine_combo.setCurrentIndex(0)
 
+    
     def regen_checkbox_toggled(self, row, state):
         self.model.change_regen_state(row, state)
         self.model.save_text_audio_map(self.current_audiobook_directory)
@@ -859,6 +891,9 @@ class AudiobookController:
             sentence, row_position, speaker_id, speaker_name, regen_state = self.model.get_map_keys_and_values(idx_str)
             self.view.add_table_item(row_position, sentence, speaker_name, regen_state)
             self.view.set_row_speaker_color(row_position, speaker_id)
+            
+    def toggle_delete_column(self):
+        self.view.toggle_delete_column()
         
 
     # # The following two methods are connected to LoadTTSWorker's signals, left in place:

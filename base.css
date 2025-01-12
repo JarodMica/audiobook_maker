@@ -65,3 +65,8 @@ QMenuBar::item:disabled, QMenu::item:disabled {
     color: #717171;
 }
 
+QMenu::item:checked {
+    /* Example lighter shade background + text color */
+    background-color: #ff0000; 
+    color: #eeeeee;
+}

@@ -70,6 +70,17 @@ class AudiobookModel:
             for idx in self.text_audio_map:
                 text = self.text_audio_map[idx]["sentence"]
                 f.write(text + "\n\n")  # Write each sentence followed by 2 newlines
+                
+    def delete_sentences(self, rows_list):
+        # Convert keys to integers for easier sorting (if not already sorted)
+        sorted_items = sorted(self.text_audio_map.items(), key=lambda x: int(x[0]))
+        filtered_items = [(k, v) for k, v in sorted_items if int(k) not in rows_list]
+        adjusted_items = [(str(i), v) for i, (_, v) in enumerate(filtered_items, start=0)]
+        
+        # Recreate the dictionary with adjusted keys
+        adjusted_dict = {k: v for k, v in adjusted_items}
+        self.text_audio_map = adjusted_dict
+
 
     def filter_paragraph(self, paragraph):
         lines = paragraph.strip().split('\n')

@@ -159,6 +159,7 @@ class AudiobookMakerView(QMainWindow):
     clear_regen_requested = Signal()
     continue_audiobook_generation_requested = Signal()
     # current_speaker_changed = Signal(int)
+    delete_requested = Signal()
     export_audiobook_requested = Signal()
     font_size_changed = Signal(int)
     generation_settings_changed = Signal()
@@ -180,11 +181,9 @@ class AudiobookMakerView(QMainWindow):
     start_generation_requested = Signal()
     stop_generation_requested = Signal()
     text_item_changed = Signal(int, str)
+    toggle_delete_action_requested = Signal()
     tts_engine_changed = Signal(object)
     update_audiobook_requested = Signal()
-
-
-
 
     def __init__(self):
         super().__init__()
@@ -226,27 +225,10 @@ class AudiobookMakerView(QMainWindow):
             }
 
         # Initialize UI components
-        self.init_ui()
+        self._init_ui()
         
-    def reset(self):
-        self.clear_table()
-        self.set_audiobook_label("No Audio Book Set")
-        self.speakers = {
-            1: {'name': 'Narrator', 'color': Qt.black, 'settings': {}}
-        }
-        self.update_speaker_selection_combo()
-        self.disable_speaker_menu()
-
-        # Reset TTS and s2s options
-        self.tts_engine_combo.setCurrentIndex(0)
-        self.update_tts_options(self.get_tts_engine())
-        self.s2s_engine_combo.setCurrentIndex(0)
-        self.update_s2s_options(self.get_s2s_engine())
-        self.use_s2s_checkbox.setChecked(False)
-        self.export_pause_slider.setValue(0)
-        self.updatePauseLabel(0)
-
-    def init_ui(self):
+   
+    def _init_ui(self):
         # Main Layout as Vertical Layout to stack main content and bottom box
         self.filepath = None
         main_layout = QVBoxLayout()
@@ -257,7 +239,7 @@ class AudiobookMakerView(QMainWindow):
         left_container = QWidget(self)
         left_container.setLayout(left_layout)
         left_container.setMaximumWidth(500)
-        main_content_layout.addWidget(left_container)
+        
 
         self.tts_engine_layout = QHBoxLayout()
         self.tts_engine_label = QLabel("TTS Engine: ")
@@ -356,29 +338,39 @@ class AudiobookMakerView(QMainWindow):
 
         right_layout = QVBoxLayout()
 
+        self.audiobook_label_layout = QHBoxLayout()
         self.audiobook_name = "No Audio Book Set"
         self.audiobook_label = QLabel(self)
         self.audiobook_label.setText(f"{self.audiobook_name}")
         self.audiobook_label.setAlignment(Qt.AlignCenter)
         self.audiobook_label.setStyleSheet("font-size: 16pt; color: #eee;")
-        right_layout.addWidget(self.audiobook_label)
+        self.delete_button = QPushButton("Delete Sentences")
+        self.delete_button.setHidden(True)
+        self.delete_button.setMaximumWidth(200)
+        self.delete_button.clicked.connect(self.on_delete_button_clicked)
+        self.audiobook_label_layout.addWidget(self.audiobook_label)
+        self.audiobook_label_layout.addWidget(self.delete_button)
+        
+        right_layout.addLayout(self.audiobook_label_layout)
 
         # Table that hold Audiobook sentences, etc.
         self.tableWidget = QTableWidget(self)
-        self.tableWidget.setColumnCount(3)
-        self.tableWidget.setHorizontalHeaderLabels(['Sentence', 'Speaker', 'Regen?'])
+        self.tableWidget.setColumnCount(4)
+        self.tableWidget.setHorizontalHeaderLabels(['Sentence', 'Speaker', 'Regen?', 'Delete'])
+        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         self.tableWidget.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.tableWidget.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.tableWidget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.tableWidget.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.tableWidget.setColumnHidden(3, True)
         self.tableWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)  # Allow table to expand
         self.tableWidget.setWordWrap(True)
+        self.tableWidget.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.tableWidget.itemChanged.connect(self.handle_sentence_changed)
         
         sentence_area = QVBoxLayout()
         sentence_area.addWidget(self.tableWidget)
-        self.tableWidget.setColumnWidth(1, 150)  # Set width for the second column
-        self.tableWidget.setColumnWidth(2, 100)  # Set width for the third column
+        self.tableWidget.setColumnWidth(1, 150)  # Speaker
+        self.tableWidget.setColumnWidth(2, 100)  # Regen
+        self.tableWidget.setColumnWidth(3, 100)  # Delete
         
         delegate = MultiLineDelegate(self.tableWidget)
         self.tableWidget.setItemDelegateForColumn(0, delegate)
@@ -446,22 +438,86 @@ class AudiobookMakerView(QMainWindow):
         search_layout.addWidget(self.go_to_sentence)
         search_layout.addWidget(self.go_to_sentence_input)
         search_layout.addWidget(self.toggle_engines_button)
-
+        
+        self.speaker_selection_layout = QHBoxLayout()
+        self.speaker_selection_label = QLabel("Current Speaker: ")
+        self.speaker_selection_combo = QComboBox()
+        self.speaker_selection_layout.addWidget(self.speaker_selection_label)
+        self.speaker_selection_layout.addWidget(self.speaker_selection_combo, 1)
+        self.speaker_selection_combo.currentIndexChanged.connect(self.on_current_speaker_changed)
+        # After initializing self.speakers
+        self.update_speaker_selection_combo()
+        self.populate_s2s_engines()
+        
         # Create a horizontal layout to hold the table and options
         right_inner_layout = QHBoxLayout()
-
-        # Add the options layout
         right_inner_layout.addLayout(sentence_area)
         right_inner_layout.addWidget(self.options_widget)
 
         # Set Stretch Factors: Table = 3, Options = 1
-        right_inner_layout.setStretch(0, 2)  # Table takes 2 parts
-        # right_inner_layout.setStretch(1, 1)  # Options take 1 part
+        right_inner_layout.setStretch(0, 2)
+        
+        self.menu = self.menuBar()
+        
+        # Insert into file menu
+        self.load_audiobook_action = QAction("Load Existing Audiobook", self)
+        self.load_audiobook_action.triggered.connect(self.on_load_existing_audiobook_triggered)
+        self.update_audiobook_action = QAction("Update Audiobook Sentences", self)
+        self.update_audiobook_action.triggered.connect(self.on_update_audiobook_triggered)
+        self.export_audiobook_action = QAction("Export Audiobook", self)
+        self.export_audiobook_action.triggered.connect(self.on_export_audiobook_triggered)
+        
+        self.file_menu = self.menu.addMenu("File")
+        self.file_menu.addAction(self.load_audiobook_action)
+        self.file_menu.addAction(self.update_audiobook_action)
+        self.file_menu.addAction(self.export_audiobook_action)
 
+        # Insert into font menu
+        self.font_slider = QSlider(Qt.Horizontal)
+        self.font_slider.setMinimum(8)
+        self.font_slider.setMaximum(20)
+        self.font_slider.setValue(14)
+        self.font_slider.setTickPosition(QSlider.TicksBelow)
+        self.font_slider.setTickInterval(1)
+        self.font_slider.valueChanged.connect(self.on_font_slider_changed)
 
+        slider_action = QWidgetAction(self)
+        slider_action.setDefaultWidget(self.font_slider)
+
+        self.font_menu = self.menu.addMenu("Font Size")
+        self.font_menu.addAction(slider_action)
+
+        # Insert into background menu
+        self.set_background_action = QAction("Set Background Image", self)
+        self.set_background_action.triggered.connect(self.on_set_background_image_triggered)
+        self.set_background_clear_action = QAction("Clear Background Image", self)
+        self.set_background_clear_action.triggered.connect(self.on_set_background_clear_image_triggered)
+        
+        self.background_menu = self.menu.addMenu("Background")
+        self.background_menu.addAction(self.set_background_action)
+        self.background_menu.addAction(self.set_background_clear_action)
+        
+        self.manage_speakers_action = QAction("Manage Speakers", self)
+        self.manage_speakers_action.triggered.connect(self.on_manage_speakers)
+        
+        self.speaker_menu = self.menu.addMenu("Speakers")
+        self.speaker_menu.setEnabled(False) 
+        self.speaker_menu.addAction(self.manage_speakers_action)
+        
+        self.tableWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+
+        # Insert into tools menu
+        self.toggle_delete_action = QAction("Toggle Delete Column", self)
+        self.toggle_delete_action.setCheckable(True)
+        self.toggle_delete_action.triggered.connect(self.on_toggle_delete_action_triggered)
+        
+        self.tools_menu = self.menu.addMenu("Tools")
+        self.tools_menu.addAction(self.toggle_delete_action)
+        
         # addLayout (main gui organzaiton)
-        left_layout.addWidget(self.load_text)
+        main_content_layout.addWidget(left_container)
         left_layout.addLayout(self.book_layout)
+        left_layout.addWidget(self.load_text)
         left_layout.addLayout(self.generation_buttons_layout)
         left_layout.addLayout(self.play_pause_layout)
         left_layout.addWidget(self.play_all_button)
@@ -479,69 +535,8 @@ class AudiobookMakerView(QMainWindow):
         central_widget = QWidget(self)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
-
-        self.menu = self.menuBar()
-        self.file_menu = self.menu.addMenu("File")
-
-        self.load_audiobook_action = QAction("Load Existing Audiobook", self)
-        self.load_audiobook_action.triggered.connect(self.on_load_existing_audiobook_triggered)
-        self.file_menu.addAction(self.load_audiobook_action)
-
-        self.update_audiobook_action = QAction("Update Audiobook Sentences", self)
-        self.update_audiobook_action.triggered.connect(self.on_update_audiobook_triggered)
-        self.file_menu.addAction(self.update_audiobook_action)
-
-        self.export_audiobook_action = QAction("Export Audiobook", self)
-        self.export_audiobook_action.triggered.connect(self.on_export_audiobook_triggered)
-        self.file_menu.addAction(self.export_audiobook_action)
-
-        self.font_slider = QSlider(Qt.Horizontal)
-        self.font_slider.setMinimum(8)
-        self.font_slider.setMaximum(20)
-        self.font_slider.setValue(14)
-        self.font_slider.setTickPosition(QSlider.TicksBelow)
-        self.font_slider.setTickInterval(1)
-        self.font_slider.valueChanged.connect(self.on_font_slider_changed)
-
-        slider_action = QWidgetAction(self)
-        slider_action.setDefaultWidget(self.font_slider)
-
-        self.font_menu = self.menu.addMenu("Font Size")
-        self.font_menu.addAction(slider_action)
-
-        self.background_menu = self.menu.addMenu("Background")
-
-        self.set_background_action = QAction("Set Background Image", self)
-        self.set_background_action.triggered.connect(self.on_set_background_image_triggered)
-        self.background_menu.addAction(self.set_background_action)
-
-        self.set_background_clear_action = QAction("Clear Background Image", self)
-        self.set_background_clear_action.triggered.connect(self.on_set_background_clear_image_triggered)
-        self.background_menu.addAction(self.set_background_clear_action)
         
-        self.speaker_menu = self.menu.addMenu("Speakers")
-        self.speaker_menu.setEnabled(False) 
-        
-        self.speaker_selection_layout = QHBoxLayout()
-        self.speaker_selection_label = QLabel("Current Speaker: ")
-        self.speaker_selection_combo = QComboBox()
-        self.speaker_selection_layout.addWidget(self.speaker_selection_label)
-        self.speaker_selection_layout.addWidget(self.speaker_selection_combo, 1)
-        self.speaker_selection_combo.currentIndexChanged.connect(self.on_current_speaker_changed)
         left_layout.addLayout(self.speaker_selection_layout)
-
-        # After initializing self.speakers
-        self.update_speaker_selection_combo()
-        self.populate_s2s_engines()
-
-        self.manage_speakers_action = QAction("Manage Speakers", self)
-        self.manage_speakers_action.triggered.connect(self.on_manage_speakers)
-        self.speaker_menu.addAction(self.manage_speakers_action)
-        
-        self.tableWidget.setContextMenuPolicy(Qt.CustomContextMenu)
-
-        # Create Tools menu
-        self.tools_menu = self.menu.addMenu("Tools")
 
         # Window settings
         self.setWindowTitle("Audiobook Maker")
@@ -556,534 +551,77 @@ class AudiobookMakerView(QMainWindow):
             width = height * target_ratio  # calculate width based on the target aspect ratio
 
         self.setGeometry(100, 100, int(width), int(height))
-        
-    def toggle_engines_column(self):
-        is_visible = self.options_widget.isVisible()
-        self.options_widget.setVisible(not is_visible)
-        if is_visible:
-            self.toggle_engines_button.setText("Show TTS/S2S")
-        else:
-            self.toggle_engines_button.setText("Hide TTS/S2S")
-        
-    def populate_s2s_engines(self):
-        s2s_config = self.load_s2s_config('configs/s2s_config.json')
-        engines = [engine['name'] for engine in s2s_config.get('s2s_engines', [])]
-        self.s2s_engine_combo.addItems(engines)
-        self.s2s_config = s2s_config  # Store for later use
-
-
-    def update_speaker_selection_combo(self):
-        self.speaker_selection_combo.blockSignals(True)  # Prevent signal during update
-        self.speaker_selection_combo.clear()
-        for speaker_id, speaker in self.speakers.items():
-            self.speaker_selection_combo.addItem(f"{speaker['name']}", userData=speaker_id)
-        self.speaker_selection_combo.blockSignals(False)
-        
-    def enable_speaker_menu(self):
-        self.speaker_menu.setEnabled(True)
-
-
-    def disable_speaker_menu(self):
-        self.speaker_menu.setEnabled(False)
-
-    # In on_current_speaker_changed method
-    def on_current_speaker_changed(self, index):
-        speaker_id = self.speaker_selection_combo.itemData(index)
-        if speaker_id is not None:
-            if speaker_id in self.speakers:
-                self.load_speaker_settings(speaker_id)
-                # Emit a signal to notify the controller or model
-                # self.current_speaker_changed.emit(speaker_id)
-            else:
-                self.reset_settings_to_default()
-        else:
-            self.reset_settings_to_default()
+    def add_table_item(self, row, text, speaker_name, regen_state=False, delete_state=False):
+        self.tableWidget.blockSignals(True)
+        # Ensure the table has enough rows
+        current_row_count = self.tableWidget.rowCount()
+        if current_row_count <= row:
+            self.tableWidget.setRowCount(row + 1)
             
-    def reset_settings_to_default(self):
-        default_speaker_id = 1
-        if default_speaker_id in self.speakers:
-            self.load_speaker_settings(default_speaker_id)
-            self.speaker_selection_combo.setCurrentIndex(
-                self.speaker_selection_combo.findData(default_speaker_id)
-            )
-            # Emit the signal to notify any listeners about the change
-            # self.current_speaker_changed.emit(default_speaker_id)
-        else:
-            self.show_message("Error", "Default speaker not found.", QMessageBox.Critical)
+        # 1) Sentence column
+        sentence_item = QTableWidgetItem(text)
+        sentence_item.setText(text)
+        
+        # 2) Speaker column
+        speaker_item = QTableWidgetItem(speaker_name)
+        speaker_item.setFlags(speaker_item.flags() & ~Qt.ItemIsEditable)
+        speaker_item.setTextAlignment(Qt.AlignCenter)
+        
+        # 3) Regen? column (checkbox)
+        regen_check_box = QCheckBox()
+        regen_check_box.setChecked(regen_state)
+        regen_check_box_widget = QWidget()
+        regen_check_box_layout = QHBoxLayout(regen_check_box_widget)
+        regen_check_box_layout.setContentsMargins(0, 0, 0, 0)
+        regen_check_box_layout.setAlignment(Qt.AlignCenter)
+        regen_check_box_layout.addWidget(regen_check_box)
+        
+        regen_check_box.stateChanged.connect(
+            lambda state, row=row: self.regen_checkbox_toggled.emit(row, bool(state))
+        )
+        
+        # 4) Delete column (checkbox)
+        delete_check_box = QCheckBox()
+        delete_check_box.setChecked(delete_state)
+        delete_check_box_widget = QWidget()
+        delete_check_box_layout = QHBoxLayout(delete_check_box_widget)
+        delete_check_box_layout.setContentsMargins(0, 0, 0, 0)
+        delete_check_box_layout.setAlignment(Qt.AlignCenter)
+        delete_check_box_layout.addWidget(delete_check_box)
+        
+        self.tableWidget.setItem(row, 0, sentence_item)
+        self.tableWidget.setItem(row, 1, speaker_item)
+        self.tableWidget.setCellWidget(row, 2, regen_check_box_widget)
+        self.tableWidget.setCellWidget(row, 3, delete_check_box_widget)
+        
+        self.tableWidget.resizeRowToContents(row)
+        self.tableWidget.blockSignals(False)
 
-    def update_current_speaker_setting(self, attribute, value):
-        current_speaker_id, _ = self.get_current_speaker_attributes()
-        if current_speaker_id in self.speakers:
-            speaker = self.speakers[current_speaker_id]
-            speaker_settings = speaker.setdefault('settings', {})
-            speaker_settings[attribute] = value
-        else:
-            pass
-
-    def get_current_speaker_attributes(self):
-        index = self.speaker_selection_combo.currentIndex()
-        speaker_id = self.speaker_selection_combo.itemData(index)
-        speaker_name = self.speaker_selection_combo.itemText(index)
-        if speaker_id is not None:
-            return speaker_id, speaker_name
-        else:
-            return 1  # Default speaker
-
+    def ask_question(self, title, question, buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No):
+        reply = QMessageBox.question(self, title, question, buttons, default_button)
+        return reply == QMessageBox.Yes
     def assign_speaker_to_selected(self, speaker_id, speaker_name):
         selected_rows = self.tableWidget.selectionModel().selectedRows()
         for index in selected_rows:
             row = index.row()
             self.set_row_speaker(row, speaker_id, speaker_name)
             self.sentence_speaker_changed.emit(row, speaker_id)
-
     
-    def on_manage_speakers(self):
-        # Open the speaker management dialog
-        dialog = SpeakerManagementDialog(self, self.speakers)
-        dialog.exec()
-        # Update speakers after the dialog is closed
-        self.speakers = dialog.get_speakers()
-        # print("Before emitting, speakers:", self.speakers)
-        self.speakers_updated.emit(self.speakers)
+    def browse_file(self, widget, param):
+        file_path = self.get_open_file_name("Select File", "", param.get('file_filter', 'All Files (*)'))
+        if file_path:
+            widget.setText(file_path)
 
-    def set_row_speaker(self, row, speaker_id, speaker_name):
-        self.set_row_speaker_color(row, speaker_id)
-        speaker_item = QTableWidgetItem(speaker_name)
-        speaker_item.setFlags(speaker_item.flags() & ~Qt.ItemIsEditable)
-        self.tableWidget.setItem(row, 1, speaker_item)
-
-    def set_row_speaker_color(self, row, speaker_id):
-        self.tableWidget.blockSignals(True)
-        speaker = self.speakers.get(str(speaker_id), None)
-        if not speaker: # HOT FIX, should figure out why speaker_id needs to be a string for one check, and then int for another for color
-            speaker = self.speakers.get(speaker_id, None)
-        color = speaker.get('color', Qt.black)
-        if isinstance(color, str):
-            color = QColor(color)
-        item = self.tableWidget.item(row, 0) # Explicit sentence column
-        if item:
-            item.setBackground(color)
-        self.tableWidget.blockSignals(False)
-                
-    def load_speaker_settings(self, speaker_id):
-        speaker = self.speakers.get(speaker_id, {})
-        settings = speaker.get('settings', {})
-        # Update TTS engine
-        tts_engine = settings.get('tts_engine', self.tts_engine_combo.currentText())
-        index_tts = self.tts_engine_combo.findText(tts_engine)
-        self.tts_engine_combo.blockSignals(True)  # Block signals
-        if index_tts >= 0:
-            self.tts_engine_combo.setCurrentIndex(index_tts)
-        else:
-            self.tts_engine_combo.setCurrentIndex(0)  # Default to first TTS engine
-        self.tts_engine_combo.blockSignals(False)  # Unblock signals
-
-        # Update TTS options
-        self.update_tts_options(tts_engine)
-        # Set TTS parameters
-        self.set_tts_parameters(settings)
-
-        # Update s2s engine
-        s2s_engine = settings.get('s2s_engine', self.s2s_engine_combo.currentText())
-        index_s2s = self.s2s_engine_combo.findText(s2s_engine)
-        self.s2s_engine_combo.blockSignals(True)  # Block signals
-        if index_s2s >= 0:
-            self.s2s_engine_combo.setCurrentIndex(index_s2s)
-        else:
-            self.s2s_engine_combo.setCurrentIndex(0)  # Default to first s2s engine
-        self.s2s_engine_combo.blockSignals(False)  # Unblock signals
-
-        # Update s2s options
-        self.update_s2s_options(s2s_engine)
-        # Set s2s parameters
-        self.set_s2s_parameters(settings)
-
-        # Update Use s2s checkbox
-        use_s2s = settings.get('use_s2s', False)
-        self.use_s2s_checkbox.blockSignals(True)
-        self.use_s2s_checkbox.setChecked(use_s2s)
-        self.use_s2s_checkbox.blockSignals(False)
-
-    def set_s2s_parameters(self, settings):
-        s2s_engine = self.get_s2s_engine()
-        engine_config = next(
-            (engine for engine in self.s2s_config.get('s2s_engines', []) if engine['name'] == s2s_engine),
-            None
-        )
-        if engine_config:
-            for param in engine_config.get('parameters', []):
-                attribute = param['attribute']
-                widget = getattr(self, f"{attribute}_widget", None)
-                if widget:
-                    value = settings.get(attribute, None)
-                    if value is not None:
-                        if param['type'] in ('text', 'file'):
-                            widget.setText(str(value))
-                        elif param['type'] == 'spinbox':
-                            widget.setValue(value)
-                        elif param['type'] == 'checkbox':
-                            widget.setChecked(bool(value))
-                        elif param['type'] == 'combobox':
-                            index = widget.findText(str(value))
-                            if index >= 0:
-                                widget.setCurrentIndex(index)
-                            else:
-                                widget.setCurrentIndex(0)  # Default to first item
-                        elif param['type'] == 'slider':
-                            widget.setValue(value)
-                    else:
-                        if param['type'] == 'combobox':
-                            widget.setCurrentIndex(0)
-
-
-    def set_tts_parameters(self, settings):
-        tts_engine = self.get_tts_engine()
-        engine_config = next(
-            (engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == tts_engine),
-            None
-        )
-        if engine_config:
-            for param in engine_config.get('parameters', []):
-                attribute = param['attribute']
-                widget = getattr(self, f"{attribute}_widget", None)
-                if widget:
-                    value = settings.get(attribute, None)
-                    if value is not None:
-                        if param['type'] in ('text', 'file'):
-                            widget.setText(str(value))
-                        elif param['type'] == 'spinbox':
-                            widget.setValue(value)
-                        elif param['type'] == 'checkbox':
-                            widget.setChecked(bool(value))
-                        elif param['type'] == 'combobox':
-                            index = widget.findText(str(value))
-                            if index >= 0:
-                                widget.setCurrentIndex(index)
-                            else:
-                                widget.setCurrentIndex(0)  # Default to first item
-                        elif param['type'] == 'slider':
-                            widget.setValue(value)
-                    else:
-                        if param['type'] == 'combobox':
-                            widget.setCurrentIndex(0)  # Default to first item when value is None
-
-
-    # Methods for handling UI actions and emitting signals
-
-    def on_load_text_clicked(self):
-        self.load_text_file_requested.emit()
-
-    def on_generate_button_clicked(self):
-        self.start_generation_requested.emit()
-
-    def on_play_button_clicked(self):
-        self.play_selected_audio_requested.emit()
-
-    def on_pause_button_clicked(self):
-        self.pause_audio_requested.emit()
-
-    def on_play_all_button_clicked(self):
-        self.play_all_from_selected_requested.emit()
-
-    def on_regenerate_button_clicked(self):
-        self.regenerate_audio_for_sentence_requested.emit()
-        
-    def on_regenerate_bulk_button_clicked(self):
-        self.regenerate_bulk_requested.emit()
-        
-    def on_clear_regen_button_clicked(self):
-        self.clear_regen_requested.emit()
-
-    def on_continue_button_clicked(self):
-        self.continue_audiobook_generation_requested.emit()
-
-    def on_load_existing_audiobook_triggered(self):
-        self.load_existing_audiobook_requested.emit()
-
-    def on_update_audiobook_triggered(self):
-        self.update_audiobook_requested.emit()
-
-    def on_export_audiobook_triggered(self):
-        self.export_audiobook_requested.emit()
-
-    def on_set_background_image_triggered(self):
-        self.set_background_image_requested.emit()
-
-    def on_set_background_clear_image_triggered(self):
-        self.set_background_clear_image_requested.emit()
-
-    def on_font_slider_changed(self, value):
-        self.font_size_changed.emit(value)
-        self.update_font_size_from_slider(value)
-
-
-    def on_export_pause_slider_changed(self, value):
-        pause_duration = value / 10.0
-        self.updatePauseLabel(pause_duration)
-        self.update_current_speaker_setting('pause_duration', pause_duration)
-        # self.pause_between_sentences_changed.emit(pause_duration)
-        
-    def on_s2s_engine_changed(self, engine_name):
-        self.update_s2s_options(engine_name)
-        self.update_current_speaker_setting('s2s_engine', engine_name)
-        
-    def on_stop_button_clicked(self):
-        confirm = self.ask_question(
-            "Stop Generation",
-            "Are you sure you want to stop the generation?",
-            buttons=QMessageBox.Yes | QMessageBox.No,
-            default_button=QMessageBox.No
-        )
-        if confirm:
-            self.stop_generation_requested.emit()
-
-
-    def updatePauseLabel(self, value):
-        self.export_pause_value_label.setText(str(value))
-
-    def update_font_size_from_slider(self, value):
-        font_size = f"{value}pt"
-        self.setStyleSheet(self.load_stylesheet(font_size))
-        
-    def populate_tts_engines(self):
-        engines = [engine['name'] for engine in self.tts_config.get('tts_engines')]
-        self.tts_engine_combo.addItems(engines)
-    
-    def load_tts_config(self, config_path):
-        if not os.path.exists(config_path):
-            self.show_message("Error", f"Configuration file {config_path} not found.", QMessageBox.Critical)
-            return {}
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    
-    def load_s2s_config(self, config_path):
-        if not os.path.exists(config_path):
-            self.show_message("Error", f"s2s configuration file {config_path} not found.", QMessageBox.Critical)
-            return {}
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    
-
-    def load_stylesheet(self, font_size="14pt"):
-        # Load the base stylesheet
-        with open("base.css", "r") as file:
-            stylesheet = file.read()
-
-        # Replace font-size
-        modified_stylesheet = stylesheet.replace("font-size: 14pt;", f"font-size: {font_size};")
-        return modified_stylesheet
-
-    def set_background(self, file_path):
-        # Set the pixmap for the background label
-        pixmap = QPixmap(file_path)
-        self.background_pixmap = pixmap  # Save the pixmap as an attribute
-        self.update_background()
-
-    def update_background(self):
-        # Check if background pixmap is set, then scale and set it
-        if hasattr(self, 'background_pixmap'):
-            scaled_pixmap = self.background_pixmap.scaled(self.background_label.size(), Qt.KeepAspectRatioByExpanding)
-            self.background_label.setPixmap(scaled_pixmap)
-            self.background_label.show()
-
-    # Override resizeEvent to update background
-    def resizeEvent(self, event):
-        # Update background label geometry when window is resized
-        self.background_label.setGeometry(0, 0, self.width(), self.height())
-        self.update_background()  # Update the background pixmap scaling
-        super().resizeEvent(event)  # Call the superclass resize event method
-
-    def disable_buttons(self):
-        buttons = [self.regenerate_button,
-                   self.regenerate_bulk_button,
-                   self.start_generation_button,
-                   self.continue_audiobook_button]
-        actions = [self.load_audiobook_action,
-                   self.export_audiobook_action,
-                   self.update_audiobook_action]
-
-        for button in buttons:
-            button.setDisabled(True)
-            button.setStyleSheet("QPushButton { color: #A9A9A9; }")
-
-        for action in actions:
-            action.setDisabled(True)
-
-    def on_disable_stop_button(self):
-        self.stop_generation_button.setEnabled(False)
-        self.stop_generation_button.setStyleSheet("QPushButton { color: #A9A9A9; }")
-        
-    def on_enable_stop_button(self):
-        self.stop_generation_button.setEnabled(True)
-        self.stop_generation_button.setStyleSheet("")
-
-    def enable_buttons(self):
-        buttons = [self.regenerate_button,
-                   self.regenerate_bulk_button,
-                   self.start_generation_button,
-                   self.continue_audiobook_button]
-        actions = [self.load_audiobook_action,
-                   self.export_audiobook_action,
-                   self.update_audiobook_action]
-
-        for button in buttons:
-            button.setDisabled(False)
-            button.setStyleSheet("")
-
-        for action in actions:
-            action.setDisabled(False)
-
-    # Methods to update UI elements, which can be called by the controller
-    def set_audiobook_label(self, text):
-        self.audiobook_label.setText(text)
-
-    def set_progress(self, value):
-        self.progress_bar.setValue(value)
-    
-    def set_start_generation_button_text(self, text):
-        self.start_generation_button.setText(text)
-
+    def clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self.clear_layout(item.layout())
+                item.layout().deleteLater()  
     def clear_table(self):
         self.tableWidget.setRowCount(0)
-
-    def add_table_item(self, row, text, speaker_name, regen_state=False):
-        self.tableWidget.blockSignals(True)
-        # Ensure the table has enough rows
-        current_row_count = self.tableWidget.rowCount()
-        if current_row_count <= row:
-            self.tableWidget.setRowCount(row + 1)
-        sentence_item = QTableWidgetItem(text)
-        sentence_item.setText(text)
-        
-        speaker_item = QTableWidgetItem(speaker_name)
-        speaker_item.setFlags(speaker_item.flags() & ~Qt.ItemIsEditable)
-        speaker_item.setTextAlignment(Qt.AlignCenter)
-        
-        check_box = QCheckBox()
-        check_box.setChecked(regen_state)
-        check_box.stateChanged.connect(
-        lambda state, row=row: self.regen_checkbox_toggled.emit(row, bool(state))
-    )
-        
-        # Wrap the checkbox in a layout so it stays centered
-        check_box_widget = QWidget()
-        check_box_layout = QHBoxLayout(check_box_widget)
-        check_box_layout.setContentsMargins(0, 0, 0, 0)
-        check_box_layout.setAlignment(Qt.AlignCenter)
-        check_box_layout.addWidget(check_box)
-        
-        self.tableWidget.setItem(row, 0, sentence_item)
-        self.tableWidget.setItem(row, 1, speaker_item)
-        self.tableWidget.setCellWidget(row, 2, check_box_widget)
-        self.tableWidget.resizeRowToContents(row)
-        self.tableWidget.blockSignals(False)
-
-    def get_selected_table_row(self):
-        return self.tableWidget.currentRow()
-
-    def select_table_row(self, row):
-        self.tableWidget.selectRow(row)
-
-    # Methods to retrieve data from UI elements
-    def get_book_name(self):
-        return self.book_name_input.text().strip()
-
-    def get_pause_between_sentences(self):
-        return self.export_pause_slider.value() / 10.0
-
-    def get_tts_engine(self):
-        return self.tts_engine_combo.currentText()
-    
-    def get_s2s_engine(self):
-        return self.s2s_engine_combo.currentText()
-    
-    def on_use_s2s_changed(self, state):
-        is_checked = self.use_s2s_checkbox.isChecked()
-        self.update_current_speaker_setting('use_s2s', is_checked)
-        self.generation_settings_changed.emit()
-    
-    def set_tts_engines(self, engines):
-        self.tts_engine_combo.clear()
-        self.tts_engine_combo.addItems(engines)
-        
-    def on_tts_engine_changed(self, engine_name):
-        # self.set_load_tts_button_color("")  # Reset color when TTS engine changes
-        self.update_tts_options(engine_name)  # Update the TTS options in the view
-        self.update_current_speaker_setting('tts_engine', engine_name)
-        self.tts_engine_changed.emit(self.speakers)
-        # self.speakers_updated.emit(self.speakers)
-
-    def update_s2s_options(self, engine_name):
-        if not engine_name:
-            self.s2s_options_widget.setVisible(False)
-            return
-
-        # Clear existing widgets and layouts
-        self.clear_layout(self.s2s_options_layout)
-
-        # Find the engine config
-        engine_config = next(
-            (engine for engine in self.s2s_config.get('s2s_engines', []) if engine['name'] == engine_name),
-            None
-        )
-
-        if not engine_config:
-            self.show_message("Error", f"No configuration found for s2s engine: {engine_name}", QMessageBox.Critical)
-            self.s2s_options_widget.setVisible(False)
-            return
-
-        # Create a label for the s2s engine
-        engine_label = QLabel(engine_config.get('label', f"{engine_name} Settings"))
-        engine_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        self.s2s_options_layout.addWidget(engine_label)
-
-        # Iterate over parameters and create widgets
-        for param in engine_config.get('parameters', []):
-            widget_layout = self.create_widget_for_parameter(param)
-            if widget_layout:
-                self.s2s_options_layout.addLayout(widget_layout)
-
-        self.s2s_options_layout.addStretch()
-        self.s2s_options_widget.setVisible(True)
-
-
-
-    def update_tts_options(self, engine_name):
-        if not engine_name:
-            # If engine_name is empty, simply hide the TTS options without showing an error
-            self.tts_options_widget.setVisible(False)
-            return
-
-        # Clear existing widgets and layouts
-        self.clear_layout(self.tts_options_layout)
-        
-        # Find the engine config using a for loop
-        engine_config = None
-        for engine in self.tts_config.get('tts_engines', []):
-            if engine['name'].lower() == engine_name.lower():
-                engine_config = engine
-                break
-
-        if not engine_config:
-            self.show_message("Error", f"No configuration found for TTS engine: {engine_name}", QMessageBox.Critical)
-            self.tts_options_widget.setVisible(False)
-            return
-        
-        # Create a label for the TTS engine
-        engine_label = QLabel(f"{engine_name} Settings")
-        engine_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
-        self.tts_options_layout.addWidget(engine_label)
-        
-        # Iterate over parameters and create widgets
-        for param in engine_config.get('parameters', []):
-            widget = self.create_widget_for_parameter(param)
-            if widget:
-                self.tts_options_layout.addLayout(widget)
-        
-        self.tts_options_layout.addStretch()
-        self.tts_options_widget.setVisible(True)
-
-        
     def create_widget_for_parameter(self, param):
         layout = QHBoxLayout()
         label = QLabel(param['label'] + ": ")
@@ -1203,6 +741,44 @@ class AudiobookMakerView(QMainWindow):
         setattr(self, f"{attribute}_widget", widget)
         return layout
     
+    def disable_buttons(self):
+        buttons = [self.regenerate_button,
+                   self.regenerate_bulk_button,
+                   self.start_generation_button,
+                   self.continue_audiobook_button]
+        actions = [self.load_audiobook_action,
+                   self.export_audiobook_action,
+                   self.update_audiobook_action]
+
+        for button in buttons:
+            button.setDisabled(True)
+            button.setStyleSheet("QPushButton { color: #A9A9A9; }")
+
+        for action in actions:
+            action.setDisabled(True)
+    def disable_speaker_menu(self):
+        self.speaker_menu.setEnabled(False)
+    
+    def enable_buttons(self):
+        buttons = [self.regenerate_button,
+                   self.regenerate_bulk_button,
+                   self.start_generation_button,
+                   self.continue_audiobook_button]
+        actions = [self.load_audiobook_action,
+                   self.export_audiobook_action,
+                   self.update_audiobook_action]
+
+        for button in buttons:
+            button.setDisabled(False)
+            button.setStyleSheet("")
+
+        for action in actions:
+            action.setDisabled(False)
+    def enable_speaker_menu(self):
+        self.speaker_menu.setEnabled(True)
+    
+    def get_book_name(self):
+        return self.book_name_input.text().strip()
     def get_combobox_items(self, param):
         folder_path = param.get('folder_path', '.')
         look_for = param.get('look_for', 'folders')  # 'folders' or 'files'
@@ -1263,64 +839,62 @@ class AudiobookMakerView(QMainWindow):
             return items
 
         return items
-    
-    def handle_sentence_changed(self, item):
-        if item.column() == 0:
-            row = item.row()
-            new_text = item.text()
-            self.tableWidget.blockSignals(True)
-            try:
-                # Perform any updates to the item if necessary
-                pass
-            finally:
-                self.tableWidget.blockSignals(False)
-            self.text_item_changed.emit(row, new_text)
+    def get_current_speaker_attributes(self):
+        index = self.speaker_selection_combo.currentIndex()
+        speaker_id = self.speaker_selection_combo.itemData(index)
+        speaker_name = self.speaker_selection_combo.itemText(index)
+        if speaker_id is not None:
+            return speaker_id, speaker_name
+        else:
+            return 1  # Default speaker
+    def get_deletion_checkboxes(self):
+        checked_rows = []
+        delete_column = 3  # table col
 
-    
-    def on_parameter_changed(self, attribute, value):
-        if value == 'Default':
-            value = None
-        self.update_current_speaker_setting(attribute, value)
-        self.generation_settings_changed.emit()
-    
-    def browse_file(self, widget, param):
-        file_path = self.get_open_file_name("Select File", "", param.get('file_filter', 'All Files (*)'))
-        if file_path:
-            widget.setText(file_path)
+        for row in range(self.tableWidget.rowCount()):
+            cell_widget = self.tableWidget.cellWidget(row, delete_column)
+            if cell_widget:
+                layout = cell_widget.layout()
+                if layout:
+                    for i in range(layout.count()):
+                        item = layout.itemAt(i)
+                        if item:
+                            checkbox = item.widget()
+                            if isinstance(checkbox, QCheckBox) and checkbox.isChecked():
+                                checked_rows.append(row)
+                                checkbox.blockSignals(True)
+                                checkbox.setChecked(False)
+                                checkbox.blockSignals(False)
+                                break
+        return checked_rows
+    def get_existing_directory(self, title, directory=''):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ShowDirsOnly
+        selected_directory = QFileDialog.getExistingDirectory(self, title, directory, options)
+        if selected_directory:
+            # Get the parent root (you can customize this to point to your desired parent root)
+            parent_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # One level up
 
-    def clear_layout(self, layout):
-        while layout.count():
-            item = layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-            elif item.layout():
-                self.clear_layout(item.layout())
-                item.layout().deleteLater()  
-    
-    def get_tts_engine_parameters(self):
-        engine_name = self.get_tts_engine()
-        engine_config = next((engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == engine_name), None)
-        if not engine_config:
-            return {}
-        
-        parameters = {'tts_engine': engine_name}
-        for param in engine_config.get('parameters', []):
-            attribute = param['attribute']
-            widget = getattr(self, f"{attribute}_widget", None)
-            if widget:
-                if param['type'] == 'text' or param['type'] == 'file':
-                    parameters[attribute] = widget.text()
-                elif param['type'] == 'spinbox':
-                    parameters[attribute] = widget.value()
-                elif param['type'] == 'checkbox':
-                    parameters[attribute] = widget.isChecked()
-                elif param['type'] == 'combobox':
-                    parameters[attribute] = widget.currentText()
-                elif param['type'] == 'slider':
-                    parameters[attribute] = widget.value()
-        return parameters
+            # Get the relative path from the parent root to the selected directory
+            relative_directory = os.path.relpath(selected_directory, parent_root)
 
-    
+            return relative_directory
+
+        return None
+    def get_open_file_name(self, title, directory='', filter=''):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        filepath, _ = QFileDialog.getOpenFileName(self, title, directory, filter, options=options)
+        return filepath
+    def get_pause_between_sentences(self):
+        return self.export_pause_slider.value() / 10.0
+    def get_search_start(self):
+        selected_rows = self.tableWidget.selectionModel().selectedRows()
+        if selected_rows:
+            return selected_rows[0].row()
+        return 0
+    def get_s2s_engine(self):
+        return self.s2s_engine_combo.currentText()
     def get_s2s_engine_parameters(self):
         engine_name = self.get_s2s_engine()
         engine_config = next((engine for engine in self.s2s_config.get('s2s_engines', []) if engine['name'] == engine_name), None)
@@ -1345,9 +919,30 @@ class AudiobookMakerView(QMainWindow):
                 elif param['type'] == 'slider':
                     parameters[attribute] = widget.value()
         return parameters
-
-
-    
+    def get_tts_engine(self):
+        return self.tts_engine_combo.currentText()
+    def get_tts_engine_parameters(self):
+        engine_name = self.get_tts_engine()
+        engine_config = next((engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == engine_name), None)
+        if not engine_config:
+            return {}
+        
+        parameters = {'tts_engine': engine_name}
+        for param in engine_config.get('parameters', []):
+            attribute = param['attribute']
+            widget = getattr(self, f"{attribute}_widget", None)
+            if widget:
+                if param['type'] == 'text' or param['type'] == 'file':
+                    parameters[attribute] = widget.text()
+                elif param['type'] == 'spinbox':
+                    parameters[attribute] = widget.value()
+                elif param['type'] == 'checkbox':
+                    parameters[attribute] = widget.isChecked()
+                elif param['type'] == 'combobox':
+                    parameters[attribute] = widget.currentText()
+                elif param['type'] == 'slider':
+                    parameters[attribute] = widget.value()
+        return parameters
     def get_voice_parameters(self):
         tts_engine_name = self.get_tts_engine()
         s2s_engine_name = self.get_s2s_engine()
@@ -1367,47 +962,93 @@ class AudiobookMakerView(QMainWindow):
         voice_parameters.update(tts_engine_parameters)
 
         return voice_parameters
+    def get_selected_table_row(self):
+        return self.tableWidget.currentRow()
 
-    # Methods for showing message boxes and file dialogs
-    def show_message(self, title, message, icon=QMessageBox.Information):
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(message)
-        msg_box.setIcon(icon)
-        msg_box.exec()
+    def handle_sentence_changed(self, item):
+        if item.column() == 0:
+            row = item.row()
+            new_text = item.text()
+            self.tableWidget.blockSignals(True)
+            try:
+                # Perform any updates to the item if necessary
+                pass
+            finally:
+                self.tableWidget.blockSignals(False)
+            self.text_item_changed.emit(row, new_text)
 
-    def ask_question(self, title, question, buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No):
-        reply = QMessageBox.question(self, title, question, buttons, default_button)
-        return reply == QMessageBox.Yes
-
-    def get_open_file_name(self, title, directory='', filter=''):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-        filepath, _ = QFileDialog.getOpenFileName(self, title, directory, filter, options=options)
-        return filepath
-
-    def get_existing_directory(self, title, directory=''):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ShowDirsOnly
-        selected_directory = QFileDialog.getExistingDirectory(self, title, directory, options)
-        if selected_directory:
-            # Get the parent root (you can customize this to point to your desired parent root)
-            parent_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))  # One level up
-
-            # Get the relative path from the parent root to the selected directory
-            relative_directory = os.path.relpath(selected_directory, parent_root)
-
-            return relative_directory
-
-        return None
-
-    # Media player methods
     def initialize_media_player(self):
         self.media_player = QMediaPlayer()
         self.audio_output = QAudioOutput()
         self.media_player.setAudioOutput(self.audio_output)
         self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
+    def is_audio_playing(self, audio_path):
+        return self.current_audio_path == audio_path
+    
+    def load_speaker_settings(self, speaker_id):
+        speaker = self.speakers.get(speaker_id, {})
+        settings = speaker.get('settings', {})
+        # Update TTS engine
+        tts_engine = settings.get('tts_engine', self.tts_engine_combo.currentText())
+        index_tts = self.tts_engine_combo.findText(tts_engine)
+        self.tts_engine_combo.blockSignals(True)  # Block signals
+        if index_tts >= 0:
+            self.tts_engine_combo.setCurrentIndex(index_tts)
+        else:
+            self.tts_engine_combo.setCurrentIndex(0)  # Default to first TTS engine
+        self.tts_engine_combo.blockSignals(False)  # Unblock signals
 
+        # Update TTS options
+        self.update_tts_options(tts_engine)
+        # Set TTS parameters
+        self.set_tts_parameters(settings)
+
+        # Update s2s engine
+        s2s_engine = settings.get('s2s_engine', self.s2s_engine_combo.currentText())
+        index_s2s = self.s2s_engine_combo.findText(s2s_engine)
+        self.s2s_engine_combo.blockSignals(True)  # Block signals
+        if index_s2s >= 0:
+            self.s2s_engine_combo.setCurrentIndex(index_s2s)
+        else:
+            self.s2s_engine_combo.setCurrentIndex(0)  # Default to first s2s engine
+        self.s2s_engine_combo.blockSignals(False)  # Unblock signals
+
+        # Update s2s options
+        self.update_s2s_options(s2s_engine)
+        # Set s2s parameters
+        self.set_s2s_parameters(settings)
+
+        # Update Use s2s checkbox
+        use_s2s = settings.get('use_s2s', False)
+        self.use_s2s_checkbox.blockSignals(True)
+        self.use_s2s_checkbox.setChecked(use_s2s)
+        self.use_s2s_checkbox.blockSignals(False)
+    def load_tts_config(self, config_path):
+        if not os.path.exists(config_path):
+            self.show_message("Error", f"Configuration file {config_path} not found.", QMessageBox.Critical)
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    def load_s2s_config(self, config_path):
+        if not os.path.exists(config_path):
+            self.show_message("Error", f"s2s configuration file {config_path} not found.", QMessageBox.Critical)
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    def load_stylesheet(self, font_size="14pt"):
+        # Load the base stylesheet
+        with open("base.css", "r") as file:
+            stylesheet = file.read()
+
+        # Replace font-size
+        modified_stylesheet = stylesheet.replace("font-size: 14pt;", f"font-size: {font_size};")
+        return modified_stylesheet
+    
+    def pause_audio(self):
+        if self.media_player.playbackState() == QMediaPlayer.PlayingState:
+            self.media_player.pause()
+        elif self.media_player.playbackState() == QMediaPlayer.PausedState:
+            self.media_player.play()
     def play_audio(self, audio_path):
         if not audio_path:
             return
@@ -1415,13 +1056,266 @@ class AudiobookMakerView(QMainWindow):
         self.media_player.setSource(QUrl.fromLocalFile(audio_path))
         self.media_player.play()
         self.current_audio_path = audio_path  # Update current audio path
+    def on_audio_finished(self, state):
+        if state == QMediaPlayer.EndOfMedia or state == QMediaPlayer.StoppedState:
+            self.current_audio_path = None  # Clear current audio path
+            self.release_media_player_resources()
+            self.audio_finished_signal.emit()  # Emit the signal
+    def on_clear_regen_button_clicked(self):
+        self.clear_regen_requested.emit()
+    def on_continue_button_clicked(self):
+        self.continue_audiobook_generation_requested.emit()
+    def on_current_speaker_changed(self, index):
+        speaker_id = self.speaker_selection_combo.itemData(index)
+        if speaker_id is not None:
+            if speaker_id in self.speakers:
+                self.load_speaker_settings(speaker_id)
+                # Emit a signal to notify the controller or model
+                # self.current_speaker_changed.emit(speaker_id)
+            else:
+                self.reset_settings_to_default()
+        else:
+            self.reset_settings_to_default()
+    def on_delete_button_clicked(self):
+        self.delete_requested.emit()
+    def on_disable_stop_button(self):
+        self.stop_generation_button.setEnabled(False)
+        self.stop_generation_button.setStyleSheet("QPushButton { color: #A9A9A9; }")
+    def on_enable_stop_button(self):
+        self.stop_generation_button.setEnabled(True)
+        self.stop_generation_button.setStyleSheet("")
+    def on_export_audiobook_triggered(self):
+        self.export_audiobook_requested.emit()
+    def on_export_pause_slider_changed(self, value):
+        pause_duration = value / 10.0
+        self.updatePauseLabel(pause_duration)
+        self.update_current_speaker_setting('pause_duration', pause_duration)
+        # self.pause_between_sentences_changed.emit(pause_duration)
+    def on_font_slider_changed(self, value):
+        self.font_size_changed.emit(value)
+        self.update_font_size_from_slider(value)
+    def on_generate_button_clicked(self):
+        self.start_generation_requested.emit()
+    def on_go_to_sentence(self):
+        self.select_table_row(min(self.tableWidget.rowCount(), self.go_to_sentence_input.value()) - 1)
+    def on_load_existing_audiobook_triggered(self):
+        self.load_existing_audiobook_requested.emit()
+    def on_load_text_clicked(self):
+        self.load_text_file_requested.emit()
+    def on_manage_speakers(self):
+        # Open the speaker management dialog
+        dialog = SpeakerManagementDialog(self, self.speakers)
+        dialog.exec()
+        # Update speakers after the dialog is closed
+        self.speakers = dialog.get_speakers()
+        # print("Before emitting, speakers:", self.speakers)
+        self.speakers_updated.emit(self.speakers)
+    def on_next_search(self):
+        self.search_sentences_requested.emit(self.get_search_start(), True, self.search_input.text(), self.search_across_sentences.isChecked())
+    def on_parameter_changed(self, attribute, value):
+        if value == 'Default':
+            value = None
+        self.update_current_speaker_setting(attribute, value)
+        self.generation_settings_changed.emit()
+    def on_pause_button_clicked(self):
+        self.pause_audio_requested.emit()
+    def on_play_all_button_clicked(self):
+        self.play_all_from_selected_requested.emit()
+    def on_play_button_clicked(self):
+        self.play_selected_audio_requested.emit()
+    def on_previous_search(self):
+        self.search_sentences_requested.emit(self.get_search_start(), False, self.search_input.text(), self.search_across_sentences.isChecked())
+    def on_regenerate_bulk_button_clicked(self):
+        self.regenerate_bulk_requested.emit()
+    def on_regenerate_button_clicked(self):
+        self.regenerate_audio_for_sentence_requested.emit()
+    def on_set_background_clear_image_triggered(self):
+        self.set_background_clear_image_requested.emit()
+    def on_set_background_image_triggered(self):
+        self.set_background_image_requested.emit()
+    def on_s2s_engine_changed(self, engine_name):
+        self.update_s2s_options(engine_name)
+        self.update_current_speaker_setting('s2s_engine', engine_name)
+    def on_stop_button_clicked(self):
+        confirm = self.ask_question(
+            "Stop Generation",
+            "Are you sure you want to stop the generation?",
+            buttons=QMessageBox.Yes | QMessageBox.No,
+            default_button=QMessageBox.No
+        )
+        if confirm:
+            self.stop_generation_requested.emit()
+    def on_toggle_delete_action_triggered(self):
+        self.toggle_delete_action_requested.emit()
+    def on_tts_engine_changed(self, engine_name):
+        # self.set_load_tts_button_color("")  # Reset color when TTS engine changes
+        self.update_tts_options(engine_name)  # Update the TTS options in the view
+        self.update_current_speaker_setting('tts_engine', engine_name)
+        self.tts_engine_changed.emit(self.speakers)
+        # self.speakers_updated.emit(self.speakers)
+    def on_update_audiobook_triggered(self):
+        self.update_audiobook_requested.emit()
+    def on_use_s2s_changed(self, state):
+        is_checked = self.use_s2s_checkbox.isChecked()
+        self.update_current_speaker_setting('use_s2s', is_checked)
+        self.generation_settings_changed.emit()
 
-    def pause_audio(self):
-        if self.media_player.playbackState() == QMediaPlayer.PlayingState:
-            self.media_player.pause()
-        elif self.media_player.playbackState() == QMediaPlayer.PausedState:
-            self.media_player.play()
+    def populate_s2s_engines(self):
+        s2s_config = self.load_s2s_config('configs/s2s_config.json')
+        engines = [engine['name'] for engine in s2s_config.get('s2s_engines', [])]
+        self.s2s_engine_combo.addItems(engines)
+        self.s2s_config = s2s_config  # Store for later use
+    def populate_tts_engines(self):
+        engines = [engine['name'] for engine in self.tts_config.get('tts_engines')]
+        self.tts_engine_combo.addItems(engines)
+    
+    def release_media_player_resources(self):
+        # Reinitialize the media player to release any file handles
+        # This way is NECESSARY to prevent the gui from freezing (for some unknown reason)
+        self.media_player = QMediaPlayer()
+        self.audio_output = QAudioOutput()
+        self.media_player.setAudioOutput(self.audio_output)
+        self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
+    def reset(self):
+        self.clear_table()
+        self.set_audiobook_label("No Audio Book Set")
+        self.speakers = {
+            1: {'name': 'Narrator', 'color': Qt.black, 'settings': {}}
+        }
+        self.update_speaker_selection_combo()
+        self.disable_speaker_menu()
 
+        # Reset TTS and s2s options
+        self.tts_engine_combo.setCurrentIndex(0)
+        self.update_tts_options(self.get_tts_engine())
+        self.s2s_engine_combo.setCurrentIndex(0)
+        self.update_s2s_options(self.get_s2s_engine())
+        self.use_s2s_checkbox.setChecked(False)
+        self.export_pause_slider.setValue(0)
+        self.updatePauseLabel(0)
+    def reset_settings_to_default(self):
+        default_speaker_id = 1
+        if default_speaker_id in self.speakers:
+            self.load_speaker_settings(default_speaker_id)
+            self.speaker_selection_combo.setCurrentIndex(
+                self.speaker_selection_combo.findData(default_speaker_id)
+            )
+            # Emit the signal to notify any listeners about the change
+            # self.current_speaker_changed.emit(default_speaker_id)
+        else:
+            self.show_message("Error", "Default speaker not found.", QMessageBox.Critical)
+    def resizeEvent(self, event):
+        # Update background label geometry when window is resized
+        self.background_label.setGeometry(0, 0, self.width(), self.height())
+        self.update_background()  # Update the background pixmap scaling
+        super().resizeEvent(event)  # Call the superclass resize event method
+    
+    def select_table_row(self, row):
+        self.tableWidget.selectRow(row)
+    def set_audiobook_label(self, text):
+        self.audiobook_label.setText(text)
+    def set_background(self, file_path):
+        # Set the pixmap for the background label
+        pixmap = QPixmap(file_path)
+        self.background_pixmap = pixmap  # Save the pixmap as an attribute
+        self.update_background()
+    def set_progress(self, value):
+        self.progress_bar.setValue(value)
+    def set_row_speaker(self, row, speaker_id, speaker_name):
+        self.set_row_speaker_color(row, speaker_id)
+        speaker_item = QTableWidgetItem(speaker_name)
+        speaker_item.setFlags(speaker_item.flags() & ~Qt.ItemIsEditable)
+        self.tableWidget.setItem(row, 1, speaker_item)
+    def set_row_speaker_color(self, row, speaker_id):
+        self.tableWidget.blockSignals(True)
+        speaker = self.speakers.get(str(speaker_id), None)
+        if not speaker: # HOT FIX, should figure out why speaker_id needs to be a string for one check, and then int for another for color
+            speaker = self.speakers.get(speaker_id, None)
+        color = speaker.get('color', Qt.black)
+        if isinstance(color, str):
+            color = QColor(color)
+        item = self.tableWidget.item(row, 0) # Explicit sentence column
+        if item:
+            item.setBackground(color)
+        self.tableWidget.blockSignals(False)
+    def set_s2s_parameters(self, settings):
+        s2s_engine = self.get_s2s_engine()
+        engine_config = next(
+            (engine for engine in self.s2s_config.get('s2s_engines', []) if engine['name'] == s2s_engine),
+            None
+        )
+        if engine_config:
+            for param in engine_config.get('parameters', []):
+                attribute = param['attribute']
+                widget = getattr(self, f"{attribute}_widget", None)
+                if widget:
+                    value = settings.get(attribute, None)
+                    if value is not None:
+                        if param['type'] in ('text', 'file'):
+                            widget.setText(str(value))
+                        elif param['type'] == 'spinbox':
+                            widget.setValue(value)
+                        elif param['type'] == 'checkbox':
+                            widget.setChecked(bool(value))
+                        elif param['type'] == 'combobox':
+                            index = widget.findText(str(value))
+                            if index >= 0:
+                                widget.setCurrentIndex(index)
+                            else:
+                                widget.setCurrentIndex(0)  # Default to first item
+                        elif param['type'] == 'slider':
+                            widget.setValue(value)
+                    else:
+                        if param['type'] == 'combobox':
+                            widget.setCurrentIndex(0)
+    def set_start_generation_button_text(self, text):
+        self.start_generation_button.setText(text)
+    def set_tts_parameters(self, settings):
+        tts_engine = self.get_tts_engine()
+        engine_config = next(
+            (engine for engine in self.tts_config.get('tts_engines', []) if engine['name'] == tts_engine),
+            None
+        )
+        if engine_config:
+            for param in engine_config.get('parameters', []):
+                attribute = param['attribute']
+                widget = getattr(self, f"{attribute}_widget", None)
+                if widget:
+                    value = settings.get(attribute, None)
+                    if value is not None:
+                        if param['type'] in ('text', 'file'):
+                            widget.setText(str(value))
+                        elif param['type'] == 'spinbox':
+                            widget.setValue(value)
+                        elif param['type'] == 'checkbox':
+                            widget.setChecked(bool(value))
+                        elif param['type'] == 'combobox':
+                            index = widget.findText(str(value))
+                            if index >= 0:
+                                widget.setCurrentIndex(index)
+                            else:
+                                widget.setCurrentIndex(0)  # Default to first item
+                        elif param['type'] == 'slider':
+                            widget.setValue(value)
+                    else:
+                        if param['type'] == 'combobox':
+                            widget.setCurrentIndex(0)  # Default to first item when value is None
+    def set_tts_engines(self, engines):
+        self.tts_engine_combo.clear()
+        self.tts_engine_combo.addItems(engines)
+    def show_message(self, title, message, icon=QMessageBox.Information):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.setIcon(icon)
+        msg_box.exec()
+    def skip_current_audio(self):
+        if self.playing_sequence:
+            self.media_player.stop()
+            self.release_media_player_resources()
+            self.media_player.setSource(QUrl())
+            self.current_audio_path = None
+            self.on_audio_finished(QMediaPlayer.EndOfMedia)
     def stop_audio(self):
         if self.media_player.playbackState() != QMediaPlayer.StoppedState:
             self.media_player.stop()
@@ -1435,31 +1329,36 @@ class AudiobookMakerView(QMainWindow):
             self.audio_paths = []
             self.indices = []
 
-    def on_audio_finished(self, state):
-        if state == QMediaPlayer.EndOfMedia or state == QMediaPlayer.StoppedState:
-            self.current_audio_path = None  # Clear current audio path
-            self.release_media_player_resources()
-            self.audio_finished_signal.emit()  # Emit the signal
-            
-    def is_audio_playing(self, audio_path):
-        return self.current_audio_path == audio_path
+    def toggle_delete_column(self):
+        is_hidden = self.tableWidget.isColumnHidden(3)
+        is_button_hidden = self.delete_button.isHidden()
+        self.tableWidget.setColumnHidden(3, not is_hidden)
+        self.delete_button.setHidden(not is_button_hidden)
+    def toggle_engines_column(self):
+        is_visible = self.options_widget.isVisible()
+        self.options_widget.setVisible(not is_visible)
+        if is_visible:
+            self.toggle_engines_button.setText("Show TTS/S2S")
+        else:
+            self.toggle_engines_button.setText("Hide TTS/S2S")
     
-    def skip_current_audio(self):
-        if self.playing_sequence:
-            self.media_player.stop()
-            self.release_media_player_resources()
-            self.media_player.setSource(QUrl())
-            self.current_audio_path = None
-            self.on_audio_finished(QMediaPlayer.EndOfMedia)
-    
-    def release_media_player_resources(self):
-        # Reinitialize the media player to release any file handles
-        # This way is NECESSARY to prevent the gui from freezing (for some unknown reason)
-        self.media_player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.media_player.setAudioOutput(self.audio_output)
-        self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
-
+    def update_background(self):
+        # Check if background pixmap is set, then scale and set it
+        if hasattr(self, 'background_pixmap'):
+            scaled_pixmap = self.background_pixmap.scaled(self.background_label.size(), Qt.KeepAspectRatioByExpanding)
+            self.background_label.setPixmap(scaled_pixmap)
+            self.background_label.show()
+    def update_current_speaker_setting(self, attribute, value):
+        current_speaker_id, _ = self.get_current_speaker_attributes()
+        if current_speaker_id in self.speakers:
+            speaker = self.speakers[current_speaker_id]
+            speaker_settings = speaker.setdefault('settings', {})
+            speaker_settings[attribute] = value
+        else:
+            pass
+    def update_font_size_from_slider(self, value):
+        font_size = f"{value}pt"
+        self.setStyleSheet(self.load_stylesheet(font_size))
     def update_generation_settings(self, settings):
         # Set the speakers from the settings
         self.speakers = settings.get('speakers', {})
@@ -1483,20 +1382,77 @@ class AudiobookMakerView(QMainWindow):
 
         # Load settings for current speaker
         self.load_speaker_settings(default_speaker_id)
+    def update_speaker_selection_combo(self):
+        self.speaker_selection_combo.blockSignals(True)  # Prevent signal during update
+        self.speaker_selection_combo.clear()
+        for speaker_id, speaker in self.speakers.items():
+            self.speaker_selection_combo.addItem(f"{speaker['name']}", userData=speaker_id)
+        self.speaker_selection_combo.blockSignals(False)
+    def updatePauseLabel(self, value):
+        self.export_pause_value_label.setText(str(value))
+    def update_s2s_options(self, engine_name):
+        if not engine_name:
+            self.s2s_options_widget.setVisible(False)
+            return
 
-    def get_search_start(self):
-        selected_rows = self.tableWidget.selectionModel().selectedRows()
-        if selected_rows:
-            return selected_rows[0].row()
-        return 0
+        # Clear existing widgets and layouts
+        self.clear_layout(self.s2s_options_layout)
 
-    def on_previous_search(self):
-        self.search_sentences_requested.emit(self.get_search_start(), False, self.search_input.text(), self.search_across_sentences.isChecked())
+        # Find the engine config
+        engine_config = next(
+            (engine for engine in self.s2s_config.get('s2s_engines', []) if engine['name'] == engine_name),
+            None
+        )
 
-    def on_next_search(self):
-        self.search_sentences_requested.emit(self.get_search_start(), True, self.search_input.text(), self.search_across_sentences.isChecked())
+        if not engine_config:
+            self.show_message("Error", f"No configuration found for s2s engine: {engine_name}", QMessageBox.Critical)
+            self.s2s_options_widget.setVisible(False)
+            return
 
-    def on_go_to_sentence(self):
-        self.select_table_row(min(self.tableWidget.rowCount(), self.go_to_sentence_input.value()) - 1)
+        # Create a label for the s2s engine
+        engine_label = QLabel(engine_config.get('label', f"{engine_name} Settings"))
+        engine_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
+        self.s2s_options_layout.addWidget(engine_label)
 
+        # Iterate over parameters and create widgets
+        for param in engine_config.get('parameters', []):
+            widget_layout = self.create_widget_for_parameter(param)
+            if widget_layout:
+                self.s2s_options_layout.addLayout(widget_layout)
 
+        self.s2s_options_layout.addStretch()
+        self.s2s_options_widget.setVisible(True)
+    def update_tts_options(self, engine_name):
+        if not engine_name:
+            # If engine_name is empty, simply hide the TTS options without showing an error
+            self.tts_options_widget.setVisible(False)
+            return
+
+        # Clear existing widgets and layouts
+        self.clear_layout(self.tts_options_layout)
+        
+        # Find the engine config using a for loop
+        engine_config = None
+        for engine in self.tts_config.get('tts_engines', []):
+            if engine['name'].lower() == engine_name.lower():
+                engine_config = engine
+                break
+
+        if not engine_config:
+            self.show_message("Error", f"No configuration found for TTS engine: {engine_name}", QMessageBox.Critical)
+            self.tts_options_widget.setVisible(False)
+            return
+        
+        # Create a label for the TTS engine
+        engine_label = QLabel(f"{engine_name} Settings")
+        engine_label.setStyleSheet("font-size: 16pt; font-weight: bold;")
+        self.tts_options_layout.addWidget(engine_label)
+        
+        # Iterate over parameters and create widgets
+        for param in engine_config.get('parameters', []):
+            widget = self.create_widget_for_parameter(param)
+            if widget:
+                self.tts_options_layout.addLayout(widget)
+        
+        self.tts_options_layout.addStretch()
+        self.tts_options_widget.setVisible(True)
