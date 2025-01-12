@@ -41,47 +41,49 @@ class AudiobookModel:
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #   Data Loading and Saving Methods
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-    def load_settings(self):
-        if os.path.exists('settings.json'):
-            with open('settings.json', 'r') as json_file:
-                self.settings = json.load(json_file)
-                return self.settings
-        return {}
     
-    def get_tts_engines(self):
-        tts_config = self.load_config(os.path.join('configs', 'tts_config.json'))
-        return [engine['name'] for engine in tts_config.get('tts_engines', [])]
+    def assign_speaker_to_sentence(self, idx, speaker_id):
+        idx_str = str(idx)
+        if idx_str in self.text_audio_map:
+            self.text_audio_map[idx_str]['speaker_id'] = speaker_id
+            # Optionally, save the updated map
+            # self.save_text_audio_map(directory_path)
+            
+    def change_regen_state(self, idx, state):
+        idx_str = str(idx)
+        if idx_str in self.text_audio_map:
+            self.text_audio_map[idx_str]["regen"] = state
     
-    def get_rvc_config(self):
-        rvc_config = self.load_config(os.path.join('configs', 'rvc_config.json'))
-        return rvc_config
+    def create_audio_text_map(self, directory_path, sentences_list):
+        new_text_audio_map = {}
+        for idx, sentence in enumerate(sentences_list):
+            generated = False
+            audio_path = ""
+            new_text_audio_map[str(idx)] = self.default_text_audio_map_format(sentence=sentence, audio_path=audio_path, generated=generated)
+        self.text_audio_map = new_text_audio_map
+        # Do not save to file yet since directory_path is empty
+        
+    def create_book_text_file(self, text_file_destination):
+        file_name = "book_text.txt"
+        full_path = os.path.join(text_file_destination, file_name)
+        with open(full_path, "w", encoding="utf-8") as f:
+            for idx in self.text_audio_map:
+                text = self.text_audio_map[idx]["sentence"]
+                f.write(text + "\n\n")  # Write each sentence followed by 2 newlines
+                
+    def delete_sentences(self, rows_list):
+        # Convert keys to integers for easier sorting (if not already sorted)
+        sorted_items = sorted(self.text_audio_map.items(), key=lambda x: int(x[0]))
+        filtered_items = [(k, v) for k, v in sorted_items if int(k) not in rows_list]
+        adjusted_items = [(str(i), v) for i, (_, v) in enumerate(filtered_items, start=0)]
+        
+        # Recreate the dictionary with adjusted keys
+        adjusted_dict = {k: v for k, v in adjusted_items}
+        self.text_audio_map = adjusted_dict
 
-
-    def load_config(self, config_path):
-        if not os.path.exists(config_path):
-            return {}
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    
-    def save_settings(self, background_image=None):
-        self.settings['background_image'] = background_image
-        with open('settings.json', 'w') as json_file:
-            json.dump(self.settings, json_file)
-
-    def load_sentences(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
-            paragraphs = content.split('\n\n')  # Split content into paragraphs
-            filtered_sentences = []
-            for paragraph in paragraphs:
-                filtered_list = self.filter_paragraph(paragraph)
-                filtered_sentences.extend(filtered_list)
-        return filtered_sentences
 
     def filter_paragraph(self, paragraph):
         lines = paragraph.strip().split('\n')
-
         filtered_list = []
         i = 0
         while i < len(lines):
@@ -102,11 +104,91 @@ class AudiobookModel:
                 # Only append lines that contain at least one alphabetic character
                 if line and any(c.isalpha() for c in line):
                     filtered_list.append(line)
-
             i += 1
-
         return filtered_list
+
+    def get_speaker_name(self, speaker_id):
+        speaker_name = self.speakers[speaker_id]['name']
+        return speaker_name
     
+    def get_rvc_config(self):
+        rvc_config = self.load_config(os.path.join('configs', 'rvc_config.json'))
+        return rvc_config
+    
+    def get_tts_engines(self):
+        tts_config = self.load_config(os.path.join('configs', 'tts_config.json'))
+        return [engine['name'] for engine in tts_config.get('tts_engines', [])]
+    
+
+    def load_config(self, config_path):
+        if not os.path.exists(config_path):
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
+        
+    def load_sentences(self, file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+            paragraphs = content.split('\n\n')  # Split content into paragraphs
+            filtered_sentences = []
+            for paragraph in paragraphs:
+                filtered_list = self.filter_paragraph(paragraph)
+                filtered_sentences.extend(filtered_list)
+        return filtered_sentences
+
+    def load_settings(self):
+        if os.path.exists('settings.json'):
+            with open('settings.json', 'r') as json_file:
+                self.settings = json.load(json_file)
+                return self.settings
+        return {}
+    
+    def load_text_audio_map(self, directory_path):
+        map_file_path = os.path.join(directory_path, "text_audio_map.json")
+        if not os.path.exists(map_file_path):
+            raise FileNotFoundError("The selected directory is not a valid Audiobook Directory.")
+        with open(map_file_path, 'r', encoding="utf-8") as map_file:
+            self.text_audio_map = json.load(map_file)
+        return self.text_audio_map
+
+    def save_settings(self, background_image=None):
+        self.settings['background_image'] = background_image
+        with open('settings.json', 'w') as json_file:
+            json.dump(self.settings, json_file)
+ 
+    def reset_regen_in_text_audio_map(self):
+        for idx_str in self.text_audio_map:
+            self.text_audio_map[idx_str]["regen"] = False
+
+    def save_json(self, file_path, data):
+        def default_serializer(obj):
+            if isinstance(obj, QColor):
+                return obj.name()  # Convert QColor to hex string
+            elif isinstance(obj, int):  # Handle Qt.GlobalColor
+                return QColor(obj).name()  # Convert int (GlobalColor) to hex string
+            raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+        
+        with open(file_path, 'w', encoding='utf-8') as file:
+            json.dump(data, file, ensure_ascii=False, indent=4, default=default_serializer)
+            
+    def save_text_audio_map(self, directory_path):
+        # Specify the path for the text_audio_map file
+        map_file_path = os.path.join(directory_path, "text_audio_map.json")
+
+        # Open the file in write mode
+        with open(map_file_path, 'w', encoding="utf-8") as map_file:
+            # Convert the text_audio_map dictionary to a JSON string and write it to the file
+            json.dump(self.text_audio_map, map_file, ensure_ascii=False, indent=4)
+
+    def update_sentence_in_text_audio_map(self, idx, new_text):
+        idx_str = str(idx)
+        if idx_str in self.text_audio_map:
+            self.text_audio_map[idx_str]['sentence'] = new_text
+            self.text_audio_map[idx_str]["generated"] = False
+            
+    def update_speakers(self, speakers):
+        self.speakers = speakers
+        
     def update_text_audio_map(self, sentences_list):
         # Update self.text_audio_map to include any new sentences
         # Retain existing mappings for sentences that are already there
@@ -124,78 +206,19 @@ class AudiobookModel:
                 # New sentence
                 generated = False
                 audio_path = ""
-                new_text_audio_map[str(idx)] = {
-                    "sentence": sentence,
-                    "audio_path": audio_path,
-                    "generated": generated,
-                    "speaker_id": 1  # Default speaker
-                }
+                new_text_audio_map[str(idx)] = self.default_text_audio_map_format(sentence=sentence, audio_path=audio_path, generated=generated)              
         self.text_audio_map = new_text_audio_map
-
-
-    def save_text_audio_map(self, directory_path):
-        # Specify the path for the text_audio_map file
-        map_file_path = os.path.join(directory_path, "text_audio_map.json")
-
-        # Open the file in write mode
-        with open(map_file_path, 'w', encoding="utf-8") as map_file:
-            # Convert the text_audio_map dictionary to a JSON string and write it to the file
-            json.dump(self.text_audio_map, map_file, ensure_ascii=False, indent=4)
-
-    def load_text_audio_map(self, directory_path):
-        map_file_path = os.path.join(directory_path, "text_audio_map.json")
-        if not os.path.exists(map_file_path):
-            raise FileNotFoundError("The selected directory is not a valid Audiobook Directory.")
-        with open(map_file_path, 'r', encoding="utf-8") as map_file:
-            self.text_audio_map = json.load(map_file)
-        return self.text_audio_map
-
-    def create_audio_text_map(self, directory_path, sentences_list):
-        new_text_audio_map = {}
-        for idx, sentence in enumerate(sentences_list):
-            generated = False
-            audio_path = ""
-            new_text_audio_map[str(idx)] = {
-                "sentence": sentence,
-                "audio_path": audio_path,
-                "generated": generated,
-                "speaker_id": 1  # Default speaker
-            }
-        self.text_audio_map = new_text_audio_map
-        # Do not save to file yet since directory_path is empty
-
         
-    def update_speakers(self, speakers):
-        self.speakers = speakers
-        
-    def assign_speaker_to_sentence(self, idx, speaker_id, regen_mode):
-        idx_str = str(idx)
-        if idx_str in self.text_audio_map:
-            self.text_audio_map[idx_str]['speaker_id'] = speaker_id
-            if regen_mode:
-                self.text_audio_map[idx_str]['generated'] = False
-            # Optionally, save the updated map
-            # self.save_text_audio_map(directory_path)
-
-    def save_json(self, file_path, data):
-        def default_serializer(obj):
-            if isinstance(obj, QColor):
-                return obj.name()  # Convert QColor to hex string
-            elif isinstance(obj, int):  # Handle Qt.GlobalColor
-                return QColor(obj).name()  # Convert int (GlobalColor) to hex string
-            raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
-        
-        with open(file_path, 'w', encoding='utf-8') as file:
-            json.dump(data, file, ensure_ascii=False, indent=4, default=default_serializer)
-
-
-    def load_json(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            return json.load(file)
+    
+    
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #   Audiobook Generation Methods
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    def load_json(self, file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return json.load(file)
     
     def load_selected_tts_engine(self, chosen_tts_engine, speaker_id, **kwargs):
         # Check if the TTS engine is already loaded with these parameters
@@ -238,10 +261,16 @@ class AudiobookModel:
 
         
 
-    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
+    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
         self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
-        total_sentences = len(self.text_audio_map)
+        if is_regen_only:
+            total_sentences = sum(1 for entry in self.text_audio_map.values() if entry['regen'])
+            if total_sentences == 0:
+                return
+        else:
+            total_sentences = len(self.text_audio_map)
+            
         if is_continue:
             generated_count = sum(1 for entry in self.text_audio_map.values() if entry['generated'])
             if generated_count == total_sentences:
@@ -284,6 +313,12 @@ class AudiobookModel:
                 if is_continue and entry['generated']:
                     continue
                 
+                if is_regen_only:
+                    if entry['regen']:
+                        pass
+                    else:
+                        continue
+                
                 sentence = entry['sentence']
                 audio_path = self.generate_audio_proxy(sentence, speaker_settings, s2s_validated)
 
@@ -325,8 +360,6 @@ class AudiobookModel:
             return audio_path
 
     def execute_subprocess(self, cmd):
-        
-
         with Popen(cmd, stdout=PIPE, bufsize=1, universal_newlines=True) as p:
             for line in p.stdout:
                 print(line, end='')  # process line here
@@ -473,12 +506,7 @@ class AudiobookModel:
                 # New sentence
                 generated = False
                 new_audio_filename = ""
-                new_text_audio_map[str(new_idx)] = {
-                    "sentence": sentence,
-                    "audio_path": new_audio_filename,
-                    "generated": generated,
-                    "speaker_id": 1  # Default speaker
-                }
+                new_text_audio_map[str(new_idx)] = self.default_text_audio_map_format(sentence=sentence, audio_path=new_audio_filename, generated=generated)
 
         # Handle deleted sentences and their audio files
         for old_idx in deleted_indices:
@@ -518,6 +546,16 @@ class AudiobookModel:
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #   Voice Models and Settings
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    def get_map_keys_and_values(self, idx_str):
+        item = self.text_audio_map[idx_str]
+        row_position = int(idx_str)
+        sentence = item['sentence']
+        speaker_id = item.get('speaker_id', 1)
+        speaker_name = self.get_speaker_name(speaker_id)
+        regen_state = item['regen']
+        
+        return sentence, row_position, speaker_id, speaker_name, regen_state
 
     def get_voice_models(self):
         if os.path.exists(self.voice_folder_path) and os.path.isdir(self.voice_folder_path):
@@ -544,7 +582,7 @@ class AudiobookModel:
             if isinstance(color, QColor):
                 # Convert QColor to hex string
                 speaker['color'] = color.name()
-            elif color == Qt.gray:  # Compare directly with Qt.GlobalColor (integer enum value)
+            elif color == Qt.black:  # Compare directly with Qt.GlobalColor (integer enum value)
                 # Convert Qt.GlobalColor (integer) to QColor and then to hex string
                 speaker['color'] = QColor(color).name()
             elif isinstance(color, str):
@@ -575,7 +613,7 @@ class AudiobookModel:
             if isinstance(color, QColor):
                 # Convert QColor to hex string
                 speaker['color'] = color.name()
-            elif color == Qt.gray:  # Compare directly with Qt.GlobalColor (integer enum value)
+            elif color == Qt.black:  # Compare directly with Qt.GlobalColor (integer enum value)
                 # Convert Qt.GlobalColor (integer) to QColor and then to hex string
                 speaker['color'] = QColor(color).name()
             elif isinstance(color, str):
@@ -663,4 +701,15 @@ class AudiobookModel:
                     data[i] = None
                 elif isinstance(value, (dict, list)):
                     self.replace_default_with_none(value)
+                    
+    def default_text_audio_map_format(self, **kwargs):
+        '''Made to format the base text audio map entry'''
+        text_audio_map = {
+                    "sentence": kwargs.get("sentence"),
+                    "audio_path": kwargs.get("audio_path"),
+                    "generated": kwargs.get("generated"),
+                    "speaker_id": 1,  # Default speaker
+                    "regen" : False
+                }
+        return text_audio_map
 
