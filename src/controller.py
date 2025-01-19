@@ -120,31 +120,12 @@ class RegenerateAudioWorker(QThread):
 
         self.finished_signal.emit(self.new_audio_path, self.speaker_id)
 
-# class LoadTTSWorker(QThread):
-#     success_signal = Signal()
-#     error_signal = Signal(str)
-
-#     def __init__(self, model, tts_engine_name, parameters):
-#         super().__init__()
-#         self.model = model
-#         self.tts_engine_name = tts_engine_name
-#         self.parameters = parameters
-
-#     def run(self):
-#         try:
-#             self.model.load_selected_tts_engine(
-#                 chosen_tts_engine=self.tts_engine_name,
-#                 **self.parameters
-#             )
-#             self.success_signal.emit()
-#         except Exception as e:
-#             self.error_signal.emit(str(e))
-
 class AudiobookController:
     def __init__(self):
         self.app = QApplication(sys.argv)
         self.model = AudiobookModel()
         self.view = AudiobookMakerView()
+        self.view_word_replacer = None
         self.current_sentence_idx = 0
         self.tts_engine = None
         self.view.audio_finished_signal.connect(self.on_audio_finished)
@@ -192,7 +173,6 @@ class AudiobookController:
         for index in selected_rows:
             row = index.row()
             self.assign_speaker_to_sentence(row, speaker_id)
-
     def assign_speaker_to_sentence(self, idx, speaker_id):
         self.model.assign_speaker_to_sentence(idx, speaker_id)
         if self.current_audiobook_directory:
@@ -220,14 +200,12 @@ class AudiobookController:
             return True
         else:
             return True
-
     def clear_background_image(self):
         self.model.clear_background_image()
         self.view.background_label.clear()  # Clear the background in the view
-
     def clear_regen_checkboxes(self):
         if not self.current_audiobook_directory:
-            self.view.show_message("Error", "An audiobook should be loaded first", icon=QMessageBox.Warning)
+            self.popup_load_audiobook()
             return
         
         confirm_continue = self.view.ask_question(
@@ -241,7 +219,6 @@ class AudiobookController:
         self.model.reset_regen_in_text_audio_map()
         self.model.save_text_audio_map(self.current_audiobook_directory)
         self.update_table_with_sentences()
-
     def connect_signals(self):
         # Connect view signals to controller methods
         self.view.clear_regen_requested.connect(self.clear_regen_checkboxes)
@@ -271,14 +248,16 @@ class AudiobookController:
         self.view.toggle_delete_action_requested.connect(self.toggle_delete_column)
         self.view.tts_engine_changed.connect(self.on_tts_engine_changed)
         self.view.update_audiobook_requested.connect(self.update_audiobook)
-        # No need to connect font size and voice setting signals if they are handled in the view
-
+        self.view.word_replacer_window_requested.connect(self.toggle_word_replacer_window)
+        self.view.word_replacer_window_closed.connect(self.word_replacer_closed)
+    def connect_signals_replacer(self):
+        self.view.word_replacer_window.save_list_requested.connect(self.save_list)
+        self.view.word_replacer_window.start_wr_requested.connect(self.start_wr)
+        self.view.word_replacer_window.test_repl_s.connect(self.test_single_word)
     def continue_audiobook_generation(self):
         if not self.current_audiobook_directory:
-            self.current_audiobook_directory = self.view.get_existing_directory("Select an Audiobook to Continue Generating")
-    
-        if not self.current_audiobook_directory:
-            return  # Exit the function if no directory was selected
+            self.popup_load_audiobook()
+            return
         
         # Attempt to load the text file
         text_file_path = os.path.join(self.current_audiobook_directory, "book_text.txt")
@@ -322,7 +301,6 @@ class AudiobookController:
         self.worker.sentence_generated_signal.connect(self.on_sentence_generated)
         self.worker.start()
         self.on_generation_started()  # Call this method after starting the worker
-
     def create_audiobook_directory(self):
         book_name = self.view.get_book_name()
         
@@ -364,7 +342,7 @@ class AudiobookController:
 
     def deletion_prompt(self):
         if not self.current_audiobook_directory:
-            self.view.show_message("Error", "An audiobook should be loaded first", icon=QMessageBox.Warning)
+            self.popup_load_audiobook()
             return
         
         confirm_continue = self.view.ask_question(
@@ -380,8 +358,7 @@ class AudiobookController:
         self.model.save_text_audio_map(self.current_audiobook_directory)
         self.model.create_book_text_file(self.current_audiobook_directory)
         self.update_table_with_sentences()
-        
-        
+                
     def export_audiobook(self):
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
         if not directory_path:
@@ -393,7 +370,6 @@ class AudiobookController:
             self.view.show_message("Success", f"Combined audiobook saved as {output_filename}", icon=QMessageBox.Information)
         except FileNotFoundError as e:
             self.view.show_message("Error", str(e), icon=QMessageBox.Warning)
-
     def extract_text(self, idx: int, concat_sentences:bool, length_search_text: int) -> str:
         text = self.model.text_audio_map[str(idx)]['sentence']
         if concat_sentences:
@@ -442,7 +418,6 @@ class AudiobookController:
             self.setup_interface(directory_path)
         except Exception as e:
             self.view.show_message("Error", f"An error occurred: {str(e)}", icon=QMessageBox.Warning)
-
     def load_text_file(self):
         if not self.check_and_reset_for_new_text_file('Load New Text File'):
             return
@@ -466,39 +441,25 @@ class AudiobookController:
                 self.update_table_with_sentences()
                 self.view.enable_speaker_menu()
                 self.save_generation_settings()
+                self.model.save_text_audio_map(self.current_audiobook_directory)
         else:
             pass
-
-    # def load_tts_engine(self):
-    #     engine_to_use = self.view.get_tts_engine()
-    #     parameters = self.view.get_tts_engine_parameters()
-
-    #     # Create and start the worker thread
-    #     self.load_tts_worker = LoadTTSWorker(self.model, engine_to_use, parameters)
-    #     self.load_tts_worker.success_signal.connect(self.on_tts_loaded_success)
-    #     self.load_tts_worker.error_signal.connect(self.on_tts_loaded_error)
-    #     self.load_tts_worker.finished.connect(lambda: self.view.set_load_tts_button_enabled(True))
-    #     self.load_tts_worker.start()
 
     def on_audio_finished(self):
         if self.playing_sequence:
             self.play_next_audio_in_sequence()
-
     def on_generation_finished(self):
         self.is_generating = False
         self.view.start_generation_button.setEnabled(True)
         self.view.stop_generation_button.setEnabled(False)
         self.view.enable_buttons()
         self.update_table_with_sentences()
-
     def on_generation_started(self):
         self.is_generating = True
         self.view.on_enable_stop_button()
         self.view.disable_buttons()
-
     def on_regeneration_error(self, error_message):
         self.view.show_message("Error", error_message, icon=QMessageBox.Warning)
-
     def on_regeneration_finished(self, map_key, new_audio_path, speaker_id):
         # Update the text_audio_map with the new audio path and speaker_id
         self.model.text_audio_map[map_key]['audio_path'] = new_audio_path
@@ -512,11 +473,9 @@ class AudiobookController:
         # Save the updated map back to the file
         self.model.save_text_audio_map(directory_path)
         print("Regeneration complete")
-
     def on_s2s_engine_changed(self, s2s_engine_name):
         # You can perform additional actions here if needed
         pass
-
     def on_speakers_updated(self, speakers):
         speakers = self.set_up_settings(speakers)
         
@@ -525,21 +484,21 @@ class AudiobookController:
         
         # Save the updated generation settings
         self.save_generation_settings()
-
     def on_sentence_generated(self, idx, sentence):
         row_position = int(idx)
         item = self.model.text_audio_map[str(row_position)]
         speaker_id = item.get('speaker_id', 1)
         speaker_name = self.model.get_speaker_name(speaker_id)
         self.view.add_table_item(row_position, sentence, speaker_name)
-
+        # self.view.resize_table()
+    def on_test_word_finished(self, audio_path):
+        self.view.play_audio(audio_path)
     def on_tts_engine_changed(self, speakers):
         self.on_speakers_updated(speakers)
         pass
-
+        
     def pause_audio(self):
         self.view.pause_audio()
-
     def play_all_from_selected(self):
         if self.view.tableWidget.rowCount() == 0:
             return
@@ -552,7 +511,6 @@ class AudiobookController:
 
         self.playing_sequence = True
         self.play_next_audio_in_sequence()
-
     def play_next_audio_in_sequence(self):
         while True:
             map_key = str(self.current_audio_index)
@@ -571,7 +529,6 @@ class AudiobookController:
                     break
                 else:
                     self.current_audio_index += 1
-
     def play_selected_audio(self):
         selected_row = self.view.get_selected_table_row()
         if selected_row == -1:
@@ -586,7 +543,6 @@ class AudiobookController:
         audio_path = self.model.text_audio_map[map_key]['audio_path']
         # Use view's media player to play audio
         self.view.play_audio(audio_path)
-
     def populate_initial_data(self):
         # Load settings
         settings = self.model.load_settings()
@@ -601,12 +557,12 @@ class AudiobookController:
         # **Set Default TTS Engine Selection in the Controller**
         if self.view.tts_engine_combo.count() > 0:
             self.view.tts_engine_combo.setCurrentIndex(0)
-
+    def popup_load_audiobook(self):
+        self.view.show_message("Error", "An audiobook should be loaded first", icon=QMessageBox.Warning)
     
     def regen_checkbox_toggled(self, row, state):
         self.model.change_regen_state(row, state)
         self.model.save_text_audio_map(self.current_audiobook_directory)
-
     def regenerate_audio_for_sentence(self):
         selected_row = self.view.get_selected_table_row()
         if selected_row == -1:
@@ -659,10 +615,9 @@ class AudiobookController:
         )
         self.regen_worker.error_signal.connect(self.on_regeneration_error)
         self.regen_worker.start()
-
     def regenerate_in_bulk(self):
         if not self.current_audiobook_directory:
-            self.view.show_message("Error", "An audiobook should be loaded first", icon=QMessageBox.Warning)
+            self.popup_load_audiobook()
             return
         
         is_continue = False
@@ -688,7 +643,19 @@ class AudiobookController:
             self.model.save_generation_settings(self.current_audiobook_directory, self.model.speakers)
         else:
             self.model.save_temp_generation_settings(self.model.speakers)
-
+    def save_list(self):
+        list_name = self.view.word_replacer_window.get_current_list_name()
+        save_location = os.path.join(self.current_audiobook_directory, list_name)
+        if list_name == '':
+            self.view.show_message('No Name', "Please enter a name for the list or create a new list.")
+            return
+        if save_location and list_name != "":
+            continue_q = self.view.ask_question("List Exists", f"A list in this Audibook's directory already exists with the name '{list_name}'.\n\nContinue and overwrite the old list?")
+            if not continue_q:
+                return
+        
+        new_wordlist = self.view.word_replacer_window.get_new_list()
+        self.view.word_replacer_window.save_json(save_location, new_wordlist)        
     def search_sentences(self, start_idx:int, forward:bool, search_text:str, concat_sentences:bool):
         if not search_text:
             return
@@ -712,13 +679,11 @@ class AudiobookController:
                 if search_text in self.extract_text(idx, concat_sentences, length_search_text):
                     self.view.select_table_row(idx)
                     return
-
     def set_background_image(self): 
         file_name = self.view.get_open_file_name("", "", "Image Files (*.png *.jpg *.jpeg);;All Files (*)") 
         if file_name: 
             destination_path = self.model.set_background_image(file_name)
             self.view.set_background(destination_path)
-
     def set_up_settings(self, speakers=None):
         if not speakers:
             speakers = self.view.speakers
@@ -734,7 +699,6 @@ class AudiobookController:
                     speaker['settings'][key] = value
 
         return speakers
-
     def setup_interface(self, directory_path):
         # Load generation settings, including speakers
         generation_settings = self.model.load_generation_settings(directory_path)
@@ -744,7 +708,6 @@ class AudiobookController:
         # Now update the table with sentences
         self.update_table_with_sentences()
         self.view.enable_speaker_menu()
-
     def start_generation(self):
         if hasattr(self.model, 'filepath') and self.model.filepath:
             if not self.current_audiobook_directory:
@@ -820,7 +783,19 @@ class AudiobookController:
         else:
             self.view.show_message("Error", "Please pick a text file before generating audio.", icon=QMessageBox.Warning)
             return
-
+    def start_wr(self):
+        replacement_list_name = self.view.word_replacer_window.list_name_input.text()
+        replacement_list_path = os.path.join(self.current_audiobook_directory, replacement_list_name)
+        extra = self.view.word_replacer_window.get_extra()
+        if not os.path.exists(replacement_list_path) or replacement_list_name == "":
+            self.view.show_message("List Missing", "List not saved to current directory, please save it first then run this.")
+            return
+        continue_wr = self.view.ask_question("Word Replacement", "This will begin word replacement for all items in the list, meaning all instances found in the audiobook will be replaced\n\nProceed?", default_button=QMessageBox.No)
+        if not continue_wr:
+            return
+        self.model.replace_words_from_list(replacement_list_path, extra)
+        self.model.save_text_audio_map(self.current_audiobook_directory)
+        self.update_table_with_sentences()
     def stop_generation(self):
         if hasattr(self, 'worker') and self.worker.isRunning():
             self.worker.stop()
@@ -872,13 +847,11 @@ class AudiobookController:
             
         except Exception as e:
             self.view.show_message("Error", f"An error occurred: {str(e)}", icon=QMessageBox.Warning)
-
     def update_sentence(self, row, new_text):
         self.model.update_sentence_in_text_audio_map(row, new_text)
         self.model.save_text_audio_map(self.current_audiobook_directory)
         self.model.create_book_text_file(self.current_audiobook_directory)
         self.update_table_with_sentences()
-
     def update_speakers(self, speakers):
         self.model.update_speakers(speakers)
         self.view.update_speaker_selection_combo()
@@ -891,17 +864,65 @@ class AudiobookController:
             sentence, row_position, speaker_id, speaker_name, regen_state = self.model.get_map_keys_and_values(idx_str)
             self.view.add_table_item(row_position, sentence, speaker_name, regen_state)
             self.view.set_row_speaker_color(row_position, speaker_id)
-            
+        self.view.resize_table()
+
+    def test_single_word(self, chosen_word, speaker):
+        testdir = os.path.join(os.getcwd(),'test')
+        if os.path.exists(testdir) == False:os.mkdir(testdir)
+        testpath = os.path.join(testdir,'test.wav')
+        
+        speakers_dict = self.model.speakers
+        for key in speakers_dict:
+            if speakers_dict[key]['name'] == speaker:
+                speaker_id = key
+
+        if self.view.is_audio_playing(testpath):
+            self.view.stop_audio()
+        speaker = self.model.speakers.get(speaker_id, {})
+        combined_parameters = speaker.get('settings', {})
+        
+        self.regen_worker = RegenerateAudioWorker(
+            model=self.model,
+            old_audio_path=testpath,
+            selected_sentence=chosen_word,
+            combined_parameters=combined_parameters,
+            new_audio_path=testpath,
+            speaker_id=speaker_id
+        )
+        
+        self.regen_worker.finished_signal.connect(self.on_test_word_finished)
+        self.regen_worker.error_signal.connect(self.on_regeneration_error)
+        self.regen_worker.start()
     def toggle_delete_column(self):
-        self.view.toggle_delete_column()
+        self.view.toggle_delete_column()   
+    def toggle_word_replacer_window(self, checked):
+        if self.current_audiobook_directory == None:
+            self.view.show_message("Replacer Window Error", "Please load an audiobook first.")
+            self.word_replacer_closed()
+            return
+        if checked:
+            if self.view.word_replacer_window is None:
+                self.view.open_word_replacer_window(parent=self.view)
+                self.view.word_replacer_window.update_speaker_selection_combo(self.view.get_available_speakers())
+            self.view.word_replacer_window.show()
+            self.view.word_replacer_window.raise_()
+            self.view.word_replacer_window.activateWindow()
+            self.connect_signals_replacer()
+        else:
+            if self.view.word_replacer_window is not None:
+                self.view.word_replacer_window.blockSignals(True)
+                self.view.word_replacer_window.close()
+                self.view.word_replacer_window.blockSignals(False)
+                self.view.word_replacer_window = None
+                
+    def word_replacer_closed(self):
+        self.view.word_replacer_window = None
+        # Uncheck the QAction without triggering the toggled signal again
+        self.view.word_replacer_action.blockSignals(True)
+        self.view.word_replacer_action.setChecked(False)
+        self.view.word_replacer_action.blockSignals(False)
         
 
-    # # The following two methods are connected to LoadTTSWorker's signals, left in place:
-    # def on_tts_loaded_success(self):
-    #     self.view.show_message("Success", "TTS engine loaded successfully!", icon=QMessageBox.Information)
-    
-    # def on_tts_loaded_error(self, error_message):
-    #     self.view.show_message("Error", error_message, icon=QMessageBox.Warning)
 
 
 if __name__ == '__main__':
