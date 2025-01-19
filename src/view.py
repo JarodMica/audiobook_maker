@@ -152,6 +152,321 @@ class MultiLineDelegate(QStyledItemDelegate):
         # Fill the entire cell
         editor.setGeometry(option.rect)
 
+class WordReplacerView(QMainWindow): 
+    # Define signals for user actions
+    extra_wrs = Signal(bool)
+    test_repl_s = Signal(str, str)
+    window_closed = Signal()
+    save_list_requested = Signal()
+    start_wr_requested = Signal()
+     
+    rplwords = [["", ""]]
+    extra_replacement = False
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_widgets = parent
+        self.setStyleSheet(self.load_stylesheet())
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        
+        self.word_path = None
+        self.file_path = None
+        
+        self._init_ui()
+
+    def _init_ui(self):
+        # Set the title and initial window size
+        self.setWindowTitle("Word Replacer")
+        self.setGeometry(100, 100, 600, 400)  # Increased size for better visibility
+
+        # Create the main layout
+        layout = QVBoxLayout()
+        layout.setSpacing(10) 
+
+        # Open File list to load replacement word List.
+        self.load_word_list_action = QAction("Load List", self)
+        self.load_word_list_action.triggered.connect(self.load_word_list)
+         
+        self.list_name_label = QLabel("List Name:")
+        self.list_name_input = QLineEdit(self)
+        
+        self.load_word_name_layout = QHBoxLayout()
+        self.load_word_name_layout.addWidget(self.list_name_label)
+        self.load_word_name_layout.addWidget(self.list_name_input)
+
+        self.save_list_as_button = QAction("Save as", self)
+        self.save_list_as_button.triggered.connect(self.save_list_as)
+        
+        self.save_list_button = QAction("Save", self)
+        self.save_list_button.triggered.connect(self.on_save_list_clicked)
+
+        self.new_list_button = QAction("New List", self)
+        self.new_list_button.triggered.connect(self.new_list)
+
+        # Setup the menu bar
+        self.menu = self.menuBar()
+        
+        self.file_menu = self.menu.addMenu("File")
+        self.file_menu.addAction(self.new_list_button)
+        self.file_menu.addAction(self.load_word_list_action)
+        self.file_menu.addAction(self.save_list_button)
+        self.file_menu.addAction(self.save_list_as_button)
+        
+        
+        self.test_button = QPushButton("Test Word", self)
+        self.test_button.clicked.connect(self.test_repl)
+
+        self.add_word_button = QPushButton("Add Word", self)
+        self.add_word_button.clicked.connect(self.add_word_to_list)
+
+        self.sort_list_button = QPushButton("Sort List", self)
+        self.sort_list_button.clicked.connect(self.sort_list)
+        
+        self.speakers_layout = QHBoxLayout()
+        self.speakers_label = QLabel("Speakers Available")
+        self.speakers_combo = QComboBox(None)
+        self.speakers_layout.addWidget(self.speakers_label)
+        self.speakers_layout.addWidget(self.speakers_combo)
+        self.speakers_layout.addWidget(self.test_button)
+        
+        self.start_wr_button = QPushButton("Start Word Replacement")
+        self.start_wr_button.clicked.connect(self.on_start_wr_clicked)
+
+        self.del_word_button = QPushButton("Delete Word", self)
+        self.del_word_button.clicked.connect(self.del_word_in_list)
+
+        self.add_word_name_layout = QHBoxLayout()
+        self.add_word_name_layout.addWidget(self.add_word_button)
+        self.add_word_name_layout.addWidget(self.sort_list_button)
+        self.add_word_name_layout.addWidget(self.del_word_button)
+
+        # Include extra replacements i.e. mr. ->mister, and remove <>\/ etc.
+        self.extra_replacement_checkbox = QCheckBox("Do Extras i.e abbreviations, <>, etc.", self)
+        self.extra_replacement_checkbox.setStyleSheet("""
+            QCheckBox {
+                color: white; /* Change text color */
+            }
+        """)
+        self.extra_replacement_checkbox.stateChanged.connect(self.do_extra)
+
+        # Word widget
+        self.word_widget = QTableWidget(self)
+        self.word_widget.setColumnCount(2)
+        self.word_widget.setHorizontalHeaderLabels(['Original Word','New Word'])
+        self.word_widget.horizontalHeader().resizeSection(0, int(self.width()/2))
+        self.word_widget.horizontalHeader().resizeSection(1, int(self.width()/2))
+        self.word_widget.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)        
+        self.word_widget.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.word_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding) 
+        self.word_widget.setStyleSheet("""
+            QTableView QLineEdit {
+                background-color: #555555;;
+            }
+        """)
+        
+        # Add all layouts and widgets to the main layout
+        layout.addLayout(self.load_word_name_layout)
+        layout.addLayout(self.add_word_name_layout)
+        layout.addLayout(self.speakers_layout)
+        layout.addWidget(self.extra_replacement_checkbox)
+        layout.addWidget(self.word_widget)
+        layout.addWidget(self.start_wr_button)
+        
+        # Create a central widget and set the main layout
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        
+        # Set the central widget of the QMainWindow
+        self.setCentralWidget(central_widget)
+
+    def add_word_to_list(self):
+        #Add empty line for a new word to be entered
+        word_item = QTableWidgetItem('')
+        repl_item = QTableWidgetItem('')
+        #word_item.setFlags(word_item.flags() & ~Qt.ItemIsEditable)
+        row_position = self.word_widget.rowCount()
+        self.word_widget.insertRow(row_position)
+        self.word_widget.setItem(row_position, 0, word_item)
+        self.word_widget.setItem(row_position, 1, repl_item)
+        self.word_widget.sortItems(0, order=Qt.AscendingOrder)
+        #self.AddWord2ListS.emit()
+        
+    def close_event(self, event):
+        self.window_closed.emit()  # Emit the signal when the window is closed
+        super().closeEvent(event)  # Call the superclass method
+    
+    def del_word_in_list(self):
+        #Remove selected word from word list
+        selected_row = self.word_widget.currentRow()
+        if selected_row == -1:  # No row is selected
+            QMessageBox.warning(self, "Error", 'Choose a to Delete')
+            return
+        self.word_widget.removeRow(selected_row)
+        self.word_widget.sortItems(0, order=Qt.AscendingOrder)
+        #self.DelWordInListS.emit()
+    def do_extra(self):
+        if self.extra_replacement_checkbox.isChecked():
+            self.extra_replacement = True
+        else:
+            self.extra_replacement = False
+        self.extra_wrs.emit(self.extra_replacement)
+    def get_current_list_name(self):
+        return self.list_name_input.text()
+    def get_extra(self):
+        return self.extra_replacement_checkbox.isChecked()
+    def get_new_list(self):
+        rplwords = []
+        self.list_name_input.setText(os.path.basename(self.word_path))
+        
+        new_wordlist = {}
+        num_rows = self.word_widget.rowCount()
+        
+        for idx in range(num_rows):
+            orig_word_item = self.word_widget.item(idx, 0)
+            replacement_word_item = self.word_widget.item(idx, 1)
+            
+            if orig_word_item and replacement_word_item:
+                orig_word = orig_word_item.text()
+                replacement_word = replacement_word_item.text()
+                
+                new_wordlist[str(idx)] = {
+                    "orig_word": orig_word, 
+                    "replacement_word": replacement_word
+                }
+                
+                rplwords.append([orig_word, replacement_word])
+            else:
+                # Handle the case where an item might be None
+                print(f"Missing item at row {idx}")
+        self.rplwords = rplwords
+        
+        return new_wordlist
+    
+    def load_stylesheet(self, font_size="14pt"):
+        # Load the base stylesheet
+        with open("base.css", "r") as file:
+            stylesheet = file.read()
+
+        # Replace font-size
+        modified_stylesheet = stylesheet.replace("font-size: 14pt;", f"font-size: {font_size};")
+        return modified_stylesheet    
+    def load_word_list(self):
+        #Load list of words to be replaced by something else
+        options = QFileDialog.Options()
+        self.word_path, _ = QFileDialog.getOpenFileName(self, "Select Wordlist File", "", "JSON Files (*.json);;All Files (*)", options=options)
+        self.list_name_input.setText(os.path.basename(self.word_path))
+        # Clear rplwords, this will contain words for replacement
+        rplwords = []
+        # Check if wordlist.json exists in the selected directory
+        if not os.path.exists(self.word_path):
+            QMessageBox.warning(self, "Error", "The selected directory does not contain a wordlist.")
+            return
+        try:
+            # Load text_audio_map.json
+            with open(self.word_path, 'r', encoding="utf-8") as file:
+                wordlist = json.load(file)
+
+            # Clear existing items from the wordlist table widget
+            self.word_widget.setRowCount(0)
+
+            # Insert sentences and update wordlist
+            for idx_str, item in wordlist.items():
+                orig_word = item['orig_word']
+                replacement_word = item['replacement_word']
+                # Add item to WordWidget
+                word_item = QTableWidgetItem(orig_word)
+                repl_item = QTableWidgetItem(replacement_word)
+                #word_item.setFlags(word_item.flags() & ~Qt.ItemIsEditable)
+                word_item.setFlags(Qt.ItemIsEnabled|Qt.ItemIsSelectable|Qt.ItemIsEditable)
+                repl_item.setFlags(repl_item.flags()|Qt.ItemIsEditable)
+                #repl_item.setFlags(Qt.ItemIsEnabled|Qt.ItemIsSelectable|Qt.ItemIsEditable)
+                row_position = self.word_widget.rowCount()
+                self.word_widget.insertRow(row_position)
+                self.word_widget.setItem(row_position, 0, word_item)
+                self.word_widget.setItem(row_position, 1, repl_item)
+                #Add the same word to rplwords for use in substitution.
+                rplwords.append([word_item.text(), repl_item.text()])
+                
+            self.word_widget.sortItems(0, order=Qt.AscendingOrder)
+           
+        except Exception as e:
+            # Handle other exceptions (e.g., JSON decoding errors)
+            QMessageBox.warning(self, "Error", f"An error occurred: {str(e)}")
+        
+        self.rplwords = rplwords
+    
+    def new_list(self):
+        if self.word_widget.rowCount() >= 1:
+            confirm_continue = self.prompt_question("Start New List", 
+                                 "A list is already loaded in. Please save it if you want to save your progress or else this will start from scratch.",
+                                 default_button=QMessageBox.No
+                                 )
+            if not confirm_continue:
+                return
+        #Clear wordlist
+        self.list_name_input.setText("NewList.json")
+        self.word_widget.clearContents()
+        self.word_widget.setRowCount(0)
+        self.rplwords = []
+        
+    def on_save_list_clicked(self):
+        self.save_list_requested.emit()
+    def on_start_wr_clicked(self):
+        self.start_wr_requested.emit()
+        
+    def prompt_question(self, title, question, buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No):
+        reply = QMessageBox.question(self, title, question, buttons, default_button)
+        return reply == QMessageBox.Yes
+
+    def save_list_as(self):
+        # Save wordlist and update internal list for substitution.
+        
+        self.word_widget.sortItems(0, order=Qt.AscendingOrder)
+        
+        options = QFileDialog.Options()
+        self.word_path, _ = QFileDialog.getSaveFileName(
+            self, 
+            "Save Wordlist File", 
+            self.list_name_input.text(), 
+            "JSON Files (*.json);;All Files (*)", 
+            options=options
+        )
+        
+        if self.word_path:  # Ensure a file path was selected
+            new_wordlist = self.get_new_list()
+            self.save_json(self.word_path, new_wordlist)
+            
+        else:
+            print("No file selected for saving.")
+        
+    def save_json(self, audio_map_path, new_text_audio_map):
+        with open(audio_map_path, 'w', encoding='utf-8') as file:
+            json.dump(new_text_audio_map, file, ensure_ascii=False, indent=4)
+    def sort_list(self):
+        #Sort word list alphabetically
+        self.word_widget.sortItems(0, order=Qt.AscendingOrder)
+        #self.SortListS.emit()
+ 
+    def test_repl(self):
+        #Test word to hear how it will be pronounced.
+        selected_row = self.word_widget.currentRow()
+        selected_col = self.word_widget.currentColumn()
+        selected_speaker = self.speakers_combo.currentText()
+        if selected_row == -1 or selected_col == -1:  # No row is selected
+            QMessageBox.warning(self, "Error", 'Choose a row and column to test')
+            return
+        
+        wordstr = self.word_widget.item(selected_row, selected_col).text()
+        
+        self.test_repl_s.emit(wordstr, selected_speaker)
+    
+    def update_speaker_selection_combo(self, list_of_speakers):
+        self.speakers_combo.blockSignals(True)  # Prevent signal during update
+        self.speakers_combo.clear()
+        for speaker_id, speaker in list_of_speakers:
+            self.speakers_combo.addItem(f"{speaker['name']}", userData=speaker_id)
+        self.speakers_combo.blockSignals(False)
+        
 class AudiobookMakerView(QMainWindow):
 
     # Define signals for user actions (alphabetical order)
@@ -184,6 +499,8 @@ class AudiobookMakerView(QMainWindow):
     toggle_delete_action_requested = Signal()
     tts_engine_changed = Signal(object)
     update_audiobook_requested = Signal()
+    word_replacer_window_requested = Signal(bool)
+    word_replacer_window_closed = Signal()
 
     def __init__(self):
         super().__init__()
@@ -214,6 +531,7 @@ class AudiobookMakerView(QMainWindow):
         self.indices = []
         self.media_player.mediaStatusChanged.connect(self.on_audio_finished)
         self.current_audio_path = None  # Track the current audio file being played
+        self.word_replacer_window = None
         
         self.speakers_updated.connect(self.update_speaker_selection_combo)
 
@@ -397,10 +715,10 @@ class AudiobookMakerView(QMainWindow):
         self.s2s_options_scroll_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.options_layout = QVBoxLayout()
-        self.options_layout.addLayout(self.tts_engine_layout)
         self.options_layout.addLayout(self.s2s_engine_layout)
         self.options_layout.addWidget(self.use_s2s_checkbox)
         self.options_layout.addWidget(self.s2s_options_scroll_area, stretch=1)
+        self.options_layout.addLayout(self.tts_engine_layout)
         self.options_layout.addWidget(self.tts_options_scroll_area, stretch=1)
         
         self.options_widget = QWidget()
@@ -497,6 +815,7 @@ class AudiobookMakerView(QMainWindow):
         self.background_menu.addAction(self.set_background_action)
         self.background_menu.addAction(self.set_background_clear_action)
         
+        # Speaker menu
         self.manage_speakers_action = QAction("Manage Speakers", self)
         self.manage_speakers_action.triggered.connect(self.on_manage_speakers)
         
@@ -511,8 +830,14 @@ class AudiobookMakerView(QMainWindow):
         self.toggle_delete_action.setCheckable(True)
         self.toggle_delete_action.triggered.connect(self.on_toggle_delete_action_triggered)
         
+        self.word_replacer_action = QAction("Open Word Replacer Window", self)
+        self.word_replacer_action.setCheckable(True)
+        self.word_replacer_action.setChecked(False)
+        self.word_replacer_action.toggled.connect(self.toggle_word_replacer_window)
+        
         self.tools_menu = self.menu.addMenu("Tools")
         self.tools_menu.addAction(self.toggle_delete_action)
+        self.tools_menu.addAction(self.word_replacer_action)
         
         # addLayout (main gui organzaiton)
         main_content_layout.addWidget(left_container)
@@ -594,7 +919,7 @@ class AudiobookMakerView(QMainWindow):
         self.tableWidget.setCellWidget(row, 2, regen_check_box_widget)
         self.tableWidget.setCellWidget(row, 3, delete_check_box_widget)
         
-        self.tableWidget.resizeRowToContents(row)
+        # self.tableWidget.resizeRowToContents(row)
         self.tableWidget.blockSignals(False)
 
     def ask_question(self, title, question, buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No):
@@ -777,6 +1102,8 @@ class AudiobookMakerView(QMainWindow):
     def enable_speaker_menu(self):
         self.speaker_menu.setEnabled(True)
     
+    def get_available_speakers(self):
+        return self.speakers.items()
     def get_book_name(self):
         return self.book_name_input.text().strip()
     def get_combobox_items(self, param):
@@ -1159,7 +1486,14 @@ class AudiobookMakerView(QMainWindow):
         is_checked = self.use_s2s_checkbox.isChecked()
         self.update_current_speaker_setting('use_s2s', is_checked)
         self.generation_settings_changed.emit()
-
+    def on_word_replacer_closed(self):
+        self.word_replacer_window_closed.emit()
+    
+    def open_word_replacer_window(self, parent=None):
+        self.word_replacer_window = WordReplacerView(parent=parent)
+        self.word_replacer_window.setWindowFlag(Qt.Window, True)
+        self.word_replacer_window.window_closed.connect(self.on_word_replacer_closed)
+        
     def populate_s2s_engines(self):
         s2s_config = self.load_s2s_config('configs/s2s_config.json')
         engines = [engine['name'] for engine in s2s_config.get('s2s_engines', [])]
@@ -1209,6 +1543,8 @@ class AudiobookMakerView(QMainWindow):
         self.background_label.setGeometry(0, 0, self.width(), self.height())
         self.update_background()  # Update the background pixmap scaling
         super().resizeEvent(event)  # Call the superclass resize event method
+    def resize_table(self):
+        self.tableWidget.resizeRowsToContents()
     
     def select_table_row(self, row):
         self.tableWidget.selectRow(row)
@@ -1341,6 +1677,8 @@ class AudiobookMakerView(QMainWindow):
             self.toggle_engines_button.setText("Show TTS/S2S")
         else:
             self.toggle_engines_button.setText("Hide TTS/S2S")
+    def toggle_word_replacer_window(self, checked):
+        self.word_replacer_window_requested.emit(checked)
     
     def update_background(self):
         # Check if background pixmap is set, then scale and set it

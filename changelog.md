@@ -1,5 +1,24 @@
 # Changelog & thoughts
 
+## v3.5
+- Fix a particularly nasty inefficiency which was causing extremly long loading times for long text files
+    - Long text files (greater than 10k lines) will still have significant loading time, depending on your CPU.  28k lines on my PC took around 2 minutes of loading time with a 13900k.
+    - It comes from calculating the height of each row for sentences based on # of word wraps
+- Added new "Find and replace" feature, a contribution from PhyEngineer.  Thanks Ed! This can be found under the "Tools" menu bar option
+    - Menu Bar:
+        - File:
+            - New List - Create a new list of replacements
+            - Load List - Load an existing list of replacements
+            - Save - Save current list.  The list must be located in the directory of the audiobook maker
+            - Save as - Save current list to a user specified location
+    - Add Word - Add a replacement to the table
+    - Sort List - Sort replacement list in table alphabetically
+    - Delete Word - Delete chosen row in replacements table
+    - Speakers Available - Speakers set-up in the audiobook maker to use
+    - Test Word - Test a word with the chosen speaker, you can test out the original word or the new word by clicking on the pertinent cell
+    - Do Extras - Cleans unwanted characters, replaces common abbreviations with full words (e.g., "Mr." to "Mister"), adjusts punctuation for better audio processing, and eliminates excess whitespace
+    - Start Word Replacement - Replace all instances of a word in the currently loaded audiobook
+
 ## v3.4
 - Remove regen mode (Unintuitive and glad to be rid of it)
 - Bulk regeneration replaces regen mode and is now handled with a "Regenerate in Bulk" button and a "Regen" column where users can individually toggle which sentences they want to toggle
