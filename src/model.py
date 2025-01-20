@@ -12,10 +12,15 @@ import tempfile
 import tts_engines
 import s2s_engines
 
+import Levenshtein
+import whisper_s2t
+
 from collections import defaultdict
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from subprocess import Popen, PIPE, CalledProcessError
+
+
 
 class AudiobookModel:
     def __init__(self):
@@ -261,7 +266,7 @@ class AudiobookModel:
 
         
 
-    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
+    def generate_audio_for_sentence_threaded(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback=None, max_retries=3):
         self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
         if is_regen_only:
@@ -334,6 +339,209 @@ class AudiobookModel:
                 # Calculate progress and report
                 progress_percentage = int((generated_count / total_sentences) * 100)
                 report_progress_callback(progress_percentage)
+
+                # 1. Initial Generation
+        self._generate_audio_fragments(directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback, initial_generation=True, total_sentences=total_sentences, generated_count= generated_count)
+
+        # 2-5. Retry generation for incorrect fragments
+        for retry in range(max_retries):
+            incorrect_fragments = self._check_audio_fragments(directory_path)
+            if not incorrect_fragments:
+                break 
+
+            self._generate_audio_fragments(directory_path, False, True, report_progress_callback, sentence_generated_callback, should_stop_callback, incorrect_fragments=incorrect_fragments, total_sentences=total_sentences, generated_count= generated_count)
+
+        # 6. Regenerate with different voice
+        incorrect_fragments = self._check_audio_fragments(directory_path)
+        if incorrect_fragments:
+            self._regenerate_with_different_voice(directory_path, incorrect_fragments, report_progress_callback, sentence_generated_callback, should_stop_callback)
+
+
+    def _generate_audio_fragments(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback, initial_generation=False, incorrect_fragments=None, total_sentences=None, generated_count=0):
+
+        indices_to_process = list(self.text_audio_map.keys()) if initial_generation else incorrect_fragments
+
+        if total_sentences is None:  # Calculate total sentences if not provided
+            total_sentences = len(indices_to_process)
+
+        for idx in indices_to_process:
+            entry = self.text_audio_map[idx]
+            if should_stop_callback():
+                return
+
+            if is_continue and entry['generated']:
+                continue
+
+            if is_regen_only and not entry.get('regen', False):
+                continue
+
+            speaker_id = int(entry.get('speaker_id', 1))
+            sentence = entry['sentence']
+
+            # Load speaker settings, TTS engine, and s2s engine
+            speaker = self.speakers.get(speaker_id, {})
+            speaker_settings = speaker.get('settings', {})
+            tts_engine_name = speaker_settings.get('tts_engine', 'pyttsx3')
+            self.load_selected_tts_engine(tts_engine_name, speaker_id, **speaker_settings)
+
+            use_s2s = speaker_settings.get('use_s2s', False)
+            s2s_validated = False
+            if use_s2s:
+                s2s_engine_name = speaker_settings.get('s2s_engine', None)
+                if s2s_engine_name:
+                    s2s_parameters = speaker_settings.copy()
+                    s2s_validated = self.load_selected_s2s_engine(s2s_engine_name, speaker_id, **s2s_parameters)
+
+
+            audio_path = self.generate_audio_proxy(sentence, speaker_settings, s2s_validated)
+
+            if audio_path:
+                new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
+                shutil.move(audio_path, new_audio_path)
+                self.text_audio_map[idx]['audio_path'] = new_audio_path
+                self.text_audio_map[idx]['generated'] = True
+                self.text_audio_map[idx]['regen'] = False  # Reset regen flag after successful generation
+                generated_count += 1
+                self.save_text_audio_map(directory_path)
+                sentence_generated_callback(int(idx), sentence)
+
+            progress_percentage = int((generated_count / total_sentences) * 100)
+            report_progress_callback(progress_percentage)
+
+
+    def _check_audio_fragments(self, directory_path):
+        # Make sure you've installed whisper-s2t: pip install whisper-s2t
+
+        incorrect_indices = []
+        # Initialize WhisperS2T model outside the loop (for efficiency)
+        s2t_model = whisper_s2t.load_model("large-v2", backend="CTranslate2")  # Or choose a different model/backend
+
+        for idx, entry in self.text_audio_map.items():
+            if not entry['generated']:
+                continue  # Skip ungenerated fragments
+
+            audio_path = entry['audio_path']
+            sentence = entry['sentence']
+
+            transcribed_text = self._transcribe_audio(audio_path, s2t_model) # Pass the s2t_model
+            if not self._compare_text(sentence, transcribed_text):
+                incorrect_indices.append(idx)
+
+            if transcribed_text == "":
+                incorrect_indices.append(idx)  # Consider empty transcription as incorrect
+
+        return incorrect_indices
+
+
+
+    def _transcribe_audio(self, audio_path, s2t_model): #modified
+        try:
+            result = s2t_model.transcribe_with_vad([audio_path], lang_codes=['en'], tasks=['transcribe'], initial_prompts=[None])  # Use transcribe_with_vad
+            text = result[0][0]['text'] if result and result[0] else ""
+            return text
+
+        except Exception as e:
+            print(f"Error transcribing audio: {e}")
+            return ""
+
+
+    def _compare_text(self, original_text, transcribed_text, error_margin=0.10):  # Adjustable error margin
+        # Remove punctuation and convert to lowercase for more robust comparison
+        original_text = re.sub(r'[^\w\s]', '', original_text).lower()  # Remove punctuation
+        transcribed_text = re.sub(r'[^\w\s]', '', transcribed_text).lower() # Remove punctuation
+
+
+        distance = Levenshtein.distance(original_text, transcribed_text)
+        ratio = 1 - (distance / max(len(original_text), len(transcribed_text))) if max(len(original_text), len(transcribed_text)) else 1.0 #changed
+        return ratio >= (1 - error_margin)
+    
+
+
+    def _regenerate_with_different_voice(self, directory_path, incorrect_fragments, report_progress_callback, sentence_generated_callback, should_stop_callback):
+        generated_count = 0
+        total_sentences = len(incorrect_fragments)  # Correctly calculate total sentences
+
+        for idx in incorrect_fragments:
+            entry = self.text_audio_map.get(idx)
+
+            if not entry:
+                print(f"Warning: Entry not found for index {idx} in text_audio_map.") #changed
+                continue  # Skip if the entry is not found
+
+            if should_stop_callback():
+                return
+
+            speaker_id = int(entry.get('speaker_id', 1))
+            sentence = entry['sentence']
+
+            speaker = self.speakers.get(speaker_id, {})
+            if not speaker:
+                print(f"Warning: Speaker not found for speaker ID {speaker_id}.") #changed
+                continue
+
+            speaker_settings = speaker.get('settings', {})
+
+
+
+            alternate_speaker_id = self._get_alternate_speaker(speaker_id)
+            alternate_speaker = self.speakers.get(alternate_speaker_id, {})
+
+
+            if not alternate_speaker:
+                print(f"No alternate speaker found for speaker ID: {speaker_id}")
+                continue  # Skip to the next fragment if no alternate speaker
+
+
+            alternate_speaker_settings = alternate_speaker.get('settings', {})
+
+            # Load TTS engine with alternate speaker settings
+            tts_engine_name = alternate_speaker_settings.get('tts_engine', 'pyttsx3')
+            self.load_selected_tts_engine(tts_engine_name, alternate_speaker_id, **alternate_speaker_settings)
+
+            # Load S2S engine with alternate speaker settings (if enabled)
+            use_s2s = alternate_speaker_settings.get('use_s2s', False)
+            s2s_validated = False
+            if use_s2s:
+                s2s_engine_name = alternate_speaker_settings.get('s2s_engine', None)
+                if s2s_engine_name:
+                    s2s_parameters = alternate_speaker_settings.copy()
+                    s2s_validated = self.load_selected_s2s_engine(s2s_engine_name, alternate_speaker_id, **s2s_parameters)
+
+            # Use generate_audio_proxy with alternate speaker settings (and s2s_validated)
+            audio_path = self.generate_audio_proxy(sentence, alternate_speaker_settings, s2s_validated)
+
+            if audio_path:
+                new_audio_path = os.path.join(directory_path, f"audio_{idx}.wav")
+                shutil.move(audio_path, new_audio_path)
+                self.text_audio_map[idx]['audio_path'] = new_audio_path
+                self.text_audio_map[idx]['generated'] = True
+                self.text_audio_map[idx]['speaker_id'] = alternate_speaker_id
+                self.text_audio_map[idx]['regen'] = False
+
+                generated_count += 1  # Increment only after successful regeneration
+                self.save_text_audio_map(directory_path)  # Save after each successful regeneration
+                sentence_generated_callback(int(idx), sentence)
+
+            progress_percentage = int((generated_count / total_sentences) * 100) if total_sentences > 0 else 100  # Handle zero division
+            report_progress_callback(progress_percentage)
+
+    
+
+    def _get_alternate_speaker(self, original_speaker_id):
+        available_speaker_ids = [speaker_id for speaker_id in self.speakers if speaker_id != original_speaker_id]
+        if not available_speaker_ids:  # No other speakers available
+            return original_speaker_id  # Return the original speaker as a fallback
+
+        # Try to select the next speaker in the list, wrapping around if necessary
+        try:
+            original_speaker_index = list(self.speakers.keys()).index(original_speaker_id)
+            next_speaker_index = (original_speaker_index + 1) % len(self.speakers)
+            return list(self.speakers.keys())[next_speaker_index]
+        except ValueError: # Handle cases where the original_speaker_id is not in the list.
+            # The original speaker is not in the list, so return the first available.
+            return available_speaker_ids[0]
+
+
 
     def generate_audio_proxy(self, sentence, voice_parameters, s2s_validated):
         # print(voice_parameters)
