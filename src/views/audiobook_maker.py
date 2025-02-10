@@ -1,4 +1,4 @@
-# view.py
+# views/audiobook_maker.py
 import sys
 
 from PySide6.QtWidgets import (

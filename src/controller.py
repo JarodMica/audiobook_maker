@@ -28,7 +28,8 @@ except:
     pass
 
 from model import AudiobookModel
-from view import AudiobookMakerView
+from views.audiobook_maker import AudiobookMakerView
+from views.home_screen import HomeScreen
 
 
 class AudioGenerationWorker(QThread):
@@ -125,10 +126,11 @@ class AudiobookController:
         self.app = QApplication(sys.argv)
         self.model = AudiobookModel()
         self.view = AudiobookMakerView()
+        home = HomeScreen()
         self.view_word_replacer = None
         self.current_sentence_idx = 0
         self.tts_engine = None
-        self.view.audio_finished_signal.connect(self.on_audio_finished)
+        
         self.playing_sequence = False
         self.current_audio_index = 0
         self.current_audiobook_directory = None
@@ -143,7 +145,8 @@ class AudiobookController:
         # Populate initial data
         self.populate_initial_data()
 
-        self.view.show()
+        # self.view.show()
+        home.show()
         sys.exit(self.app.exec())
 
     def allow_speaker_assignment(self, position):
@@ -221,6 +224,7 @@ class AudiobookController:
         self.update_table_with_sentences()
     def connect_signals(self):
         # Connect view signals to controller methods
+        self.view.audio_finished_signal.connect(self.on_audio_finished)
         self.view.clear_regen_requested.connect(self.clear_regen_checkboxes)
         self.view.continue_audiobook_generation_requested.connect(self.continue_audiobook_generation)
         self.view.delete_requested.connect(self.deletion_prompt)
@@ -416,6 +420,7 @@ class AudiobookController:
             self.model.load_text_audio_map(directory_path)
             
             self.setup_interface(directory_path)
+            print()
         except Exception as e:
             self.view.show_message("Error", f"An error occurred: {str(e)}", icon=QMessageBox.Warning)
     def load_text_file(self):
