@@ -37,6 +37,8 @@ def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audi
         return generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path)
     elif tts_engine_name == 'f5tts':
         return generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'zonos':
+        return generate_with_zonos(tts_engine, sentence, voice_parameters, audio_path)
     else:
         # Handle unknown engine
         return False
@@ -155,7 +157,31 @@ def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
     )
     
     return audio_path
-    
+
+def generate_with_zonos(tts_engine, sentence, voice_parameters, audio_path):
+    tts_config = load_config("configs/tts_config.json")
+    tts_settings = dict_to_object(tts_config)
+
+    zonos_engine_config = None
+    for engine in tts_settings.tts_engines:
+        if engine.name.lower() == 'zonos':  # Case-insensitive matching
+            zonos_engine_config = engine
+            break
+
+    voice_path = next((param.folder_path for param in zonos_engine_config.parameters if param.attribute == "zonos_voice"))
+    wav, sampling_rate = torchaudio.load(voice_path)
+    speaker = model.make_speaker_embedding(wav, sampling_rate)
+
+    cond_dict = make_cond_dict(text=sentence, speaker=speaker, language="en-us")
+    conditioning = model.prepare_conditioning(cond_dict)
+
+    codes = model.generate(conditioning)
+
+    wavs = model.autoencoder.decode(codes).cpu()
+    torchaudio.save(audio_path, wavs[0], model.autoencoder.sampling_rate)
+
+    return audio_path
+
 #################################################
 ############### Loading Functions ###############
 #################################################                         
@@ -173,6 +199,8 @@ def load_tts_engine(tts_engine_name, **kwargs):
             return load_with_xtts(**kwargs)
         elif tts_engine_name == "f5tts":
             return load_with_f5tts(**kwargs)
+        elif tts_engine_name == "zonos":
+            return load_with_zonos(**kwargs)
         else:
             # Handle unknown engine
             raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
@@ -273,6 +301,19 @@ def load_with_f5tts(**kwargs):
         duration_model_path=duration_model_path,
         device="cuda"
     )
+    return model
+
+def load_with_zonos(**kwargs):
+    import torch
+    import torchaudio
+    from zonos.model import Zonos
+    from zonos.conditioning import make_cond_dict
+    from zonos.utils import DEFAULT_DEVICE as device
+
+    model_type = next(kwargs.get("model_type", None), 'hybrid')
+
+    model = Zonos.from_pretrained("Zyphra/Zonos-v0.1-" + model_type, device=device)
+
     return model
 
 #################################################

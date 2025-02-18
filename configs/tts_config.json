@@ -258,6 +258,25 @@
                     "default": -1
                 }
             ]
+        },
+        {
+            "name": "Zonos",
+            "parameters": [
+                {
+                    "label": "Voice",
+                    "type": "combobox",
+                    "attribute": "zonos_voice",
+                    "function": "get_combobox_items",
+                    "folder_path": "engines/zonos/voices",
+                    "look_for": "folders",
+                    "include_none_option": false
+                },
+                {
+                    "label": "Model Type (hybrid or transformer)",
+                    "type": "text",
+                    "attribute": "model_type"
+                }
+            ]
         }
     ]
 }
