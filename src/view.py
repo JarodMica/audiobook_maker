@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Signal, Qt, QUrl, QSize
-from PySide6.QtGui import QPixmap, QAction, QScreen, QTextOption
+from PySide6.QtGui import QPixmap, QAction, QTextOption, QGuiApplication
 
 import os
 import json
@@ -865,7 +865,8 @@ class AudiobookMakerView(QMainWindow):
 
         # Window settings
         self.setWindowTitle("Audiobook Maker")
-        screen = QScreen().availableGeometry()  # Get the available screen geometry
+        app_screen = QGuiApplication.primaryScreen()
+        screen   = app_screen.availableGeometry() # Get the available screen geometry
         target_ratio = 16 / 9
 
         width = screen.width() * 0.8  # Adjusted to fit within the screen
