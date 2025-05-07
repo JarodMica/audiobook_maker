@@ -755,16 +755,17 @@ class AudiobookController:
                 
             if self.debug:
                 # Run in main thread for debugging
-                self.view.disable_buttons()  # Disable buttons before starting
+                self.view.disable_buttons()  
                 self.model.generate_audio_for_sentence_threaded(
                     directory_path,
-                    False, # is continue
-                    False, # is regen
+                    False,  # is continue
+                    False,  # is regen
                     self.view.set_progress,  # Progress callback
-                    self.on_sentence_generated  # Sentence generated callback
+                    self.on_sentence_generated,  # Sentence generated callback
+                    lambda: False  # should_stop_callback always returns False in debug mode
                 )
-                self.view.enable_buttons()  # Re-enable buttons after finishing
-                self.on_generation_finished()  # Perform any post-generation tasks
+                self.view.enable_buttons()
+                self.on_generation_finished()
             else:
                 # Start the worker thread
                 self.worker = AudioGenerationWorker(
