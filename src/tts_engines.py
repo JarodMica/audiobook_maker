@@ -6,9 +6,10 @@ Note for sliders: Due to Qt6 sliders, to mimick decimal values, a "step" paramet
 For example, let's take "speed" from f5tts.  It needs to be a decimal value but Qt6 slider only allows for whole numbers  The tts_config has a step=100 with min=1 and max=200, so any value between those can be chosen.  Therefore, if the slider outputs 30, it should be 0.30 as round(30 / step, 2) = 0.30
 '''
 
-import os
+import importlib.util, os
 import json
-
+import numpy as np
+import soundfile as sf
 try:
     from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
     from tortoise_tts_api.inference.generate import generate as tortoise_generate
@@ -24,6 +25,10 @@ try:
     from f5_tts.api import F5TTS
 except Exception as e:
     print(f"F5-TTS is not available, received error: {e}")
+try:
+    from GPT_SoVITS.TTS_infer_pack.TTS import TTS, TTS_Config
+except Exception as e:
+    print(f"GPT-SoVITS is not available, received error: {e}")
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -37,6 +42,8 @@ def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audi
         return generate_with_xtts(tts_engine, sentence, voice_parameters, audio_path)
     elif tts_engine_name == 'f5tts':
         return generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'gpt_sovits':
+        return generate_with_gpt_sovits(tts_engine, sentence, voice_parameters, audio_path)
     else:
         # Handle unknown engine
         return False
@@ -155,6 +162,55 @@ def generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path):
     )
     
     return audio_path
+
+def generate_with_gpt_sovits(tts_engine, sentence, voice_parameters, audio_path):
+    
+    tts_settings = load_tts_config()
+    gpt_sovits_engine_config = find_engine_config("gpt_sovits", tts_settings)
+    
+    voice_name = voice_parameters.get("gpt_sovits_voice")
+    voice_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_voice")
+    voice_ref_audio_path = os.path.join(voice_root_path, voice_name, f"{voice_name}.wav")
+    voice_ref_text_path = os.path.join(voice_root_path, voice_name, f"{voice_name}.txt")
+    with open(voice_ref_text_path, "r", encoding="utf-8") as f:
+        voice_ref_text_transcript = f.readline()
+    
+    top_k_steps = next((param.step for param in gpt_sovits_engine_config.parameters if param.attribute=="gpt_sovits_top_k"), 500)
+    top_k = int(round(voice_parameters.get("gpt_sovits_top_k") / top_k_steps, 2))
+    
+    top_p_steps = next((param.step for param in gpt_sovits_engine_config.parameters if param.attribute=="gpt_sovits_top_p"), 100)
+    top_p = round(voice_parameters.get("gpt_sovits_top_p") / top_p_steps, 2)
+    
+    temperature_steps = next((param.step for param in gpt_sovits_engine_config.parameters if param.attribute=="gpt_sovits_temperature"), 100)
+    temperature = round(voice_parameters.get("gpt_sovits_temperature") / temperature_steps, 2)
+    
+    sample_steps = voice_parameters.get("gpt_sovits_sample_steps")
+    
+    inputs = {
+        "text": sentence,
+        "text_lang" : voice_parameters.get("gpt_sovits_output_lang"),
+        "ref_audio_path": voice_ref_audio_path,
+        "prompt_text": voice_ref_text_transcript,
+        "prompt_lang" : voice_parameters.get("gpt_sovits_ref_lang"),
+        "seed": voice_parameters.get("gpt_sovits_seed"),
+        "top_k" : top_k,
+        "top_p" : top_p,
+        "temperature" : temperature,
+        "sample_steps" : sample_steps
+    }
+    
+    gen = tts_engine.run(inputs)
+    
+    fragments = []
+    sr, first_fragment = next(gen)
+    fragments.append(first_fragment)
+    for _, fragment in gen:
+        fragments.append(fragment)
+
+    combined_audio = np.concatenate(fragments, axis=0)
+    sf.write(audio_path, combined_audio, sr)
+    
+    return audio_path
     
 #################################################
 ############### Loading Functions ###############
@@ -173,6 +229,8 @@ def load_tts_engine(tts_engine_name, **kwargs):
             return load_with_xtts(**kwargs)
         elif tts_engine_name == "f5tts":
             return load_with_f5tts(**kwargs)
+        elif tts_engine_name == 'gpt_sovits':
+            return load_with_gpt_sovits(**kwargs)
         else:
             # Handle unknown engine
             raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
@@ -274,6 +332,55 @@ def load_with_f5tts(**kwargs):
         device="cuda"
     )
     return model
+
+def load_with_gpt_sovits(**kwargs):
+    tts_settings = load_tts_config()
+    gpt_sovits_engine_config = find_engine_config("gpt_sovits", tts_settings)
+    version = kwargs.get("gpt_sovits_version")
+    
+    config_path = "engines/gpt_sovits/tts_configs.yaml"
+    
+    with open(config_path, 'r') as f:
+        import yaml
+        raw_config = yaml.safe_load(f)
+        
+    v1_config = raw_config.get('v1', {})
+    v2_config = raw_config.get('v2', {})
+    v3_config = raw_config.get('v3', {})
+    v4_config = raw_config.get('v4', {})
+    TTS_Config.default_configs.update({"v1": v1_config, "v2": v2_config, "v3": v3_config, "v4": v4_config})
+    
+    cfg = TTS_Config(config_path)
+    
+    t2s_ckpt = kwargs.get("gpt_sovits_t2s_ckpt")
+    if t2s_ckpt:
+        t2s_ckpt_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_t2s_ckpt")
+        t2s_ckpt_path = os.path.join(t2s_ckpt_root_path, t2s_ckpt)
+    else:
+        config = raw_config.get(version, {})
+        t2s_ckpt_path = config.get("t2s_weights_path")
+    
+    vits_ckpt = kwargs.get("gpt_sovits_vits_ckpt")
+    if vits_ckpt:
+        vits_ckpt_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_vits_ckpt")
+        vits_ckpt_path = os.path.join(vits_ckpt_root_path, vits_ckpt)
+    else:
+        config = raw_config.get(version, {})
+        vits_ckpt_path = config.get("vits_weights_path")
+        
+    from GPT_SoVITS.process_ckpt import get_sovits_version_from_path_fast
+    version, model_version, if_lora_v3 = get_sovits_version_from_path_fast(vits_ckpt_path)
+    
+    pipeline = TTS(cfg)
+    if model_version in ["v1", "v2"]:
+        pipeline.init_t2s_weights(t2s_ckpt_path)
+        pipeline.init_vits_weights(vits_ckpt_path)
+    else: #v3, v4
+        vocoder_home_path = os.path.dirname(vits_ckpt_path)
+        vocoder_path = os.path.join(vocoder_home_path, "vocoder.pth")
+        pipeline.init_t2s_weights(t2s_ckpt_path)
+        pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path)
+    return pipeline
 
 #################################################
 ############### Utility Functions ###############
