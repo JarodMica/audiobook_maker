@@ -329,6 +329,7 @@ class AudiobookModel:
         with open(map_file_path, 'r', encoding="utf-8") as map_file:
             self.text_audio_map = json.load(map_file)
         return self.text_audio_map
+        
     def paragraph_to_sentence(self,paragraph) -> list:
         #This removes annoying pauses, and things like "greater than..." because a book
         #formatted computer text with '>' for example.
@@ -341,7 +342,9 @@ class AudiobookModel:
         paragraph = paragraph.replace('Ms.','Miz')
         paragraph = paragraph.replace('Dr.','Doctor')
         #add space before period, to improve end of sentence audio for tortoise for example.
-        paragraph = paragraph.replace(r'. ', ' .*%')
+        #removed space after period
+        #paragraph = paragraph.replace(r'. ', ' .*%')
+        paragraph = paragraph.replace(r'.', ' .*%')
         
         #This removes excess spaces.  
         #These occur with indented paragraphs without periods.
@@ -367,24 +370,35 @@ class AudiobookModel:
                     data[i] = None
                 elif isinstance(value, (dict, list)):
                     self.replace_default_with_none(value)
+                    
     def replace_words_from_list(self, replacement_file_path, extra):
         with open(replacement_file_path, 'r', encoding='utf-8') as f:
             replacements = json.load(f)
+
         for key, value in self.text_audio_map.items():
             sentence = value['sentence']
+
+            #This needed to happen before the word replacement
+            if extra:
+                #so things like Mr becomes Mister, since period is required.
+                if sentence[-1] != ".":
+                    sentence =  sentence + "."
+                
+                sentence_list = self.paragraph_to_sentence(sentence)
+                sentence = ' '.join(sentence_list)
 
             for _, replacement_data in replacements.items():
                 orig_word = replacement_data['orig_word']
                 replacement_word = replacement_data['replacement_word']
             
                 pattern = r"\b{}\b".format(re.escape(orig_word))
+                #So sentences with replaced words are regenerated
+                if orig_word in sentence:
+                    value['regen'] = True  #I like this, but it is required
+                    value['generated'] = False
                 sentence = re.sub(pattern, replacement_word, sentence)
 
-            if extra:
-                sentence_list = self.paragraph_to_sentence(sentence)
-                sentence = ' '.join(sentence_list)
             value['sentence'] = sentence
-
 
     def reset(self):
         self.text_audio_map.clear()
