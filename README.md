@@ -22,37 +22,19 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 - [RVC Installation](#rvc-installation)
 
 ## Features
-:heavy_check_mark: Multi-speaker generation, allowing you to change who speaks which sentence etc.
+:heavy_check_mark: Multi-speaker/engine generation, allowing you to select who speaks which sentence etc.
 
 :heavy_check_mark: Audio playback of individually generated sentences, or playback all to listen as it generates
 
-:heavy_check_mark: Stopping during generation to pick up later, continuing to continue where you stopped from
+:heavy_check_mark: Save in place to continue generating later (continue from where you stopped at)
 
-:heavy_check_mark: Bulk sentence regeneration and editting in case you want to regenerate audio for a sentence or change which speaker is being used for a sentence
+:heavy_check_mark: Bulk sentence regeneration and editting to regenerate audio for a sentence or change which speaker and/or engine is being used for a sentence
 
 :heavy_check_mark: Reloading previous audiobooks and exporting audiobooks
 
 :heavy_check_mark: Sentence remapping in case you need to update the original text file that was used for generation
 
-:heavy_check_mark: Integration with popular open-source models like TortoiseTTS, RVC, StyleTTS, F5TTS and XTTS (to be added)
-
-## What changed from v1 and v2?
-### As a user?
-The biggest thing would be the ability to use multiple speakers, regenerate in bulk, and to stop during generation.  It still fulfills pretty much the same stuff as before.
-
-### As a developer?
-A lot. Pretty much the entire codebase was rewritten with the sole goal of making it **more maintainable and more modular.**  This can be summarized in two points:
-
-1. #### The most important: Completely removed any hardcoded parameters that referenced any TTS or S2S engine (tortoise/rvc)
-    This makes it a (relavtive) breeze to add in any new TTS engines or S2S engine. You simply just need to create a configuration for that engine in the configs folder as all widgets in the GUI are created and handled dynamically, define a loading and generation procedure in the s2s or tts engines python file, and it'll work with very little to no issues.  I designed it with the intention so that as long as the engine returns an audio_path back to the `model.py`, it will integrate just fine.  I'll be writing documentation on how to do this so that I don't forget in the future, but it might be useful for anyone who want to fork this repo and build on it.
-
-2. #### Moved over to MVC
-    Point 1 wouldn't be as smooth without this. The previous implementation was heavily coupled together in one, ginormous class and that was getting too cramped and too messy to keep up with.  So I moved over to something closer to an MVC framework and separated out the gui into `view.py`, the "brain" and logic into the `controller.py`, and all of the functional code into the `model.py`.  Still messy, but not *as* messy as it would've been if I didn't switch over.
-
-A minor change as well was the migration from pyqt5 --> pyside 6, but that wasn't too big of an issue.  Small peculiar issues here and there, but nothing ground breaking.
-
-I have decided to **NOT** use gradio for this.  The biggest reason being that the previous versions were done in pyqt5.  Another being my concern for limitations on customizability.  I've done a fair share of work in gradio and I don't think that the way I want the audiobook maker to look and feel would be easily achievable by using it. And the last reason being I don't want a web interface or a local web server to be launched (maybe some users would run into issues with this).  However, because I'm not using gradio, this also cannot be used on a cloud computer, so you will need all the hardware on your computer locally.
-
+:heavy_check_mark: Integration with popular open-source models like TortoiseTTS, RVC, StyleTTS, F5TTS, XTTS (to be added) and GPT-SoVITS
 
 ## Windows Package Installation
 Available for Youtube Channel Members at the Supporter (Package) level: https://www.youtube.com/channel/UCwNdsF7ZXOlrTKhSoGJPnlQ/join or via purchase here: https://buymeacoffee.com/jarodsjourney/extras
@@ -189,6 +171,17 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
 2. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
+### GPT-SoVITS Installation
+0. Make sure your venv is still activated, if not, activate it, then [pull the repo to update if you are updating an older install](#updating-the-package):
+   ```
+   .\venv\Scripts\activate
+   ```
+1. Install the GPT-SoVITS-Package submodule:
+   ```
+   pip install .\modules\GPT-SoVITS-Package\
+   ```
+2. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
+
 ## Speech-to-Speech Engines
 ### RVC Installation
 0. Make sure your venv is still activated, if not, activate it, then [pull the repo to update if you are updating an older install](#updating-the-package):
@@ -215,11 +208,11 @@ Check torch version:
 pip show torch
 ```
 
-As long as torch `Version: 2.4.0+cu121`, you should be fine.  If not, follow below:
-> F5-TTS update moves it to 2.4.0 instead of the previously require 2.3.1 (2.4.0 had previously broken whisper but we don't need that here)
+As long as torch `Version: 2.7.0+cu126`, you should be fine.  If not, follow below:
+> Blackwell GPUs (NVIDIA 50 series) need pytorch 2.7.0 or higher
 ```
 pip uninstall torch -y
-pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu126
 ```
 
 Torch is a pretty large download, so it may take a bit of time.  Once you have it installed here, it should be fine following the other install.  However, sometimes, newer versions of torch may uninstall the one we just did, so you may need to uninstall and reinstall after each engine to make sure you have the correction version.  After the first install, it will have been cached, so you won't have to wait each time afterwards.
@@ -249,6 +242,7 @@ TTS Engines:
 - Tortoise TTS: https://github.com/neonbjb/tortoise-tts
 - StyleTTS: https://github.com/yl4579/StyleTTS2
 - F5TTS: https://github.com/SWivid/F5-TTS/tree/main
+- GPT-SoVITS: https://github.com/RVC-Boss/GPT-SoVITS
 
 S2S Engines:
 - RVC: https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
