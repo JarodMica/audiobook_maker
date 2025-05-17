@@ -2,6 +2,46 @@
     "tts_engines": [
         {
             "name": "Tortoise",
+            "upload_params": {
+                "AI Models": [
+                    {
+                        "label": "Model Name",
+                        "type": "text",
+                        "attribute": "upload_tortoise_model_name"
+                    },
+                    {
+                        "label": "Browse AR model",
+                        "type": "file",
+                        "attribute": "upload_tortoise_model_path",
+                        "file_filter": "Model Files (*.pth *.pt);;All Files (*)",
+                        "save_path": "engines/tortoise/models",
+                        "save_format": "file"
+                    },
+                    {
+                        "label": "Browse tokenizer",
+                        "type": "file",
+                        "attribute": "upload_tortoise_tokenizer_path",
+                        "file_filter": "Tokenizer Files (*.json);;All Files (*)",
+                        "save_path": "engines/tortoise/tokenizers",
+                        "save_format": "file"
+                    }
+                ],
+                "Voice Reference File": [
+                    {
+                        "label": "Voice Name",
+                        "type": "text",
+                        "attribute": "upload_tortoise_voice_name"
+                    },
+                    {
+                        "label": "Browse Reference Audio",
+                        "type": "file",
+                        "attribute": "upload_tortoise_voice_ref_path",
+                        "file_filter": "Audio Files (*.wav *.mp3 *.m4a *.ogg *.flac *.aac);;All Files (*)",
+                        "save_path": "voices/tortoise",
+                        "save_format": "folder"
+                    }
+                ]
+            },
             "parameters": [
                 {
                     "label": "Autoregressive Model Path",
@@ -39,7 +79,7 @@
                     "type": "combobox",
                     "attribute": "voice",
                     "function": "get_combobox_items",
-                    "folder_path": "./voices",
+                    "folder_path": "./voices/tortoise",
                     "look_for": "folders",
                     "file_filter": null
                 },
@@ -81,6 +121,14 @@
         },
         {
             "name": "pyttsx3",
+            "upload_params": {
+                "AI Models": [
+
+                ],
+                "Voice Reference File": [
+
+                ]
+            },
             "parameters": [
                 {
                     "label": "Voice Rate",
@@ -102,6 +150,46 @@
         },
         {
             "name": "StyleTTS2",
+            "upload_params": {
+                "AI Models": [
+                    {
+                        "label": "Model Name",
+                        "type": "text",
+                        "attribute": "upload_stts_model_name"
+                    },
+                    {
+                        "label": "Browse STTS .pth file",
+                        "type": "file",
+                        "attribute": "upload_stts_model_path",
+                        "file_filter": "Model Files (*.pth *.pt);;All Files (*)",
+                        "save_path": "engines/styletts",
+                        "save_format": "folder"
+                    },
+                    {
+                        "label": "Browse STTS .yml config file",
+                        "type": "file",
+                        "attribute": "upload_stts_config_path",
+                        "file_filter": "Config Files (*.yml);;All Files (*)",
+                        "save_path": "engines/styletts",
+                        "save_format": "folder"
+                    }
+                ],
+                "Voice Reference File": [
+                    {
+                        "label": "Model Name",
+                        "type": "text",
+                        "attribute": "upload_stts_voice_name"
+                    },
+                    {
+                        "label": "Browse Reference Audio",
+                        "type": "file",
+                        "attribute": "upload_stts_voice_ref_path",
+                        "file_filter": "Audio Files (*.wav *.mp3 *.m4a *.ogg *.flac *.aac);;All Files (*)",
+                        "save_path": "voices/styletts",
+                        "save_format": "folder"
+                    }
+                ]
+            },
             "parameters": [
                 {
                     "label": "Model to Use",
@@ -180,6 +268,14 @@
         },
         {
             "name": "XTTS (in progress)",
+            "upload_params": {
+                "AI Models": [
+
+                ],
+                "Voice Reference File": [
+
+                ]
+            },
             "parameters": [
                 {
                     "label": "Parameter 1",
@@ -195,6 +291,53 @@
         },
         {
             "name": "F5TTS",
+            "upload_params": {
+                "AI Models": [
+                    {
+                        "label": "Model Name",
+                        "type": "text",
+                        "attribute": "upload_f5tts_model_name"
+                    },
+                    {
+                        "label": "Browse F5TTS model",
+                        "type": "file",
+                        "attribute": "upload_f5tts_model_path",
+                        "file_filter": "Model Files (*.pth *.pt);;All Files (*)",
+                        "save_path": "engines/f5tts/models",
+                        "save_format": "file"
+                    },
+                    {
+                        "label": "Browse tokenizer",
+                        "type": "file",
+                        "attribute": "upload_f5tts_tokenizer_path",
+                        "file_filter": "Tokenizer Files (*.json);;All Files (*)",
+                        "save_path": "engines/f5tts/tokenizers",
+                        "save_format": "file"
+                    }
+                ],
+                "Voice Reference File": [
+                    {
+                        "label": "Voice Name",
+                        "type": "text",
+                        "attribute": "upload_f5tts_voice_name"
+                    },
+                    {
+                        "label": "Browse Reference Audio",
+                        "type": "file",
+                        "attribute": "upload_f5tts_voice_ref_path",
+                        "file_filter": "Audio Files (*.wav *.mp3 *.m4a *.ogg *.flac *.aac);;All Files (*)",
+                        "save_path": "voices/f5tts",
+                        "save_format": "folder"
+                    },
+                    {
+                        "label": "Reference Audio Transcription",
+                        "type": "text",
+                        "attribute": "upload_f5tts_voice_ref_transcription",
+                        "save_path": "voices/f5tts",
+                        "save_format": "folder"
+                    }
+                ]
+            },
             "parameters": [
                 {
                     "label":"Voice to Use",
@@ -261,6 +404,53 @@
         },
         {
             "name": "GPT_SoVITS",
+            "upload_params": {
+                "AI Models": [
+                    {
+                        "label": "Model Name",
+                        "type": "text",
+                        "attribute": "upload_gpt_sovits_model_name"
+                    },
+                    {
+                        "label": "Browse GPT model",
+                        "type": "file",
+                        "attribute": "upload_gpt_sovits_gpt_model_path",
+                        "file_filter": "Model Files (*.ckpt, *.pth);;All Files (*)",
+                        "save_path": "engines/gpt_sovits/gpt_models",
+                        "save_format": "file"
+                    },
+                    {
+                        "label": "Browse SoVITS model",
+                        "type": "file",
+                        "attribute": "upload_gpt_sovits_vits_model_path",
+                        "file_filter": "Model Files (*.ckpt, *.pth);;All Files (*)",
+                        "save_path": "engines/gpt_sovits/sovits_models",
+                        "save_format": "file"
+                    }
+                ],
+                "Voice Reference File": [
+                    {
+                        "label": "Voice Name",
+                        "type": "text",
+                        "attribute": "upload_gpt_sovits_voice_name"
+                    },
+                    {
+                        "label": "Browse Reference Audio",
+                        "type": "file",
+                        "attribute": "upload_gpt_sovits_voice_ref_path",
+                        "file_filter": "Audio Files (*.wav *.mp3 *.m4a *.ogg *.flac *.aac);;All Files (*)",
+                        "save_path": "voices/gpt_sovits",
+                        "save_format": "folder"
+                    },
+                    {
+                        "label": "Reference Audio Transcription",
+                        "type": "text",
+                        "attribute": "upload_gpt_sovits_voice_ref_transcription",
+                        "save_path": "voices/gpt_sovits",
+                        "save_format": "folder"
+                    }
+                ]
+            },
             "parameters": [
                 {
                     "label":"Version to Use",

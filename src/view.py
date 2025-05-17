@@ -152,6 +152,171 @@ class MultiLineDelegate(QStyledItemDelegate):
         # Fill the entire cell
         editor.setGeometry(option.rect)
 
+class UploadDialog(QDialog):
+    upload_requested = Signal(str, list)
+    def __init__(self, parent=None, engines_list=None):
+        super().__init__(parent)
+        self.setWindowTitle("Upload Voice")
+        self.setGeometry(100, 100, 600, 400)
+        self.engines_list = engines_list
+        self.tts_config = self.load_tts_config('configs/tts_config.json')
+        self.s2s_config = self.load_s2s_config('configs/s2s_config.json')
+        self.all_engines = []
+        if 'tts_engines' in self.tts_config:
+            self.all_engines.extend(self.tts_config['tts_engines'])
+        if 's2s_engines' in self.s2s_config:
+            self.all_engines.extend(self.s2s_config['s2s_engines'])
+        self._init_ui()
+        self._init_engine()
+        
+    def _init_ui(self):
+        self.main_layout = QVBoxLayout()
+        self.engine_config_layout = QVBoxLayout()
+        
+        self.combobox_layout = QHBoxLayout()
+        
+        self.upload_button = QPushButton("Upload")
+        self.upload_button.clicked.connect(self.on_upload_clicked)
+                
+        self.engine_combo = QComboBox()
+        self.engine_combo.addItems(self.engines_list)
+        self.engine_combo.currentIndexChanged.connect(self.on_engine_changed)
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["AI Models", "Voice Reference File"])
+        self.mode_combo.currentIndexChanged.connect(self.on_mode_changed)
+        
+        self.engine_label = QLabel("Engine:")
+        self.mode_label = QLabel("Mode:")
+        
+        self.combobox_layout.addWidget(self.mode_label)
+        self.combobox_layout.addWidget(self.mode_combo)
+        self.combobox_layout.addWidget(self.engine_label)
+        self.combobox_layout.addWidget(self.engine_combo)
+        
+        self.main_layout.addLayout(self.combobox_layout)
+        self.main_layout.addLayout(self.engine_config_layout)
+        self.main_layout.addWidget(self.upload_button)
+
+        self.setLayout(self.main_layout)
+
+    def _init_engine(self):
+        first_engine = self.engines_list[0]
+        first_mode = self.mode_combo.itemText(0)
+        self.build_engine_widgets(first_engine, first_mode)
+    def browse_file(self, widget, param):
+        file_path = self.get_open_file_name("Select File", "", param.get('file_filter', 'All Files (*)'))
+        if file_path:
+            widget.setText(file_path)
+        
+    def build_engine_widgets(self, engine, mode):
+        self.clear_layout(self.engine_config_layout)
+        for item in self.all_engines:
+            if item['name'] == engine:
+                parameters = item["upload_params"]
+                param_dict = parameters.get(mode, None)
+                if param_dict:
+                    for param in param_dict:
+                        widget = self.create_widget_for_parameter(param)
+                        if widget: 
+                            self.engine_config_layout.addLayout(widget)
+    def clear_layout(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                self.clear_layout(item.layout())
+                item.layout().deleteLater() 
+    
+    def create_widget_for_parameter(self, param):
+        layout = QHBoxLayout()
+        label = QLabel(param['label'] + ": ")
+        layout.addWidget(label)
+        
+        param_type = param['type']
+        attribute = param['attribute']
+        relies_on = param.get("relies_on", None)
+        
+        if param_type == 'text':
+            widget = QLineEdit()
+            layout.addWidget(widget)
+        elif param_type == 'file':
+            widget = QLineEdit()
+            browse_button = QPushButton("Browse")
+            browse_button.clicked.connect(lambda _, w=widget, p=param: self.browse_file(w, p))
+            layout.addWidget(widget)
+            layout.addWidget(browse_button)
+        else:
+            self.show_message("Error", f"Unknown parameter type: {param_type}", QMessageBox.Warning)
+            return None
+        
+        # Optionally store the widget reference for later use
+        setattr(self, f"{attribute}_widget", widget)
+        return layout
+    def get_current_widget(self):
+        current_engine = self.engine_combo.currentText()
+        current_mode = self.mode_combo.currentText()
+        
+    def get_open_file_name(self, title, directory='', filter=''):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+        filepath, _ = QFileDialog.getOpenFileName(self, title, directory, filter, options=options)
+        return filepath
+    def load_tts_config(self, config_path):
+        if not os.path.exists(config_path):
+            self.show_message("Error", f"Configuration file {config_path} not found.", QMessageBox.Critical)
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    def load_s2s_config(self, config_path):
+        if not os.path.exists(config_path):
+            self.show_message("Error", f"s2s configuration file {config_path} not found.", QMessageBox.Critical)
+            return {}
+        with open(config_path, 'r') as f:
+            return json.load(f)
+
+    
+    def on_engine_changed(self):
+        self.build_engine_widgets(self.engine_combo.currentText(), self.mode_combo.currentText())
+    def on_mode_changed(self):
+        self.build_engine_widgets(self.engine_combo.currentText(), self.mode_combo.currentText())
+    def on_upload_clicked(self):
+        engine = self.engine_combo.currentText()
+        mode   = self.mode_combo.currentText()
+        engine_cfg = next(e for e in self.all_engines if e['name'] == engine)
+
+        params = engine_cfg['upload_params'].get(mode, [])
+        save_items = []
+        for param in params:
+            attr = param['attribute']
+            widget = getattr(self, f"{attr}_widget", None)
+            if widget is None:
+                continue
+
+            value = widget.text().strip()
+            if not value:
+                continue
+            
+            type = param['type']
+            if type == 'file':
+                save_dict = {"type" : type,
+                            "target_path" : param['save_path'],
+                            "source_path" : value,
+                            "save_format" : param['save_format']}
+                save_items.append(save_dict)
+            elif type == 'text' and param.get('save_path', None) is not None:
+                save_dict = {"type" : type,
+                            "target_path" : param['save_path'],
+                            "source_text" : value,
+                            "save_format" : param['save_format']}
+                save_items.append(save_dict)
+            elif type == 'text' and param.get('save_path', None) is None:
+                save_dict = {"name": value}
+                save_items.append(save_dict)
+                
+        self.upload_requested.emit(mode, save_items)
+
+
 class WordReplacerView(QMainWindow): 
     # Define signals for user actions
     extra_wrs = Signal(bool)
@@ -499,6 +664,7 @@ class AudiobookMakerView(QMainWindow):
     toggle_delete_action_requested = Signal()
     tts_engine_changed = Signal(object)
     update_audiobook_requested = Signal()
+    upload_voice_window_requested = Signal()
     word_replacer_window_requested = Signal(bool)
     word_replacer_window_closed = Signal()
 
@@ -608,6 +774,8 @@ class AudiobookMakerView(QMainWindow):
         self.toggle_delete_action = QAction("Toggle Delete Column", self)
         self.toggle_delete_action.setCheckable(True)
         self.toggle_delete_action.triggered.connect(self.on_toggle_delete_action_triggered)
+        self.upload_voices_action = QAction("Upload Models/Voices", self)
+        self.upload_voices_action.triggered.connect(self.on_upload_voice_triggered)
         self.word_replacer_action = QAction("Open Word Replacer Window", self)
         self.word_replacer_action.setCheckable(True)
         self.word_replacer_action.setChecked(False)
@@ -748,7 +916,8 @@ class AudiobookMakerView(QMainWindow):
         self.speaker_menu = self.menu.addMenu("Speakers")
         self.speaker_menu.setEnabled(False) 
         self.tools_menu = self.menu.addMenu("Tools")
-
+        
+        self.file_menu.addAction(self.upload_voices_action)
         self.file_menu.addAction(self.load_audiobook_action)
         self.file_menu.addAction(self.update_audiobook_action)
         self.file_menu.addAction(self.export_audiobook_action)
@@ -1461,13 +1630,20 @@ class AudiobookMakerView(QMainWindow):
         # self.speakers_updated.emit(self.speakers)
     def on_update_audiobook_triggered(self):
         self.update_audiobook_requested.emit()
+    def on_upload_voice_triggered(self):
+        self.upload_voice_window_requested.emit()
+
     def on_use_s2s_changed(self, state):
         is_checked = self.use_s2s_checkbox.isChecked()
         self.update_current_speaker_setting('use_s2s', is_checked)
         self.generation_settings_changed.emit()
     def on_word_replacer_closed(self):
         self.word_replacer_window_closed.emit()
-    
+    def open_upload_voice_window(self, engines_list):
+        self.upload_voice_window = UploadDialog(self, engines_list)
+        self.upload_voice_window.show()
+        self.upload_voice_window.raise_()
+        self.upload_voice_window.activateWindow()
     def open_word_replacer_window(self, parent=None):
         self.word_replacer_window = WordReplacerView(parent=parent)
         self.word_replacer_window.setWindowFlag(Qt.Window, True)

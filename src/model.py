@@ -356,6 +356,35 @@ class AudiobookModel:
 
         sentence_list = [s.strip() for s in paragraph.split('*%') if (s.strip()!='.' and s.strip()!='')]
         return sentence_list
+    def process_upload_items(self, mode, save_items):
+        for item in save_items:
+            if item.get('name', None):
+                name = item['name']
+        for file_to_save in save_items:
+            if file_to_save.get('name', None):
+                continue
+            type = file_to_save['type']
+            if type == 'file':
+                source_path = file_to_save['source_path']
+                base_target_path = file_to_save['target_path']
+                ext = os.path.splitext(source_path)[1]
+                new_name = f"{name}{ext}"
+                if file_to_save['save_format'] == 'folder':
+                    target_path = os.path.join(base_target_path, name, new_name)
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                else:
+                    target_path = os.path.join(base_target_path, new_name)
+                if os.path.exists(target_path):
+                    raise Exception(f"The file '{target_path}' already exists, please delete it before uploading a new voice.")
+                shutil.copy2(source_path, target_path)
+            elif type == 'text':
+                source_text = file_to_save['source_text']
+                base_target_path = file_to_save['target_path']
+                target_path = os.path.join(base_target_path, name, f"{name}.txt")
+                if os.path.exists(target_path):
+                    raise Exception(f"The file '{target_path}' already exists, please delete it before uploading a new voice.")
+                with open(target_path, 'w') as f:
+                    f.write(source_text)
     def replace_default_with_none(self, data):
         if isinstance(data, dict):
             for key, value in data.items():

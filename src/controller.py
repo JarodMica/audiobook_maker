@@ -248,12 +248,15 @@ class AudiobookController:
         self.view.toggle_delete_action_requested.connect(self.toggle_delete_column)
         self.view.tts_engine_changed.connect(self.on_tts_engine_changed)
         self.view.update_audiobook_requested.connect(self.update_audiobook)
+        self.view.upload_voice_window_requested.connect(self.toggle_upload_voice_window)
         self.view.word_replacer_window_requested.connect(self.toggle_word_replacer_window)
         self.view.word_replacer_window_closed.connect(self.word_replacer_closed)
     def connect_signals_replacer(self):
         self.view.word_replacer_window.save_list_requested.connect(self.save_list)
         self.view.word_replacer_window.start_wr_requested.connect(self.start_wr)
         self.view.word_replacer_window.test_repl_s.connect(self.test_single_word)
+    def connect_signals_upload_voice(self):
+        self.view.upload_voice_window.upload_requested.connect(self.upload_requested)
     def continue_audiobook_generation(self):
         if not self.current_audiobook_directory:
             self.popup_load_audiobook()
@@ -866,7 +869,12 @@ class AudiobookController:
             self.view.add_table_item(row_position, sentence, speaker_name, regen_state)
             self.view.set_row_speaker_color(row_position, speaker_id)
         self.view.resize_table()
-
+    def upload_requested(self, mode, save_items):
+        try:
+            self.model.process_upload_items(mode, save_items)
+            self.view.show_message("Upload Complete", "File upload complete.")
+        except Exception as e:
+            self.view.show_message("Upload Error", f"{str(e)}", icon=QMessageBox.Warning)
     def test_single_word(self, chosen_word, speaker):
         testdir = os.path.join(os.getcwd(),'test')
         if os.path.exists(testdir) == False:os.mkdir(testdir)
@@ -896,6 +904,13 @@ class AudiobookController:
         self.regen_worker.start()
     def toggle_delete_column(self):
         self.view.toggle_delete_column()   
+    def toggle_upload_voice_window(self):
+        tts_engines = self.model.get_tts_engines()
+        s2s_engines = self.model.get_s2s_engines()
+        engines_list = tts_engines + s2s_engines
+        self.view.open_upload_voice_window(engines_list)
+        self.connect_signals_upload_voice()
+
     def toggle_word_replacer_window(self, checked):
         if self.current_audiobook_directory == None:
             self.view.show_message("Replacer Window Error", "Please load an audiobook first.")

@@ -106,6 +106,16 @@ def generate_with_styletts2(tts_engine, sentence, voice_parameters, audio_path):
     return audio_path
 
 def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
+    engine_name = "Tortoise" 
+    # Load the config and convert it to an object
+    tts_config = load_config("configs/tts_config.json")
+    tts_settings = dict_to_object(tts_config)
+
+    styletts_engine_config = None
+    for engine in tts_settings.tts_engines:
+        if engine.name.lower() == engine_name.lower():  # Case-insensitive matching
+            tortoise_engine_config = engine
+            break
     if tts_engine is None:
         return False
     voice = voice_parameters.get('voice', 'random')
@@ -114,6 +124,7 @@ def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
     num_autoregressive_samples = sample_size
     seed = voice_parameters.get("tortoise_seed", -1)
     iterations = voice_parameters.get("tortoise_iterations", 25)
+    extra_voice_dirs = next((param.folder_path for param in tortoise_engine_config.parameters if param.attribute == "voice"), [])
 
     result = tortoise_generate(
         tts=tts_engine,
@@ -123,7 +134,8 @@ def generate_with_tortoise(tts_engine, sentence, voice_parameters, audio_path):
         use_hifigan=use_hifigan,
         num_autoregressive_samples=num_autoregressive_samples,
         diffusion_iterations=iterations,
-        audio_path=audio_path
+        audio_path=audio_path,
+        extra_voice_dirs=[extra_voice_dirs]
     )
     return os.path.exists(audio_path)
 
