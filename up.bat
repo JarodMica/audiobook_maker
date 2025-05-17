@@ -52,6 +52,8 @@ xcopy %REPO_NAME%\configs configs /E /I /H /Y
 xcopy %REPO_NAME%\modules\tortoise_tts_api modules\tortoise_tts_api /E /I /H /Y
 xcopy %REPO_NAME%\modules\styletts-api modules\styletts-api /E /I /H /Y
 xcopy %REPO_NAME%\modules\F5-TTS modules\F5-TTS /E /I /H /Y
+xcopy %REPO_NAME%\modules\GPT-SoVITS-Package modules\GPT-SoVITS-Package /E /I /H /Y
+xcopy %REPO_NAME%\engines\gpt_sovits engines\gpt_sovits /E /I /H /Y
 
 REM Start of TortoiseTTS install
 cd modules\tortoise_tts_api
@@ -95,6 +97,10 @@ REM Start of F5TTS install
 runtime\python.exe -m pip uninstall -y f5_tts
 runtime\python.exe -m pip install %REPO_NAME%\modules\F5-TTS
 
+REM Start of GPT-SoVITS install
+runtime\python.exe -m pip uninstall -y gpt_sovits
+runtime\python.exe -m pip install %REPO_NAME%\modules\GPT-SoVITS-Package
+
 REM Start of RVC install
 runtime\python.exe -m pip uninstall -y rvc-python
 runtime\python.exe -m pip install git+https://github.com/JarodMica/rvc-python
@@ -118,12 +124,18 @@ runtime\python.exe -m pip install -r requirements.txt
 
 mkdir voices\styletts
 mkdir voices\f5tts
+mkdir voices\gpt_sovits
+mkdir voices\tortoise
 
 mkdir engines\styletts
 mkdir engines\f5tts\duration
 mkdir engines\f5tts\models
 mkdir engines\f5tts\tokenizers
 mkdir engines\f5tts\vocoders
+mkdir engines\gpt_sovits
+mkdir engines\gpt_sovits\gpt_models
+mkdir engines\gpt_sovits\pretrained_models
+mkdir engines\gpt_sovits\sovits_models
 
 @echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 @echo ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
