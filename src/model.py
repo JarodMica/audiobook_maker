@@ -66,6 +66,21 @@ class AudiobookModel:
         adjusted_items = [(str(i), v) for i, (_, v) in enumerate(filtered_items, start=0)]
         adjusted_dict = {k: v for k, v in adjusted_items}
         self.text_audio_map = adjusted_dict
+        # Rename audio files on disk to match new indices
+        rename_map = {}
+        for idx_str, entry in self.text_audio_map.items():
+            old_path = entry.get('audio_path')
+            if old_path and os.path.exists(old_path):
+                dirpath = os.path.dirname(old_path)
+                temp_path = old_path + '.tmp'
+                os.rename(old_path, temp_path)
+                rename_map[temp_path] = os.path.join(dirpath, f'audio_{idx_str}.wav')
+        for temp_path, new_path in rename_map.items():
+            if os.path.exists(new_path):
+                os.remove(new_path)
+            os.rename(temp_path, new_path)
+            new_idx_str = os.path.splitext(os.path.basename(new_path))[0].split('_')[-1]
+            self.text_audio_map[new_idx_str]['audio_path'] = new_path
     def default_text_audio_map_format(self, **kwargs):
         text_audio_map = {
             "sentence": kwargs.get("sentence"),
@@ -142,23 +157,30 @@ class AudiobookModel:
         print(f"Combined audiobook saved in {new_audiobook_name}")
         return new_audiobook_name
     def filter_paragraph(self, paragraph):
-        lines = paragraph.strip().split('\n')
-        filtered_list = []
-        i = 0
-        while i < len(lines):
-            split_sentences = lines[i].split('. ')
-            for part_sentence in split_sentences:
-                if not part_sentence:
-                    continue
-                line = part_sentence.strip()
-                while line.endswith(",") and (i + 1) < len(lines):
-                    i += 1
-                    line += " " + lines[i].split('. ')[0].strip()
-                line = re.sub(r'\[|\]', '', line).strip()
-                if line and any(c.isalpha() for c in line):
-                    filtered_list.append(line)
-            i += 1
-        return filtered_list
+        sentences = []
+        for line in paragraph.split('\n'):
+            line = line.strip()
+            if line and any(c.isalpha() for c in line):
+                sentences.append(line)
+        return sentences
+    # def filter_paragraph(self, paragraph):
+    #     lines = paragraph.strip().split('\n')
+    #     filtered_list = []
+    #     i = 0
+    #     while i < len(lines):
+    #         split_sentences = lines[i].split('. ')
+    #         for part_sentence in split_sentences:
+    #             if not part_sentence:
+    #                 continue
+    #             line = part_sentence.strip()
+    #             while line.endswith(",") and (i + 1) < len(lines):
+    #                 i += 1
+    #                 line += " " + lines[i].split('. ')[0].strip()
+    #             line = re.sub(r'\[|\]', '', line).strip()
+    #             if line and any(c.isalpha() for c in line):
+    #                 filtered_list.append(line)
+    #         i += 1
+    #     return filtered_list
     def generate_audio_for_sentence_threaded(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
         self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
