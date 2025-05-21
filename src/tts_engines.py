@@ -362,7 +362,11 @@ def load_with_gpt_sovits(**kwargs):
     v4_config = raw_config.get('v4', {})
     TTS_Config.default_configs.update({"v1": v1_config, "v2": v2_config, "v3": v3_config, "v4": v4_config})
     
-    cfg = TTS_Config(config_path, local_files_only=True)
+    with open("configs/settings.yaml", "r") as f:
+        settings = yaml.safe_load(f)
+    local_files_only = settings.get("auto_download_gpt_sovits", False)
+    
+    cfg = TTS_Config(config_path, local_files_only=local_files_only)
     
     t2s_ckpt = kwargs.get("gpt_sovits_t2s_ckpt")
     if t2s_ckpt:
