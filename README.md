@@ -180,7 +180,8 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    pip install .\modules\GPT-SoVITS-Package\
    ```
-2. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
+2. Inside of , GPT-SoVITS base models will automatically be downloaded when first starting a generation.  Anytime there is a new update to the remote HF repo, it will download new files.  This behavior can be disabled by turning `auto_download_gpt_sovits` inside of `config\setting.yaml` to `False` instead of `True`.
+3. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ## Speech-to-Speech Engines
 ### RVC Installation
