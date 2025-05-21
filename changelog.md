@@ -7,6 +7,8 @@
     - This enables Blackwell (50 series) NVIDIA GPUs
 - Tidy up voices folder to separate voices between engines
 - Add an uploads menu button for models and voices instead of users having to manually create them
+- Text file loading no longer splits based on internal logic and critiera, simply splits sentences based on which sentences are on a newline (allows for more flexibilty in loading, but may cause issues with longer sentences)
+- Sentence deletion logic now adjusts the name of the audio file as well so that it matches with the text_audio_map index
 
 
 ## v3.5
