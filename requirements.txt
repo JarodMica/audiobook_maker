@@ -9,3 +9,6 @@ psutil
 deepspeed==0.15.0
 numpy==1.26.4
 tensorboardX==2.6.2.2
+split-lang
+fast_langdetect>=0.3.1
+peft

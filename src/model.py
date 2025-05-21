@@ -66,6 +66,21 @@ class AudiobookModel:
         adjusted_items = [(str(i), v) for i, (_, v) in enumerate(filtered_items, start=0)]
         adjusted_dict = {k: v for k, v in adjusted_items}
         self.text_audio_map = adjusted_dict
+        # Rename audio files on disk to match new indices
+        rename_map = {}
+        for idx_str, entry in self.text_audio_map.items():
+            old_path = entry.get('audio_path')
+            if old_path and os.path.exists(old_path):
+                dirpath = os.path.dirname(old_path)
+                temp_path = old_path + '.tmp'
+                os.rename(old_path, temp_path)
+                rename_map[temp_path] = os.path.join(dirpath, f'audio_{idx_str}.wav')
+        for temp_path, new_path in rename_map.items():
+            if os.path.exists(new_path):
+                os.remove(new_path)
+            os.rename(temp_path, new_path)
+            new_idx_str = os.path.splitext(os.path.basename(new_path))[0].split('_')[-1]
+            self.text_audio_map[new_idx_str]['audio_path'] = new_path
     def default_text_audio_map_format(self, **kwargs):
         text_audio_map = {
             "sentence": kwargs.get("sentence"),
@@ -142,23 +157,30 @@ class AudiobookModel:
         print(f"Combined audiobook saved in {new_audiobook_name}")
         return new_audiobook_name
     def filter_paragraph(self, paragraph):
-        lines = paragraph.strip().split('\n')
-        filtered_list = []
-        i = 0
-        while i < len(lines):
-            split_sentences = lines[i].split('. ')
-            for part_sentence in split_sentences:
-                if not part_sentence:
-                    continue
-                line = part_sentence.strip()
-                while line.endswith(",") and (i + 1) < len(lines):
-                    i += 1
-                    line += " " + lines[i].split('. ')[0].strip()
-                line = re.sub(r'\[|\]', '', line).strip()
-                if line and any(c.isalpha() for c in line):
-                    filtered_list.append(line)
-            i += 1
-        return filtered_list
+        sentences = []
+        for line in paragraph.split('\n'):
+            line = line.strip()
+            if line and any(c.isalpha() for c in line):
+                sentences.append(line)
+        return sentences
+    # def filter_paragraph(self, paragraph):
+    #     lines = paragraph.strip().split('\n')
+    #     filtered_list = []
+    #     i = 0
+    #     while i < len(lines):
+    #         split_sentences = lines[i].split('. ')
+    #         for part_sentence in split_sentences:
+    #             if not part_sentence:
+    #                 continue
+    #             line = part_sentence.strip()
+    #             while line.endswith(",") and (i + 1) < len(lines):
+    #                 i += 1
+    #                 line += " " + lines[i].split('. ')[0].strip()
+    #             line = re.sub(r'\[|\]', '', line).strip()
+    #             if line and any(c.isalpha() for c in line):
+    #                 filtered_list.append(line)
+    #         i += 1
+    #     return filtered_list
     def generate_audio_for_sentence_threaded(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
         self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
@@ -329,6 +351,7 @@ class AudiobookModel:
         with open(map_file_path, 'r', encoding="utf-8") as map_file:
             self.text_audio_map = json.load(map_file)
         return self.text_audio_map
+        
     def paragraph_to_sentence(self,paragraph) -> list:
         #This removes annoying pauses, and things like "greater than..." because a book
         #formatted computer text with '>' for example.
@@ -341,7 +364,9 @@ class AudiobookModel:
         paragraph = paragraph.replace('Ms.','Miz')
         paragraph = paragraph.replace('Dr.','Doctor')
         #add space before period, to improve end of sentence audio for tortoise for example.
-        paragraph = paragraph.replace(r'. ', ' .*%')
+        #removed space after period
+        #paragraph = paragraph.replace(r'. ', ' .*%')
+        paragraph = paragraph.replace(r'.', ' .*%')
         
         #This removes excess spaces.  
         #These occur with indented paragraphs without periods.
@@ -353,6 +378,35 @@ class AudiobookModel:
 
         sentence_list = [s.strip() for s in paragraph.split('*%') if (s.strip()!='.' and s.strip()!='')]
         return sentence_list
+    def process_upload_items(self, mode, save_items):
+        for item in save_items:
+            if item.get('name', None):
+                name = item['name']
+        for file_to_save in save_items:
+            if file_to_save.get('name', None):
+                continue
+            type = file_to_save['type']
+            if type == 'file':
+                source_path = file_to_save['source_path']
+                base_target_path = file_to_save['target_path']
+                ext = os.path.splitext(source_path)[1]
+                new_name = f"{name}{ext}"
+                if file_to_save['save_format'] == 'folder':
+                    target_path = os.path.join(base_target_path, name, new_name)
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                else:
+                    target_path = os.path.join(base_target_path, new_name)
+                if os.path.exists(target_path):
+                    raise Exception(f"The file '{target_path}' already exists, please delete it before uploading a new voice.")
+                shutil.copy2(source_path, target_path)
+            elif type == 'text':
+                source_text = file_to_save['source_text']
+                base_target_path = file_to_save['target_path']
+                target_path = os.path.join(base_target_path, name, f"{name}.txt")
+                if os.path.exists(target_path):
+                    raise Exception(f"The file '{target_path}' already exists, please delete it before uploading a new voice.")
+                with open(target_path, 'w') as f:
+                    f.write(source_text)
     def replace_default_with_none(self, data):
         if isinstance(data, dict):
             for key, value in data.items():
@@ -367,24 +421,35 @@ class AudiobookModel:
                     data[i] = None
                 elif isinstance(value, (dict, list)):
                     self.replace_default_with_none(value)
+                    
     def replace_words_from_list(self, replacement_file_path, extra):
         with open(replacement_file_path, 'r', encoding='utf-8') as f:
             replacements = json.load(f)
+
         for key, value in self.text_audio_map.items():
             sentence = value['sentence']
+
+            #This needed to happen before the word replacement
+            if extra:
+                #so things like Mr becomes Mister, since period is required.
+                if sentence[-1] != ".":
+                    sentence =  sentence + "."
+                
+                sentence_list = self.paragraph_to_sentence(sentence)
+                sentence = ' '.join(sentence_list)
 
             for _, replacement_data in replacements.items():
                 orig_word = replacement_data['orig_word']
                 replacement_word = replacement_data['replacement_word']
             
                 pattern = r"\b{}\b".format(re.escape(orig_word))
+                #So sentences with replaced words are regenerated
+                if orig_word in sentence:
+                    value['regen'] = True  #I like this, but it is required
+                    value['generated'] = False
                 sentence = re.sub(pattern, replacement_word, sentence)
 
-            if extra:
-                sentence_list = self.paragraph_to_sentence(sentence)
-                sentence = ' '.join(sentence_list)
             value['sentence'] = sentence
-
 
     def reset(self):
         self.text_audio_map.clear()

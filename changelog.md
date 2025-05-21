@@ -1,5 +1,16 @@
 # Changelog & thoughts
 
+## v3.6
+- Add GPT_SoVITS as a useable engine
+- Modify word replacer with updates from PhyEngineer (Ed)
+- Update compatibilty of Engines to work with Pytorch>=2.7.0
+    - This enables Blackwell (50 series) NVIDIA GPUs
+- Tidy up voices folder to separate voices between engines
+- Add an uploads menu button for models and voices instead of users having to manually create them
+- Text file loading no longer splits based on internal logic and critiera, simply splits sentences based on which sentences are on a newline (allows for more flexibilty in loading, but may cause issues with longer sentences)
+- Sentence deletion logic now adjusts the name of the audio file as well so that it matches with the text_audio_map index
+
+
 ## v3.5
 - Fix a particularly nasty inefficiency which was causing extremly long loading times for long text files
     - Long text files (greater than 10k lines) will still have significant loading time, depending on your CPU.  28k lines on my PC took around 2 minutes of loading time with a 13900k.

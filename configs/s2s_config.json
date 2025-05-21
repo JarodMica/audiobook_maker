@@ -3,6 +3,33 @@
       {
         "name": "RVC",
         "label": "RVC Settings",
+        "upload_params": {
+                "AI Models": [
+                    {
+                        "label": "Model Name",
+                        "type": "text",
+                        "attribute": "upload_rvc_model_name"
+                    },
+                    {
+                        "label": "Browse RVC .pth model",
+                        "type": "file",
+                        "attribute": "upload_rvc_model_path",
+                        "file_filter": "Model Files (*.pth *.pt);;All Files (*)",
+                        "save_path": "engines/rvc",
+                        "save_format": "folder"
+                    },
+                    {
+                        "label": "Browse RVC .index file",
+                        "type": "file",
+                        "attribute": "upload_rvc_index_path",
+                        "file_filter": "Index Files (*.index);;All Files (*)",
+                        "save_path": "engines/rvc",
+                        "save_format": "folder"
+                    }
+                ],
+                "Voice Reference File": [
+                ]
+            },
         "parameters": [
           {
             "label": "Voice Model",
