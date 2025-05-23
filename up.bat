@@ -98,6 +98,8 @@ runtime\python.exe -m pip uninstall -y f5_tts
 runtime\python.exe -m pip install %REPO_NAME%\modules\F5-TTS
 
 REM Start of GPT-SoVITS install
+runtime\python.exe -m pip install hatchling
+runtime\python.exe -m pip install hatch-vcs
 runtime\python.exe -m pip uninstall -y gpt_sovits
 runtime\python.exe -m pip install %REPO_NAME%\modules\GPT-SoVITS-Package
 
