@@ -1,6 +1,9 @@
 # s2s_engines.py
 import os
 import json
+import fairseq
+import torch
+
 
 try:
     from rvc_python.infer import RVCInference
@@ -60,7 +63,8 @@ def load_with_rvc(**kwargs):
     protect_step = next((param.step for param in rvc_engine_config.parameters if param.attribute == "protect"), 100)
     protect = kwargs.get("protect")/protect_step
     
-    
+
+    torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])
     s2s = RVCInference(models_dir=rvc_folder_path,
                        device="cuda:0",
                        f0method=f0method,

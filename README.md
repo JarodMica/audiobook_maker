@@ -197,7 +197,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
 
 2. Install the rvc-python library:
    ```
-   pip install git+https://github.com/JarodMica/rvc-python
+   pip install .\modules\rvc-python\
    ```
 3. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
