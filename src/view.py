@@ -14,6 +14,7 @@ from PySide6.QtGui import QPixmap, QAction, QScreen, QTextOption
 import os
 import json
 import fnmatch
+import yaml
 
 
 from PySide6.QtWidgets import (
@@ -677,12 +678,15 @@ class AudiobookMakerView(QMainWindow):
         self.background_label.lower()  # Lower the background so it's behind other widgets
 
         # Load user settings
-        if os.path.exists('settings.json'):
-            with open('settings.json', 'r') as json_file:
-                settings = json.load(json_file)
+        self.loaded_font_size = 14
+        if os.path.exists('configs/settings.yaml'):
+            with open('configs/settings.yaml', 'r') as json_file:
+                settings = yaml.safe_load(json_file)
                 background_image = settings.get('background_image')
                 if background_image and os.path.exists(background_image):
                     self.set_background(background_image)
+                if settings.get('font_size'):
+                    self.loaded_font_size = settings['font_size']
 
         self.setStyleSheet(self.load_stylesheet())
 
@@ -711,7 +715,10 @@ class AudiobookMakerView(QMainWindow):
         # Initialize UI components
         self.filepath = None
         self._init_ui()
-        
+        # Apply loaded font size to font slider and stylesheet
+        self.font_slider.setValue(self.loaded_font_size)
+        self.update_font_size_from_slider(self.loaded_font_size)
+
         self.update_speaker_selection_combo()
         self.populate_s2s_engines()
         self.set_tts_initial_index()
@@ -1568,7 +1575,6 @@ class AudiobookMakerView(QMainWindow):
         # self.pause_between_sentences_changed.emit(pause_duration)
     def on_font_slider_changed(self, value):
         self.font_size_changed.emit(value)
-        self.update_font_size_from_slider(value)
     def on_generate_button_clicked(self):
         self.start_generation_requested.emit()
     def on_go_to_sentence(self):

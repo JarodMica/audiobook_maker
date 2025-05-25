@@ -6,6 +6,7 @@ from PySide6.QtCore import QThread, Signal, QObject
 import os
 import shutil
 import time
+import traceback
 
 if os.path.exists("runtime"):
     # Get the directory where the script is located
@@ -135,7 +136,7 @@ class AudiobookController:
         self.is_generating = False
 
         
-        self.debug = False  # Set this to True to enable debugging mode
+        self.debug = True  # Set this to True to enable debugging mode
 
         # Connect signals and slots
         self.connect_signals()
@@ -225,6 +226,7 @@ class AudiobookController:
         self.view.continue_audiobook_generation_requested.connect(self.continue_audiobook_generation)
         self.view.delete_requested.connect(self.deletion_prompt)
         self.view.export_audiobook_requested.connect(self.export_audiobook)
+        self.view.font_size_changed.connect(self.on_font_size_changed)
         self.view.generation_settings_changed.connect(self.save_generation_settings)
         self.view.load_existing_audiobook_requested.connect(self.load_existing_audiobook)
         self.view.load_text_file_requested.connect(self.load_text_file)
@@ -451,6 +453,10 @@ class AudiobookController:
     def on_audio_finished(self):
         if self.playing_sequence:
             self.play_next_audio_in_sequence()
+    def on_font_size_changed(self, font_size):
+        self.view.update_font_size_from_slider(font_size)
+        settings_dict = {'font_size': font_size}
+        self.model.save_settings(settings_dict)
     def on_generation_finished(self):
         self.is_generating = False
         self.view.start_generation_button.setEnabled(True)
@@ -758,16 +764,22 @@ class AudiobookController:
                 
             if self.debug:
                 # Run in main thread for debugging
-                self.view.disable_buttons()  
-                self.model.generate_audio_for_sentence_threaded(
-                    directory_path,
-                    False,  # is continue
+                self.view.disable_buttons()
+                try:
+                    self.model.generate_audio_for_sentence_threaded(
+                        directory_path,
+                        False,  # is continue
                     False,  # is regen
-                    self.view.set_progress,  # Progress callback
+                    delview.set_progress,  # Progress callback
                     self.on_sentence_generated,  # Sentence generated callback
                     lambda: False  # should_stop_callback always returns False in debug mode
-                )
+                    )
+                except Exception as e:
+                    traceback.print_exc()
+                    self.view.enable_buttons()
+                    return
                 self.view.enable_buttons()
+                
                 self.on_generation_finished()
             else:
                 # Start the worker thread

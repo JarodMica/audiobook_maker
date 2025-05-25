@@ -1,5 +1,16 @@
 # Changelog & thoughts
 
+## v3.6.1
+### Logic and Engines
+- Fix rvc-python package for inference
+    - Mainly hubert section causing issues - requires `torch.serialization.add_safe_globals([fairseq.data.dictionary.Dictionary])` inside of `s2s_engines.py` for newer pytorch due to weight_only force.
+    - `corpus_key` parameter added to `get_hubert.py` extract features to resolve `get_hubert_model.<locals>._extract_features() got an unexpected keyword argument 'corpus_key'`
+- Fix a monkey-patch in GPT-SoVITS which was conflicting with fairseq's usage of `multi_head_attention_forward`, it now uses the patched up version directly `from GPT_SoVITS.AR.modules.patched_mha_with_cache import multi_head_attention_forward_patched`
+- Reapply tortoise patch to look for voices correctly
+### Gui Enhancements
+- Font size is now saved between uses
+- Loading background image is now fixed
+
 ## v3.6
 - Add GPT_SoVITS as a useable engine
 - Modify word replacer with updates from PhyEngineer (Ed)

@@ -13,3 +13,6 @@
 [submodule "modules/GPT-SoVITS-Package"]
 	path = modules/GPT-SoVITS-Package
 	url = https://github.com/JarodMica/GPT-SoVITS-Package.git
+[submodule "modules/rvc-python"]
+	path = modules/rvc-python
+	url = https://github.com/JarodMica/rvc-python.git

@@ -8,6 +8,7 @@ import pyttsx3
 import re
 import subprocess
 import tempfile
+import yaml
 
 import tts_engines
 import s2s_engines
@@ -45,7 +46,8 @@ class AudiobookModel:
         if idx_str in self.text_audio_map:
             self.text_audio_map[idx_str]["regen"] = state
     def clear_background_image(self):
-        self.save_settings(background_image=None) 
+        settings_dict = {"background_image": None}
+        self.save_settings(settings_dict) 
     def create_audio_text_map(self, directory_path, sentences_list):
         new_text_audio_map = {}
         for idx, sentence in enumerate(sentences_list):
@@ -466,6 +468,12 @@ class AudiobookModel:
     def reset_regen_in_text_audio_map(self):
         for idx_str in self.text_audio_map:
             self.text_audio_map[idx_str]["regen"] = False
+    def save_settings(self, settings_dict):
+        with open('configs/settings.yaml', 'r') as f:
+            settings_yaml = yaml.safe_load(f) or {}
+            settings_yaml.update(settings_dict)
+        with open('configs/settings.yaml', 'w') as f:
+            yaml.safe_dump(settings_yaml, f)
     def save_generation_settings(self, directory_path, speakers=None):
         generation_settings = {}
         if speakers is None:
@@ -493,10 +501,10 @@ class AudiobookModel:
             raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
         with open(file_path, 'w', encoding='utf-8') as file:
             json.dump(data, file, ensure_ascii=False, indent=4, default=default_serializer)
-    def save_settings(self, background_image=None):
-        self.settings['background_image'] = background_image
-        with open('settings.json', 'w') as json_file:
-            json.dump(self.settings, json_file)
+    # def save_settings(self, background_image=None):
+    #     self.settings['background_image'] = background_image
+    #     with open('settings.json', 'w') as json_file:
+    #         json.dump(self.settings, json_file)
     def save_temp_generation_settings(self, speakers=None):
         generation_settings = {}
         if speakers is None:
@@ -528,7 +536,8 @@ class AudiobookModel:
         destination_path = os.path.join('image_backgrounds', image_name)
         if os.path.abspath(file_name) != os.path.abspath(destination_path):
             shutil.copy2(file_name, destination_path)
-        self.save_settings(background_image=destination_path)
+        settings_dict = {"background_image": destination_path}
+        self.save_settings(settings_dict)
         return destination_path
     def update_audiobook(self, directory_path, new_sentences_list):
         audio_map_path = os.path.join(directory_path, 'text_audio_map.json')
