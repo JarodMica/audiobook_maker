@@ -136,7 +136,7 @@ class AudiobookController:
         self.is_generating = False
 
         
-        self.debug = True  # Set this to True to enable debugging mode
+        self.debug = False  # Set this to True to enable debugging mode
 
         # Connect signals and slots
         self.connect_signals()
@@ -770,7 +770,7 @@ class AudiobookController:
                         directory_path,
                         False,  # is continue
                     False,  # is regen
-                    delview.set_progress,  # Progress callback
+                    self.view.set_progress,  # Progress callback
                     self.on_sentence_generated,  # Sentence generated callback
                     lambda: False  # should_stop_callback always returns False in debug mode
                     )

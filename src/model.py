@@ -458,7 +458,7 @@ class AudiobookModel:
         self.settings.clear()
         self.current_sentence_idx = 0
         self.speakers = {
-            "1": {'name': 'Narrator', 'color': '#FFFFFF', 'settings': {}}
+            1: {'name': 'Narrator', 'color': '#FFFFFF', 'settings': {}}
         }
         self.current_tts_engine_name = None
         self.current_speaker_id = None
