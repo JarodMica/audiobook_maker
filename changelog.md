@@ -1,5 +1,9 @@
 # Changelog & thoughts
 
+## v3.6.2
+- Fixed parsing bugs that didn't allow for .ckpt and .pt sovits models to be seen in file explorer
+- Fixed GPT-SoVITs package for inference with custom models
+
 ## v3.6.1
 ### Logic and Engines
 - Fix rvc-python package for inference

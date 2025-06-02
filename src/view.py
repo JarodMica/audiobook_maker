@@ -15,6 +15,7 @@ import os
 import json
 import fnmatch
 import yaml
+import re
 
 
 from PySide6.QtWidgets import (
@@ -1297,7 +1298,23 @@ class AudiobookMakerView(QMainWindow):
                 self.show_message("Error", f"Error reading directory {folder_path}: {e}", QMessageBox.Warning)
                 return items
         elif look_for == 'files':
-            patterns = file_filter.split(';')
+            patterns = []
+            if file_filter:
+                # Parse Qt-style file dialog filters like "Model Files (*.pth, *.ckpt);;All Files (*)"
+                filter_parts = file_filter.split(';;')
+                for part in filter_parts:
+                    # Extract patterns from within parentheses
+                    pattern_match = re.search(r'\((.*?)\)', part)
+                    if pattern_match:
+                        inner_patterns = pattern_match.group(1).split()
+                        for pattern in inner_patterns:
+                            # Remove commas and clean up the pattern
+                            clean_pattern = pattern.strip().rstrip(',')
+                            if clean_pattern and clean_pattern != '*':  # Skip generic '*' pattern
+                                patterns.append(clean_pattern)
+            if not patterns:
+                patterns = ['*']
+                
             try:
                 for entry in os.scandir(folder_path):
                     if any(fnmatch.fnmatch(entry.name, pattern) for pattern in patterns):
