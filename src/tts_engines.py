@@ -396,16 +396,14 @@ def load_with_gpt_sovits(**kwargs):
         t2s_ckpt_path = os.path.abspath(t2s_ckpt_path)
         vits_ckpt_path = os.path.abspath(vits_ckpt_path)
         if version == "v4":
-            vocoder_path = os.path.abspath("engines/gpt_sovits/pretrained_models/gsv-v4-pretrained/vocoder.pth")
+            vocoder_path = "engines/gpt_sovits/pretrained_models/gsv-v4-pretrained/vocoder.pth"
         else:
-            vocoder_path = os.path.abspath("engines/gpt_sovits/pretrained_models/models--nvidia--bigvgan_v2_24khz_100band_256x")
-        # Ensure vocoder path is absolute
-        vocoder_path = os.path.abspath(vocoder_path)
+            vocoder_path = "engines/gpt_sovits/pretrained_models/models--nvidia--bigvgan_v2_24khz_100band_256x"
         print(f"Loading TTS weights from {t2s_ckpt_path}")
         print(f"Loading VITS weights from {vits_ckpt_path}")
         print(f"Loading Vocoder weights from {vocoder_path}")
         pipeline.init_t2s_weights(t2s_ckpt_path)
-        pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path)
+        pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path, model_version=version)
     return pipeline
 
 #################################################

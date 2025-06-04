@@ -5,9 +5,6 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 
 ## Table of Contents
 - [Features](#features)
-- [What changed from v1 and v2?](#what-changed-from-v1-and-v2)
-  - [As a user?](#as-a-user)
-  - [As a developer?](#as-a-developer)
 - [Windows Package Installation](#windows-package-installation)
 - [Manual Installation Windows 10/11](#manual-installation-windows-1011)
 - [Text-to-Speech Engines](#text-to-speech-engines)
@@ -19,6 +16,7 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 - [TortoiseTTS Installation](#tortoisetts-installation)
 - [StyleTTS 2 Installation](#styletts-2-installation)
 - [F5-TTS Installation](#f5-tts-installation)
+- [GPT-SoVITS Installation](#gpt-sovits-installation)
 - [RVC Installation](#rvc-installation)
 
 ## Features
@@ -209,11 +207,11 @@ Check torch version:
 pip show torch
 ```
 
-As long as torch `Version: 2.7.0+cu126`, you should be fine.  If not, follow below:
-> Blackwell GPUs (NVIDIA 50 series) need pytorch 2.7.0 or higher
+As long as torch `Version: 2.7.0+cu128`, you should be fine.  If not, follow below:
+> Blackwell GPUs (NVIDIA 50 series) need pytorch 2.7.0 or higher with CUDA 12.8 or above
 ```
 pip uninstall torch -y
-pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu126
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 ```
 
 Torch is a pretty large download, so it may take a bit of time.  Once you have it installed here, it should be fine following the other install.  However, sometimes, newer versions of torch may uninstall the one we just did, so you may need to uninstall and reinstall after each engine to make sure you have the correction version.  After the first install, it will have been cached, so you won't have to wait each time afterwards.
