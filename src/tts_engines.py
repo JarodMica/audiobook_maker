@@ -368,34 +368,42 @@ def load_with_gpt_sovits(**kwargs):
     
     cfg = TTS_Config(config_path, local_files_only=local_files_only)
     
-    t2s_ckpt = kwargs.get("gpt_sovits_t2s_ckpt")
+    t2s_ckpt = kwargs.get("gpt_sovits_model")
     if t2s_ckpt:
-        t2s_ckpt_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_t2s_ckpt")
+        t2s_ckpt_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_model")
         t2s_ckpt_path = os.path.join(t2s_ckpt_root_path, t2s_ckpt)
     else:
         config = raw_config.get(version, {})
         t2s_ckpt_path = config.get("t2s_weights_path")
     
-    vits_ckpt = kwargs.get("gpt_sovits_vits_ckpt")
+    vits_ckpt = kwargs.get("gpt_sovits_vits_model")
     if vits_ckpt:
-        vits_ckpt_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_vits_ckpt")
+        vits_ckpt_root_path = next(param.folder_path for param in gpt_sovits_engine_config.parameters if param.attribute == "gpt_sovits_vits_model")
         vits_ckpt_path = os.path.join(vits_ckpt_root_path, vits_ckpt)
     else:
         config = raw_config.get(version, {})
         vits_ckpt_path = config.get("vits_weights_path")
         
     from GPT_SoVITS.process_ckpt import get_sovits_version_from_path_fast
-    version, model_version, if_lora_v3 = get_sovits_version_from_path_fast(vits_ckpt_path)
+    _, model_version, if_lora_v3 = get_sovits_version_from_path_fast(vits_ckpt_path)
     
     pipeline = TTS(cfg)
     if model_version in ["v1", "v2"]:
         pipeline.init_t2s_weights(t2s_ckpt_path)
         pipeline.init_vits_weights(vits_ckpt_path)
     else: #v3, v4
-        vocoder_home_path = os.path.dirname(vits_ckpt_path)
-        vocoder_path = os.path.join(vocoder_home_path, "vocoder.pth")
+        # Convert paths to absolute for correct lookup
+        t2s_ckpt_path = os.path.abspath(t2s_ckpt_path)
+        vits_ckpt_path = os.path.abspath(vits_ckpt_path)
+        if version == "v4":
+            vocoder_path = "engines/gpt_sovits/pretrained_models/gsv-v4-pretrained/vocoder.pth"
+        else:
+            vocoder_path = "engines/gpt_sovits/pretrained_models/models--nvidia--bigvgan_v2_24khz_100band_256x"
+        print(f"Loading TTS weights from {t2s_ckpt_path}")
+        print(f"Loading VITS weights from {vits_ckpt_path}")
+        print(f"Loading Vocoder weights from {vocoder_path}")
         pipeline.init_t2s_weights(t2s_ckpt_path)
-        pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path)
+        pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path, model_version=version)
     return pipeline
 
 #################################################

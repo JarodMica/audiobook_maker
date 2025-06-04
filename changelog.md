@@ -1,5 +1,10 @@
 # Changelog & thoughts
 
+## v3.6.2
+- Fixed parsing bugs that didn't allow for .ckpt and .pt sovits models to be seen in file explorer
+- Fixed GPT-SoVITs package for inference with custom models
+    - Allow for v4 vocoder to be used wih v3 GPT models (Still, I highly recommend you use the same version of model)
+
 ## v3.6.1
 ### Logic and Engines
 - Fix rvc-python package for inference

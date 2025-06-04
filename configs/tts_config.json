@@ -415,7 +415,7 @@
                         "label": "Browse GPT model",
                         "type": "file",
                         "attribute": "upload_gpt_sovits_gpt_model_path",
-                        "file_filter": "Model Files (*.ckpt, *.pth);;All Files (*)",
+                        "file_filter": "Model Files (*.ckpt *.pth);;All Files (*)",
                         "save_path": "engines/gpt_sovits/gpt_models",
                         "save_format": "file"
                     },
@@ -423,7 +423,7 @@
                         "label": "Browse SoVITS model",
                         "type": "file",
                         "attribute": "upload_gpt_sovits_vits_model_path",
-                        "file_filter": "Model Files (*.ckpt, *.pth);;All Files (*)",
+                        "file_filter": "Model Files (*.ckpt *.pth);;All Files (*)",
                         "save_path": "engines/gpt_sovits/sovits_models",
                         "save_format": "file"
                     }
@@ -469,7 +469,7 @@
                     "folder_path":"engines/gpt_sovits/gpt_models",
                     "look_for":"files",
                     "file_filter": "Model Files (*.pth *.ckpt);;All Files (*)",
-                    "include_none_option":false
+                    "include_none_option": true
                 },
                 {
                     "label": "VITS Model to Use",
@@ -479,7 +479,7 @@
                     "folder_path": "engines/gpt_sovits/sovits_models",
                     "look_for": "files",
                     "file_filter": "Model Files (*.pth *.ckpt);;All Files (*)",
-                    "include_none_option": false
+                    "include_none_option": true
                 },
                 {
                     "label":"Reference Voice",
