@@ -136,7 +136,7 @@ class AudiobookController:
         self.is_generating = False
 
         
-        self.debug = True  # Set this to True to enable debugging mode
+        self.debug = False  # Set this to True to enable debugging mode
 
         # Connect signals and slots
         self.connect_signals()
