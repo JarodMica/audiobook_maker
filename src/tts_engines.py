@@ -10,25 +10,34 @@ import importlib.util, os
 import json
 import numpy as np
 import soundfile as sf
+import traceback
 try:
     from tortoise_tts_api.inference.load import load_tts as load_tortoise_engine
     from tortoise_tts_api.inference.generate import generate as tortoise_generate
 except Exception as e:
     print(f"Tortoise not available, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
     
 try:
     from styletts_api.inference.load import load_all_models
     from styletts_api.inference.generate import generate_audio as stts_generate
 except Exception as e:
     print(f"StyleTTS not available, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
 try:
     from f5_tts.api import F5TTS
 except Exception as e:
     print(f"F5-TTS is not available, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
 try:
     from GPT_SoVITS.TTS_infer_pack.TTS import TTS, TTS_Config
 except Exception as e:
     print(f"GPT-SoVITS is not available, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -365,6 +374,7 @@ def load_with_gpt_sovits(**kwargs):
     with open("configs/settings.yaml", "r") as f:
         settings = yaml.safe_load(f)
     local_files_only = settings.get("auto_download_gpt_sovits", False)
+    local_files_only = not local_files_only
     
     cfg = TTS_Config(config_path, local_files_only=local_files_only)
     

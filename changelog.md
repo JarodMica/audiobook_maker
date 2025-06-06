@@ -1,5 +1,15 @@
 # Changelog & thoughts
 
+## v3.6.3
+- add x_transformers to requirements.txt as needed by GPT-SoVITS
+- Added to instructions where GPT-SoVITS requires additional nltk downloads
+    ```
+    import nltk
+    nltk.download('averaged_perceptron_tagger_eng')
+    ```
+- Put fairseq import into rvc exception block
+- Fix autodownload for gpt_sovits models
+
 ## v3.6.2
 - Fixed parsing bugs that didn't allow for .ckpt and .pt sovits models to be seen in file explorer
 - Fixed GPT-SoVITs package for inference with custom models

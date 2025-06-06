@@ -15,3 +15,4 @@ peft
 hatchling
 hatch-vcs
 transformers==4.51.3
+x_transformers==1.42.6

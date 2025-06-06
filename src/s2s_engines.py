@@ -1,14 +1,16 @@
 # s2s_engines.py
 import os
 import json
-import fairseq
 import torch
-
+import traceback
 
 try:
     from rvc_python.infer import RVCInference
+    import fairseq
 except Exception as e:
     print(f"RVC not installed, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
 
 def process_audio(s2s_engine, s2s_engine_name, input_audio_path, output_audio_path, parameters):
     s2s_engine_name = s2s_engine_name.lower()
