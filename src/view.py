@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PySide6.QtCore import Signal, Qt, QUrl, QSize
-from PySide6.QtGui import QPixmap, QAction, QScreen, QTextOption
+from PySide6.QtGui import QPixmap, QAction, QScreen, QTextOption, QGuiApplication
 
 import os
 import json
@@ -1456,7 +1456,7 @@ class AudiobookMakerView(QMainWindow):
     def get_selected_table_row(self):
         return self.tableWidget.currentRow()
     def get_window_size(self):
-        screen = QScreen().availableGeometry()  # Get the available screen geometry
+        screen = QGuiApplication.primaryScreen().availableGeometry()  # Get the available screen geometry
         target_ratio = 16 / 9
         width = screen.width() * 0.8  # Adjusted to fit within the screen
         height = width / target_ratio  # calculate height based on the target aspect ratio
