@@ -190,19 +190,9 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    pip install .\modules\GPT-SoVITS-Package\
    ```
 2. Install nltk requirements:
-   - Activate python:
-      ```
-      python
-      ```
-   - Then run
-      ```
-      import nltk
-      nltk.download('averaged_perceptron_tagger_eng')
-      ```
-   - Now exit
-      ```
-      quit()
-      ```
+   ```
+   python install_gpt_sovits_nltk.py
+   ```
 3. Ensure requirements are at the versions they need to be at:
    ```
    pip install -r requirements.txt
