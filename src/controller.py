@@ -884,6 +884,16 @@ class AudiobookController:
     def upload_requested(self, mode, save_items):
         try:
             self.model.process_upload_items(mode, save_items)
+            new_name = None
+            for item in save_items:
+                if 'name' in item:
+                    new_name = item['name']
+                    break
+            if new_name:
+                speaker_id, _ = self.view.get_current_speaker_attributes()
+                self.view.speakers.setdefault(speaker_id, {}).setdefault('settings', {})['gpt_sovits_voice'] = new_name
+                self.view.load_speaker_settings(speaker_id)
+                self.save_generation_settings()
             self.view.show_message("Upload Complete", "File upload complete.")
         except Exception as e:
             self.view.show_message("Upload Error", f"{str(e)}", icon=QMessageBox.Warning)
