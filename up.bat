@@ -104,7 +104,7 @@ runtime\python.exe -m pip install hatch-vcs
 runtime\python.exe -m pip uninstall -y gpt_sovits
 runtime\python.exe -m pip install modules\GPT-SoVITS-Package
 runtime\python.exe -m pip install nltk
-runtime\python.exe instal_gpt_sovits_nlkt.py
+runtime\python.exe install_gpt_sovits_nltk.py
 
 
 REM Start of RVC install
