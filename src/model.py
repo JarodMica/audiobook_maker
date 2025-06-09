@@ -22,6 +22,7 @@ class AudiobookModel:
     def __init__(self):
         self.text_audio_map = {}
         self.settings = {}
+        self.global_settings = self.load_global_settings()
         self.voice_folder_path = "voice_models"
         self.index_folder_path = "voice_indexes"
         self.current_sentence_idx = 0
@@ -298,6 +299,14 @@ class AudiobookModel:
                 if isinstance(color, str):
                     speaker['color'] = QColor(color)
             return settings
+        else:
+            return {}
+    def load_global_settings(self):
+        global_settings_path = os.path.join('configs', "settings.yaml")
+        if os.path.exists(global_settings_path):
+            with open(global_settings_path, 'r', encoding='utf-8') as file:
+                self.global_settings = yaml.safe_load(file)
+                return self.global_settings
         else:
             return {}
     def load_json(self, file_path):
