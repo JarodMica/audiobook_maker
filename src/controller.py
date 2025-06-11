@@ -328,6 +328,7 @@ class AudiobookController:
                     default_button=QMessageBox.No
                 )
                 if confirm_delete:
+                    self.view.stop_audio()
                     shutil.rmtree(self.current_audiobook_directory)
                 else:
                     return
@@ -358,6 +359,8 @@ class AudiobookController:
         if not confirm_continue:
             return #stop generation
         
+        self.view.stop_audio()
+
         rows_list = self.view.get_deletion_checkboxes()
         self.model.delete_sentences(rows_list)
         self.model.save_text_audio_map(self.current_audiobook_directory)
@@ -891,9 +894,23 @@ class AudiobookController:
                     break
             if new_name:
                 speaker_id, _ = self.view.get_current_speaker_attributes()
-                self.view.speakers.setdefault(speaker_id, {}).setdefault('settings', {})['gpt_sovits_voice'] = new_name
-                self.view.load_speaker_settings(speaker_id)
-                self.save_generation_settings()
+                # Dynamically update the correct voice setting based on engine configuration
+                engine_name = self.view.upload_voice_window.engine_combo.currentText()
+                # Load TTS and S2S engine configurations
+                tts_config = self.model.load_config('configs/tts_config.json')
+                s2s_config = self.model.load_config('configs/s2s_config.json')
+                all_engines = tts_config.get('tts_engines', []) + s2s_config.get('s2s_engines', [])
+                engine_cfg = next((e for e in all_engines if e.get('name') == engine_name), None)
+                voice_attr = None
+                if engine_cfg:
+                    for param in engine_cfg.get('parameters', []):
+                        if param.get('type') == 'combobox' and 'voice' in param.get('label', '').lower():
+                            voice_attr = param.get('attribute')
+                            break
+                if voice_attr:
+                    self.view.speakers.setdefault(speaker_id, {}).setdefault('settings', {})[voice_attr] = new_name
+                    self.view.load_speaker_settings(speaker_id)
+                    self.save_generation_settings()
             self.view.show_message("Upload Complete", "File upload complete.")
         except Exception as e:
             self.view.show_message("Upload Error", f"{str(e)}", icon=QMessageBox.Warning)
