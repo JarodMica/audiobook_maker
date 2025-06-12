@@ -18,6 +18,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 from subprocess import Popen, PIPE, CalledProcessError
 
+VALID_AUDIO_EXTENSIONS = ['.wav', '.mp3', '.m4a', '.ogg', '.flac']
+
 class AudiobookModel:
     def __init__(self):
         self.text_audio_map = {}
@@ -403,13 +405,22 @@ class AudiobookModel:
                 ext = os.path.splitext(source_path)[1]
                 new_name = f"{name}{ext}"
                 if file_to_save['save_format'] == 'folder':
-                    target_path = os.path.join(base_target_path, name, new_name)
-                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    if ext in VALID_AUDIO_EXTENSIONS:
+                        new_name = f"{name}.wav"
+                        target_path = os.path.join(base_target_path, name, new_name)
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    else:
+                        target_path = os.path.join(base_target_path, new_name)
+                        os.makedirs(os.path.dirname(target_path), exist_ok=True)
                 else:
                     target_path = os.path.join(base_target_path, new_name)
                 if os.path.exists(target_path):
                     raise Exception(f"The file '{target_path}' already exists, please delete it before uploading a new voice.")
-                shutil.copy2(source_path, target_path)
+                if ext in VALID_AUDIO_EXTENSIONS:
+                    audio = AudioSegment.from_file(source_path)
+                    audio.export(target_path, format="wav")
+                else:
+                    shutil.copy2(source_path, target_path)
             elif type == 'text':
                 source_text = file_to_save['source_text']
                 base_target_path = file_to_save['target_path']
