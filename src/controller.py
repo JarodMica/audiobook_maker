@@ -124,8 +124,9 @@ class RegenerateAudioWorker(QThread):
 class AudiobookController:
     def __init__(self):
         self.app = QApplication(sys.argv)
-        self.model = AudiobookModel()
-        self.view = AudiobookMakerView()
+        self.global_settings = self.load_global_settings()
+        self.model = AudiobookModel(self.global_settings)
+        self.view = AudiobookMakerView(self.global_settings)
         self.view_word_replacer = None
         self.current_sentence_idx = 0
         self.tts_engine = None
@@ -136,7 +137,7 @@ class AudiobookController:
         self.is_generating = False
 
         
-        self.debug = self.model.global_settings.get('debug_mode', False)  # Set this to True to enable debugging mode
+        self.debug = self.global_settings.get('debug_mode', False)  # Set this to True to enable debugging mode
 
         # Connect signals and slots
         self.connect_signals()
@@ -426,6 +427,15 @@ class AudiobookController:
             self.setup_interface(directory_path)
         except Exception as e:
             self.view.show_message("Error", f"An error occurred: {str(e)}", icon=QMessageBox.Warning)
+    def load_global_settings(self):
+        import yaml
+        global_settings_path = os.path.join('configs', "settings.yaml")
+        if os.path.exists(global_settings_path):
+            with open(global_settings_path, 'r', encoding='utf-8') as file:
+                global_settings = yaml.safe_load(file)
+                return global_settings
+        else:
+            return {}
     def load_text_file(self):
         if not self.check_and_reset_for_new_text_file('Load New Text File'):
             return

@@ -670,8 +670,9 @@ class AudiobookMakerView(QMainWindow):
     word_replacer_window_requested = Signal(bool)
     word_replacer_window_closed = Signal()
 
-    def __init__(self):
+    def __init__(self, global_settings):
         super().__init__()
+        self.global_settings = global_settings
 
         # Create a background label widget and set it up
         self.background_label = QLabel(self)
@@ -680,14 +681,14 @@ class AudiobookMakerView(QMainWindow):
 
         # Load user settings
         self.loaded_font_size = 14
-        if os.path.exists('configs/settings.yaml'):
-            with open('configs/settings.yaml', 'r') as json_file:
-                settings = yaml.safe_load(json_file)
-                background_image = settings.get('background_image')
-                if background_image and os.path.exists(background_image):
-                    self.set_background(background_image)
-                if settings.get('font_size'):
-                    self.loaded_font_size = settings['font_size']
+        
+        background_image = self.global_settings.get('background_image')
+        if background_image and os.path.exists(background_image):
+            self.set_background(background_image)
+        if self.global_settings.get('font_size'):
+            self.loaded_font_size = self.global_settings['font_size']
+        if self.global_settings.get('version'):
+            self.version = self.global_settings['version']
 
         self.setStyleSheet(self.load_stylesheet())
 
@@ -1020,7 +1021,7 @@ class AudiobookMakerView(QMainWindow):
         left_layout.addLayout(self.speaker_selection_layout)
 
         # Window settings
-        self.setWindowTitle("Audiobook Maker")
+        self.setWindowTitle(f"Audiobook Maker v{self.version}")
         width, height = self.get_window_size()
         self.setGeometry(100, 100, int(width), int(height))
         

@@ -1,5 +1,10 @@
 # Changelog & thoughts
 
+## v3.6.4
+- Convert uploaded audio files to .wav for compatibilty
+- Add versioning, the app now has a version number with the title
+- Move global settings to be loaded in controller.py and passed to model and view instead of loaded in model.
+
 ## v3.6.3
 - add x_transformers to requirements.txt as needed by GPT-SoVITS
 - Added to instructions where GPT-SoVITS requires additional nltk downloads
