@@ -310,7 +310,7 @@
                         "label": "Browse tokenizer",
                         "type": "file",
                         "attribute": "upload_f5tts_tokenizer_path",
-                        "file_filter": "Tokenizer Files (*.json);;All Files (*)",
+                        "file_filter": "Tokenizer Files (*.txt);;All Files (*)",
                         "save_path": "engines/f5tts/tokenizers",
                         "save_format": "file"
                     }

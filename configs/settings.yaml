@@ -1,5 +1,6 @@
 auto_download_gpt_sovits: true
 background_image: null
 debug_mode: false
-font_size: 14
-version : 3.6.4
+font_size: 8
+no_filter: false
+version: 3.7

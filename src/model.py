@@ -10,8 +10,11 @@ import subprocess
 import tempfile
 import yaml
 
-import tts_engines
-import s2s_engines
+
+QUICK_TEST = True
+if not QUICK_TEST:
+    import tts_engines
+    import s2s_engines
 
 from collections import defaultdict
 from PySide6.QtGui import QColor
@@ -19,6 +22,10 @@ from PySide6.QtCore import Qt
 from subprocess import Popen, PIPE, CalledProcessError
 
 VALID_AUDIO_EXTENSIONS = ['.wav', '.mp3', '.m4a', '.ogg', '.flac']
+COMMON_ABBREVIATIONS = {
+    'mr.', 'mrs.', 'ms.', 'dr.', 'prof.', 'sr.', 'jr.', 'vs.', 'etc.', 'e.g.', 'i.e.',
+    'fig.', 'eq.', 'no.', 'inc.', 'ltd.', 'dept.', 'al.', 'vol.', 'pp.', 'cf.', 'ref.'
+}
 
 class AudiobookModel:
     def __init__(self, global_settings):
@@ -161,31 +168,89 @@ class AudiobookModel:
         self.execute_subprocess([AudioSegment.silent(0).ffmpeg, '-f', 'concat', '-safe', '0', '-i', file_list_path, new_audiobook_path])
         print(f"Combined audiobook saved in {new_audiobook_name}")
         return new_audiobook_name
-    def filter_paragraph(self, paragraph):
-        sentences = []
-        for line in paragraph.split('\n'):
-            line = line.strip()
-            if line and any(c.isalpha() for c in line):
-                sentences.append(line)
-        return sentences
     # def filter_paragraph(self, paragraph):
-    #     lines = paragraph.strip().split('\n')
-    #     filtered_list = []
-    #     i = 0
-    #     while i < len(lines):
-    #         split_sentences = lines[i].split('. ')
-    #         for part_sentence in split_sentences:
-    #             if not part_sentence:
-    #                 continue
-    #             line = part_sentence.strip()
-    #             while line.endswith(",") and (i + 1) < len(lines):
-    #                 i += 1
-    #                 line += " " + lines[i].split('. ')[0].strip()
-    #             line = re.sub(r'\[|\]', '', line).strip()
-    #             if line and any(c.isalpha() for c in line):
-    #                 filtered_list.append(line)
-    #         i += 1
-    #     return filtered_list
+    #     sentences = []
+    #     for line in paragraph.split('\n'):
+    #         line = line.strip()
+    #         if line and any(c.isalpha() for c in line):
+    #             sentences.append(line)
+    #     return sentences
+    def filter_paragraph(self, paragraph, no_filter=False):
+        if no_filter:
+            sentences = []
+            for line in paragraph.split('\n'):
+                line = line.strip()
+                if line and any(c.isalpha() for c in line):
+                    sentences.append(line)
+            return sentences
+        else:
+            lines = [
+                re.sub(r'\[|\]', '', line).strip()
+                for line in paragraph.strip().split('\n')
+            ]
+            cleaned_parts = [
+                line for line in lines if line and any(c.isalpha() for c in line)
+            ]
+            if not cleaned_parts:
+                return []
+            text = ' '.join(cleaned_parts)
+            sentences = []
+            start = 0
+            length = len(text)
+            idx = 0
+            while idx < length:
+                ch = text[idx]
+                if ch in '.!?':
+                    # Treat periods inside numbers (e.g., 3.14) as part of the number.
+                    if ch == '.':
+                        prev_idx = idx - 1
+                        while prev_idx >= 0 and text[prev_idx].isspace():
+                            prev_idx -= 1
+                        next_idx = idx + 1
+                        while next_idx < length and text[next_idx].isspace():
+                            next_idx += 1
+                        if prev_idx >= 0 and text[prev_idx].isdigit():
+                            if next_idx < length and text[next_idx].isdigit():
+                                idx += 1
+                                continue
+                    next_idx = idx + 1
+                    while next_idx < length and text[next_idx].isspace():
+                        next_idx += 1
+                    fragment = text[start:idx + 1].strip()
+                    next_char = text[next_idx] if next_idx < length else ''
+                    if fragment:
+                        last_token_parts = fragment.split()
+                        last_token = last_token_parts[-1] if last_token_parts else ''
+                        last_token = last_token.rstrip(')"\'')
+                        lower_token = last_token.lower()
+                        if lower_token in COMMON_ABBREVIATIONS:
+                            idx += 1
+                            continue
+                        if lower_token.endswith('.') and lower_token[:-1] in COMMON_ABBREVIATIONS:
+                            idx += 1
+                            continue
+                        if re.fullmatch(r'(?:[A-Za-z]\.){2,}', lower_token):
+                            idx += 1
+                            continue
+                        if next_char and next_char.islower():
+                            idx += 1
+                            continue
+                        if next_char and next_char in ',;:':
+                            idx += 1
+                            continue
+                        sentences.append(fragment)
+                        start = next_idx
+                        idx = next_idx
+                        continue
+                idx += 1
+            remaining = text[start:].strip()
+            if remaining:
+                sentences.append(remaining)
+            filtered_sentences = []
+            for sentence in sentences:
+                if any(c.isalpha() for c in sentence):
+                    filtered_sentences.append(sentence)
+            return filtered_sentences
     def generate_audio_for_sentence_threaded(self, directory_path, is_continue, is_regen_only, report_progress_callback, sentence_generated_callback, should_stop_callback=None):
         self.load_generation_settings(directory_path)
         self.load_text_audio_map(directory_path)
@@ -306,6 +371,9 @@ class AudiobookModel:
     def load_json(self, file_path):
         with open(file_path, 'r', encoding='utf-8') as file:
             return json.load(file)
+    def load_pdf(self):
+        pass
+        
     def load_selected_s2s_engine(self, chosen_s2s_engine, speaker_id, **kwargs):
         if (self.current_s2s_engine_name == chosen_s2s_engine and
             self.current_s2s_speaker_id == speaker_id and
@@ -334,21 +402,22 @@ class AudiobookModel:
             self.current_speaker_id = speaker_id
             self.current_voice_parameters = kwargs
             return self.tts_engine
-    def load_sentences(self, file_path):
+    def load_sentences(self, file_path, no_filter):
         with open(file_path, 'r', encoding='utf-8') as file:
             content = file.read()
             paragraphs = content.split('\n\n')
             filtered_sentences = []
             for paragraph in paragraphs:
-                filtered_list = self.filter_paragraph(paragraph)
+                filtered_list = self.filter_paragraph(paragraph, no_filter=no_filter)
                 filtered_sentences.extend(filtered_list)
         return filtered_sentences
-    def load_settings(self):
-        if os.path.exists('settings.json'):
-            with open('settings.json', 'r') as json_file:
-                self.settings = json.load(json_file)
-                return self.settings
-        return {}
+    # def load_settings(self):
+    #     global_settings_path = os.path.exists("configs", 'settings.yaml')
+    #     if global_settings_path:
+    #         with open(global_settings_path, 'r') as setting_f:
+    #             self.settings = yaml.safe_load(setting_f)
+    #             return self.settings
+    #     return {}
     def load_text_audio_map(self, directory_path):
         map_file_path = os.path.join(directory_path, "text_audio_map.json")
         if not os.path.exists(map_file_path):
@@ -628,3 +697,4 @@ class AudiobookModel:
                 audio_path = ""
                 new_text_audio_map[str(idx)] = self.default_text_audio_map_format(sentence=sentence, audio_path=audio_path, generated=generated)              
         self.text_audio_map = new_text_audio_map
+        

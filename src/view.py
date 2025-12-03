@@ -118,6 +118,34 @@ class SpeakerManagementDialog(QDialog):
             if isinstance(color, QColor):
                 speaker['color'] = color.name()
         return self.speakers
+    
+class AudiobookSettingsDialog(QDialog):
+    settings_changed = Signal(dict)
+    
+    def __init__(self, global_settings, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Audiobook Maker Settings")
+        self.setModal(True)
+        self.global_settings = global_settings
+
+        # Layouts and widgets
+        self.layout = QVBoxLayout()
+
+        # Add buttons to add, edit, delete speakers
+        self.no_filter_cb = QCheckBox("Disable Filtering")
+        disable_filter = self.global_settings.get("no_filter", False)
+        self.no_filter_cb.setChecked(disable_filter)
+        self.layout.addWidget(self.no_filter_cb)
+
+        self.setLayout(self.layout)
+
+        # Connect signals
+        self.no_filter_cb.toggled.connect(self.update_global_settings)
+
+    def update_global_settings(self, checked: bool):
+        self.global_settings["no_filter"] = checked
+        self.settings_changed.emit({"no_filter": checked})
+
 
 class MultiLineDelegate(QStyledItemDelegate):
     def createEditor(self, parent, option, index):
@@ -645,6 +673,7 @@ class AudiobookMakerView(QMainWindow):
     export_audiobook_requested = Signal()
     font_size_changed = Signal(int)
     generation_settings_changed = Signal()
+    global_settings_changed = Signal(dict)
     load_existing_audiobook_requested = Signal()
     load_text_file_requested = Signal()
     # load_tts_requested = Signal()
@@ -925,6 +954,8 @@ class AudiobookMakerView(QMainWindow):
         self.speaker_menu = self.menu.addMenu("Speakers")
         self.speaker_menu.setEnabled(False) 
         self.tools_menu = self.menu.addMenu("Tools")
+        self.settings_action = self.menu.addAction("Settings")
+        self.settings_action.triggered.connect(self.open_settings_dialog)
         
         self.file_menu.addAction(self.upload_voices_action)
         self.file_menu.addAction(self.load_audiobook_action)
@@ -1595,6 +1626,8 @@ class AudiobookMakerView(QMainWindow):
         self.font_size_changed.emit(value)
     def on_generate_button_clicked(self):
         self.start_generation_requested.emit()
+    def on_global_settings_changed(self, changes: dict):
+        self.global_settings_changed.emit(changes)
     def on_go_to_sentence(self):
         self.select_table_row(min(self.tableWidget.rowCount(), self.go_to_sentence_input.value()) - 1)
     def on_load_existing_audiobook_triggered(self):
@@ -1656,7 +1689,6 @@ class AudiobookMakerView(QMainWindow):
         self.update_audiobook_requested.emit()
     def on_upload_voice_triggered(self):
         self.upload_voice_window_requested.emit()
-
     def on_use_s2s_changed(self, state):
         is_checked = self.use_s2s_checkbox.isChecked()
         self.update_current_speaker_setting('use_s2s', is_checked)
@@ -1672,6 +1704,10 @@ class AudiobookMakerView(QMainWindow):
         self.word_replacer_window = WordReplacerView(parent=parent)
         self.word_replacer_window.setWindowFlag(Qt.Window, True)
         self.word_replacer_window.window_closed.connect(self.on_word_replacer_closed)
+    def open_settings_dialog(self):
+        self.settings_dialog = AudiobookSettingsDialog(global_settings=self.global_settings)
+        self.settings_dialog.settings_changed.connect(self.on_global_settings_changed)
+        self.settings_dialog.exec()
         
     def populate_s2s_engines(self):
         s2s_config = self.load_s2s_config('configs/s2s_config.json')

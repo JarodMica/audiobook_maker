@@ -229,6 +229,7 @@ class AudiobookController:
         self.view.export_audiobook_requested.connect(self.export_audiobook)
         self.view.font_size_changed.connect(self.on_font_size_changed)
         self.view.generation_settings_changed.connect(self.save_generation_settings)
+        self.view.global_settings_changed.connect(self.global_settings_changed)
         self.view.load_existing_audiobook_requested.connect(self.load_existing_audiobook)
         self.view.load_text_file_requested.connect(self.load_text_file)
         # self.view.load_tts_requested.connect(self.load_tts_engine)
@@ -397,6 +398,9 @@ class AudiobookController:
                 offset += 1
             text += additional_text
         return text.lower()
+    
+    def global_settings_changed(self, changes: dict):
+        self.model.save_settings(changes)
 
     def load_existing_audiobook(self):
         if not self.check_and_reset_for_new_text_file('Load Existing Audiobook'):
@@ -415,7 +419,7 @@ class AudiobookController:
             # Attempt to load the text file
             text_file_path = os.path.join(directory_path, "book_text.txt")
             if os.path.exists(text_file_path):
-                sentences = self.model.load_sentences(text_file_path)
+                sentences = self.model.load_sentences(text_file_path, self.global_settings.get("no_filter", False))
                 self.model.filepath = text_file_path  # Update the model's filepath
                 # self.model.create_audio_text_map("", sentences)
             else:
@@ -449,7 +453,7 @@ class AudiobookController:
         )
         if filepath:
             self.model.filepath = filepath
-            sentences = self.model.load_sentences(filepath)
+            sentences = self.model.load_sentences(filepath, self.global_settings.get("no_filter", False))
             if sentences:
                 self.model.create_audio_text_map("", sentences)
                 if not self.current_audiobook_directory:
@@ -567,8 +571,7 @@ class AudiobookController:
         self.view.play_audio(audio_path)
     def populate_initial_data(self):
         # Load settings
-        settings = self.model.load_settings()
-        background_image = settings.get('background_image')
+        background_image = self.global_settings.get('background_image', None)
         if background_image:
             self.view.set_background(background_image)
 
@@ -759,7 +762,7 @@ class AudiobookController:
             else:
                 self.model.text_audio_map.clear()
 
-            sentence_list = self.model.load_sentences(self.model.filepath)
+            sentence_list = self.model.load_sentences(self.model.filepath, self.global_settings.get("no_filter", False))
 
             # Update text_audio_map with new sentences
             self.model.update_text_audio_map(sentence_list)
@@ -849,7 +852,7 @@ class AudiobookController:
 
         self.view.clear_table()
         self.model.text_audio_map.clear()
-        sentence_list = self.model.load_sentences(filePath)
+        sentence_list = self.model.load_sentences(filePath, self.global_settings.get("no_filter", False))
 
         proceed = self.view.ask_question(
             'Update Existing Audiobook',
