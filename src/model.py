@@ -402,15 +402,20 @@ class AudiobookModel:
             self.current_speaker_id = speaker_id
             self.current_voice_parameters = kwargs
             return self.tts_engine
-    def load_sentences(self, file_path, no_filter):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            content = file.read()
+    def load_sentences(self, file_path, no_filter, file_ext):
+        if ".txt" in file_ext:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+        elif ".pdf" in file_ext:
+            content = self.process_pdf(file_path)
+        
+        if content:
             paragraphs = content.split('\n\n')
             filtered_sentences = []
             for paragraph in paragraphs:
                 filtered_list = self.filter_paragraph(paragraph, no_filter=no_filter)
                 filtered_sentences.extend(filtered_list)
-        return filtered_sentences
+            return filtered_sentences
     # def load_settings(self):
     #     global_settings_path = os.path.exists("configs", 'settings.yaml')
     #     if global_settings_path:
@@ -452,6 +457,10 @@ class AudiobookModel:
 
         sentence_list = [s.strip() for s in paragraph.split('*%') if (s.strip()!='.' and s.strip()!='')]
         return sentence_list
+    def process_pdf(self):
+        # To be implemented
+        pass
+        return #text into paragraphs
     def process_upload_items(self, mode, save_items):
         for item in save_items:
             if item.get('name', None):

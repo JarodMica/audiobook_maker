@@ -4,25 +4,25 @@ This is a page of some of the enhancements and ideas that I'd like to work on, s
 ## Enhancements
 
 ## In Progress
-- N/a
-
-### High Priority
-- Add "Load Voices, and "Load Models" to the Menu Bar
 - Allow for loading epubs
 - Allow for loading PDFs
 
+### High Priority
+- Allow for loading epubs
+- Allow for loading PDFs
+- Rearranging sentences with drag and drop or something similar
+- Better sentence segmentation, allowing user to split sentences on quotation marks - https://github.com/JarodMica/audiobook_maker/issues/93
+
 ### Medium Priority
+- Chapter Separation
 - Allow for exporting AB even if all sentences have not been generated - https://github.com/JarodMica/audiobook_maker/issues/82
 - Save GUI state in a settings file
 - Book Name reduncancy to Table header instead of textbox section (Maybe add?  An indicate that no AB has been loaded is kinda nice)
 - Persistent settings/save user state - https://github.com/JarodMica/audiobook_maker/issues/118
-- Rearranging sentences with drag and drop or something similar
 
 
 ### Low Priority
-- Chapter Separation
 - Pauses between sentences implemented in the text file - https://github.com/JarodMica/audiobook_maker/issues/84
-- Better sentence segmentation, allowing user to split sentences on quotation marks - https://github.com/JarodMica/audiobook_maker/issues/93
 - Find and replace option - https://github.com/JarodMica/audiobook_maker/issues/94
 - Configure default Narrator color in settings
 - Optimize regenerate in bulk for multi-speaker due to model loading
@@ -54,3 +54,5 @@ This is a page of some of the enhancements and ideas that I'd like to work on, s
 [x] Speaker column to sentence in addition (or instead) of colors ~ v3.4
 
 [x] Move TTS and S2S dropdown menus to the right hand side ~ v3.4
+
+[x] Add "Load Voices, and "Load Models" to the Menu Bar

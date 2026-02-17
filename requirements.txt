@@ -16,3 +16,8 @@ hatchling
 hatch-vcs
 transformers==4.51.3
 x_transformers==1.42.6
+pypdf
+docling_core==2.54.0
+docling
+triton-windows==3.4.0.post21
+paddleocr

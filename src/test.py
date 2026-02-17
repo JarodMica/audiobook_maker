@@ -1,44 +1,45 @@
-test = {
-    "0": {
-        "sentence": "Narration of rezero using text to speech, Marine edition",
-        "audio_path": "audiobooks\\test\\audio_0.wav",
-        "generated": True
+from PIL import Image
+import torch
+from transformers import AutoModelForCausalLM, AutoProcessor
 
-,
-        "speaker_id": 1
-    },
-    "1": {
-        "sentence": "―This is really bad.",
-        "audio_path": "audiobooks\\test\\audio_1.wav",
-        "generated": True
+# ---- Settings ----
+model_path = "PaddlePaddle/PaddleOCR-VL"
+image_path = "test.png"
+task = "ocr" # Options: 'ocr' | 'table' | 'chart' | 'formula'
+# ------------------
 
-,
-        "speaker_id": 2
-    },
-    "2": {
-        "sentence": "Lost and penniless, those few words were all he could think of.",
-        "audio_path": "audiobooks\\test\\audio_2.wav",
-        "generated": True
-,
-        "speaker_id": 2
-    },
-    "3": {
-        "sentence": "Well, penniless wasn’t quite right",
-        "audio_path": "audiobooks\\test\\audio_3.wav",
-        "generated": True
-,
-        "speaker_id": 3
-    },
-    "4": {
-        "sentence": "He did have his wallet in his pocket, and setting aside the fact that he had an abundance of small change and very few notes, it couldn’t be denied that he had his assets on him.",
-        "audio_path": "audiobooks\\test\\audio_4.wav",
-        "generated": True
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-,
-        "speaker_id": 3
-    }
+PROMPTS = {
+    "ocr": "OCR:",
+    "table": "Table Recognition:",
+    "formula": "Formula Recognition:",
+    "chart": "Chart Recognition:",
 }
 
-test2 = test["0"]["sentence"]
+image = Image.open(image_path).convert("RGB")
 
-print(test2)
+model = AutoModelForCausalLM.from_pretrained(
+    model_path,  cache_dir="models/", trust_remote_code=True, torch_dtype=torch.bfloat16, revision="be8ed7492f996cb9e0148aa0c97567f2f7bddfc5"
+).to(DEVICE).eval()
+processor = AutoProcessor.from_pretrained(model_path, cache_dir="models/", trust_remote_code=True, revision="be8ed7492f996cb9e0148aa0c97567f2f7bddfc5")
+
+messages = [
+    {"role": "user",         
+     "content": [
+            {"type": "image", "image": image},
+            {"type": "text", "text": PROMPTS[task]},
+        ]
+    }
+]
+inputs = processor.apply_chat_template(
+    messages, 
+    tokenize=True, 
+    add_generation_prompt=True, 	
+    return_dict=True,
+    return_tensors="pt"
+).to(DEVICE)
+
+outputs = model.generate(**inputs, max_new_tokens=1024)
+outputs = processor.batch_decode(outputs, skip_special_tokens=True)[0]
+print(outputs)

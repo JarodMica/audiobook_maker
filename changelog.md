@@ -1,5 +1,9 @@
 # Changelog & thoughts
 
+## 3.7.0
+- New Settings menu added
+    - Includes toggle for sentence filtering, off (split purely on new lines) or on (custom handling by app)
+
 ## v3.6.4
 - Convert uploaded audio files to .wav for compatibilty
 - Add versioning, the app now has a version number with the title

@@ -183,11 +183,11 @@ class AudiobookController:
             # Handle the case where the audiobook directory is not set
             pass
 
-    def check_and_reset_for_new_text_file(self, action_description):
+    def check_and_reset_for_new_file(self, action_description):
         if self.model.filepath or self.model.text_audio_map:
             proceed = self.view.ask_question(
                 action_description,
-                f"A text file is currently loaded. {action_description} will reset all settings. Proceed?",
+                f"A file is currently loaded. {action_description} will reset all settings. Proceed?",
                 buttons=QMessageBox.Yes | QMessageBox.No,
                 default_button=QMessageBox.No
             )
@@ -231,7 +231,7 @@ class AudiobookController:
         self.view.generation_settings_changed.connect(self.save_generation_settings)
         self.view.global_settings_changed.connect(self.global_settings_changed)
         self.view.load_existing_audiobook_requested.connect(self.load_existing_audiobook)
-        self.view.load_text_file_requested.connect(self.load_text_file)
+        self.view.load_file_requested.connect(self.load_file)
         # self.view.load_tts_requested.connect(self.load_tts_engine)
         self.view.pause_audio_requested.connect(self.pause_audio)
         self.view.play_all_from_selected_requested.connect(self.play_all_from_selected)
@@ -267,6 +267,7 @@ class AudiobookController:
             return
         
         # Attempt to load the text file
+        # .pdf outputs to book_text.txt for easy monitoring
         text_file_path = os.path.join(self.current_audiobook_directory, "book_text.txt")
         if os.path.exists(text_file_path):
             # sentence_list = self.model.load_sentences(text_file_path)
@@ -403,7 +404,7 @@ class AudiobookController:
         self.model.save_settings(changes)
 
     def load_existing_audiobook(self):
-        if not self.check_and_reset_for_new_text_file('Load Existing Audiobook'):
+        if not self.check_and_reset_for_new_file('Load Existing Audiobook'):
             return
         
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
@@ -440,8 +441,8 @@ class AudiobookController:
                 return global_settings
         else:
             return {}
-    def load_text_file(self):
-        if not self.check_and_reset_for_new_text_file('Load New Text File'):
+    def load_file(self):
+        if not self.check_and_reset_for_new_file('Load New File'):
             return
         book_name = self.view.get_book_name()
         if not book_name:
@@ -449,11 +450,13 @@ class AudiobookController:
             return
 
         filepath = self.view.get_open_file_name(
-            "Select Text File", "", "Text Files (*.txt);;All Files (*)"
+            "Select File", "", "Text Files (*.txt);PDF Files (*.pdf);;All Files (*)"
         )
+        _, file_ext = os.path.splitext(filepath)
+            
         if filepath:
             self.model.filepath = filepath
-            sentences = self.model.load_sentences(filepath, self.global_settings.get("no_filter", False))
+            sentences = self.model.load_sentences(filepath, self.global_settings.get("no_filter", False), file_ext)
             if sentences:
                 self.model.create_audio_text_map("", sentences)
                 if not self.current_audiobook_directory:
@@ -836,7 +839,7 @@ class AudiobookController:
         self.view.on_disable_stop_button()
 
     def update_audiobook(self):
-        if not self.check_and_reset_for_new_text_file('Update Audiobook'):
+        if not self.check_and_reset_for_new_file('Update Audiobook'):
             return
         directory_path = self.view.get_existing_directory("Select an Audiobook Directory")
         self.current_audiobook_directory = directory_path  # Add this line

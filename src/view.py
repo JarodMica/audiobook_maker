@@ -675,7 +675,7 @@ class AudiobookMakerView(QMainWindow):
     generation_settings_changed = Signal()
     global_settings_changed = Signal(dict)
     load_existing_audiobook_requested = Signal()
-    load_text_file_requested = Signal()
+    load_file_requested = Signal()
     # load_tts_requested = Signal()
     pause_audio_requested = Signal()
     play_all_from_selected_requested = Signal()
@@ -830,8 +830,8 @@ class AudiobookMakerView(QMainWindow):
         self.delete_button.clicked.connect(self.on_delete_button_clicked)
         self.go_to_sentence = QPushButton("Go to sentence number:")
         self.go_to_sentence.clicked.connect(self.on_go_to_sentence)
-        self.load_text = QPushButton("Select Text File", self)
-        self.load_text.clicked.connect(self.on_load_text_clicked)
+        self.load_file = QPushButton("Select File", self)
+        self.load_file.clicked.connect(self.on_load_file_clicked)
         self.next_search = QPushButton("Search next")
         self.next_search.clicked.connect(self.on_next_search)
         self.start_generation_button = QPushButton("Start Audiobook Generation", self)
@@ -1031,7 +1031,7 @@ class AudiobookMakerView(QMainWindow):
         # Main GUI organization
         main_content_layout.addWidget(left_container)
         left_layout.addLayout(self.book_layout)
-        left_layout.addWidget(self.load_text)
+        left_layout.addWidget(self.load_file)
         left_layout.addLayout(self.generation_buttons_layout)
         left_layout.addLayout(self.play_pause_layout)
         left_layout.addWidget(self.play_all_button)
@@ -1632,8 +1632,8 @@ class AudiobookMakerView(QMainWindow):
         self.select_table_row(min(self.tableWidget.rowCount(), self.go_to_sentence_input.value()) - 1)
     def on_load_existing_audiobook_triggered(self):
         self.load_existing_audiobook_requested.emit()
-    def on_load_text_clicked(self):
-        self.load_text_file_requested.emit()
+    def on_load_file_clicked(self):
+        self.load_file_requested.emit()
     def on_manage_speakers(self):
         # Open the speaker management dialog
         dialog = SpeakerManagementDialog(self, self.speakers)
