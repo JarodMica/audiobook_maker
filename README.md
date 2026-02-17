@@ -5,6 +5,7 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 
 ## Table of Contents
 - [Features](#features)
+- [Documentation](#documentation)
 - [Windows Package Installation](#windows-package-installation)
 - [Manual Installation Windows 10/11](#manual-installation-windows-1011)
 - [Text-to-Speech Engines](#text-to-speech-engines)
@@ -18,6 +19,19 @@ It's designed for **Windows,** but pyside6 should be able to run on linux.
 - [F5-TTS Installation](#f5-tts-installation)
 - [GPT-SoVITS Installation](#gpt-sovits-installation)
 - [RVC Installation](#rvc-installation)
+
+## Documentation
+Project-level documentation is in the `docs/` folder:
+
+- `docs/ARCHITECTURE.md`: System flow and key components.
+- `docs/CONFIG.md`: Config files and major keys.
+- `docs/INFERENCE_ENGINES.md`: TTS/S2S adapter architecture and config-to-runtime mappings.
+- `docs/ADDING_INFERENCE_ENGINES.md`: How to add new inference engines (conceptual flow + implementation steps).
+- `docs/OPERATIONS.md`: Run/update workflow and operational notes.
+- `docs/TROUBLESHOOTING.md`: Common issues and fixes.
+- `docs/MODEL.md`: Complete `src/model.py` function and parameter inventory.
+- `docs/VIEW.md`: Complete `src/view.py` function and parameter inventory.
+- `docs/CONTROLLER.md`: Complete `src/controller.py` function and parameter inventory.
 
 ## Features
 :heavy_check_mark: Multi-speaker/engine generation, allowing you to select who speaks which sentence etc.
@@ -154,7 +168,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    .\finish_styletts_install.bat
    ```
    - Alternatively, install eSpeak-NG onto your computer. Head over to https://github.com/espeak-ng/espeak-ng/releases and select the espeak-ng-X64.msi the assets dropdown. Download, run, and follow the prompts to set it up on your device. As of this write-up, it'll be at the bottom of 1.51 on the github releases page
-      - You will also need to add the following to your envrionment path:
+      - You will also need to add the following to your environment path:
       ```
       PHONEMIZER_ESPEAK_LIBRARY="c:\Program Files\eSpeak NG\libespeak-ng.dll"
       PHONEMIZER_ESPEAK_PATH =“c:\Program Files\eSpeak NG”
@@ -197,7 +211,7 @@ If you use it like this, you will only be able to use pyttsx3.  To install addit
    ```
    pip install -r requirements.txt
    ```
-4. Inside of , GPT-SoVITS base models will automatically be downloaded when first starting a generation.  Anytime there is a new update to the remote HF repo, it will download new files.  This behavior can be disabled by turning `auto_download_gpt_sovits` inside of `config\setting.yaml` to `False` instead of `True`.
+4. Inside the audiobook maker project, GPT-SoVITS base models will automatically be downloaded when first starting a generation. Anytime there is a new update to the remote HF repo, it will download new files. This behavior can be disabled by turning `auto_download_gpt_sovits` inside `configs/settings.yaml` to `False` instead of `True`.
 5. Ensure you have pytorch installed with CUDA enabled [Check Torch Install](#check-torch-install)
 
 ## Speech-to-Speech Engines

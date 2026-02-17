@@ -1,6 +1,8 @@
 # Changelog & thoughts
 
 ## 3.7.0
+- Add AI documentation for the project, outlining key details and necessary implementation details for an "AI" to code from
+    - Going to automate key feature adding requests with AI, this makes it very necessary to maintain order
 - New Settings menu added
     - Includes toggle for sentence filtering, off (split purely on new lines) or on (custom handling by app)
 
