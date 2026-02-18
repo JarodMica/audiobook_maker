@@ -1,5 +1,65 @@
 # AI Changelog Notes
 
+## 2026-02-18 Add-Engine Folder Section Simplification
+- Simplified `docs/ADDING_INFERENCE_ENGINES.md` folder prerequisite section to remove rationale-heavy text.
+- Kept only:
+  - concise descriptions of `engines/<engine_key>/` and `voices/<engine_key>/`
+  - direct step-by-step instructions for creating and wiring those folders.
+
+## 2026-02-18 Add-Engine Folder Rationale Expansion
+- Expanded `docs/ADDING_INFERENCE_ENGINES.md` filesystem prerequisite guidance with project-specific rationale.
+- Added explicit linkage to:
+  - GUI combobox path discovery in `src/view.py` (`create_widget_for_parameter`, `get_combobox_items`)
+  - runtime adapter path resolution in `src/tts_engines.py` and `src/s2s_engines.py`
+  - upload destination behavior in `src/model.py` `process_upload_items(...)`
+- Clarified the distinct role of `engines/<engine_key>/` (model/runtime artifacts) vs `voices/<engine_key>/` (reference voice assets), and documented common failure modes when one side is missing.
+
+## 2026-02-18 Add-Engine Filesystem Prerequisite Note
+- Updated `docs/ADDING_INFERENCE_ENGINES.md` to document required folder setup when integrating new engines:
+  - `engines/<engine_key>/`
+  - `voices/<engine_key>/`
+- Added rationale tying this requirement to config-driven combobox discovery in `src/view.py`.
+- Extended the compatibility checklist to include filesystem path validation for new engine integrations.
+
+## 2026-02-18 Inference Engines Doc Scope Cleanup
+- Documentation update for inference engines:
+  - Reworked `docs/INFERENCE_ENGINES.md` to cover all currently wired TTS/S2S engines, not only VibeVoice.
+  - Added per-engine summaries (purpose, key config attributes, load/generate or load/process runtime flow).
+  - Removed VibeVoice-specific implementation fix notes from that document to keep it focused on engine usage and mapping.
+
+## 2026-02-18 VibeVoice Compatibility Patch (Modules)
+- Patched `modules/VibeVoice-API` for inference stability on Windows:
+  - Fixed `from __future__ import annotations` placement in `modules/VibeVoice-API/vibevoice/infer_api.py`.
+  - Added `modules/VibeVoice-API/vibevoice/runtime_compat.py` with:
+    - temporary DeepSpeed discovery suppression during transformers import
+    - Diffusers PEFT gate disable helper (`_CHECK_PEFT=0`) for inference path.
+  - Applied compatibility wrapper in:
+    - `modules/VibeVoice-API/vibevoice/modular/modeling_vibevoice.py`
+    - `modules/VibeVoice-API/vibevoice/modular/modeling_vibevoice_inference.py`
+    - `modules/VibeVoice-API/vibevoice/modular/modeling_vibevoice_streaming.py`
+    - `modules/VibeVoice-API/vibevoice/modular/modeling_vibevoice_streaming_inference.py`
+    - `modules/VibeVoice-API/vibevoice/modular/modular_vibevoice_diffusion_head.py`
+    - `modules/VibeVoice-API/vibevoice/modular/modular_vibevoice_tokenizer.py`
+  - Enabled Diffusers PEFT check bypass before scheduler imports in:
+    - `modules/VibeVoice-API/vibevoice/schedule/dpm_solver.py`.
+- Reinstalled VibeVoice package from local modules path:
+  - `.\\venv\\Scripts\\python.exe -m pip install -e modules/VibeVoice-API`
+- Validation commands run:
+  - `.\\venv\\Scripts\\python.exe -c "import vibevoice.infer_api as m; print('infer_api_ok', hasattr(m,'VibeVoiceInferencer'))"` -> pass
+  - `.\\venv\\Scripts\\python.exe src\\unit_tests\\validate_tts_engine.py --engine vibevoice --output voices\\vibevoice\\validation_smoke\\vibevoice_smoke.wav` -> pass (`3/3`)
+
+## 2026-02-17 VibeVoice TTS Engine Integration
+- Added `vibevoice` TTS engine wiring in `src/tts_engines.py`:
+  - New dispatch routes in `generate_audio(...)` and `load_tts_engine(...)`.
+  - Added `load_with_vibevoice(...)` and `generate_with_vibevoice(...)`.
+  - Added guarded `vibevoice.infer_api` import handling with explicit runtime error path.
+- Added `vibevoice` engine schema to `configs/tts_config.json` with model/voice/device and generation controls.
+- Extended smoke validator `src/unit_tests/validate_tts_engine.py` with built-in defaults for `--engine vibevoice`.
+- Updated `docs/INFERENCE_ENGINES.md` with VibeVoice key, required params, load/generate flow, and caveats.
+- Validation commands run:
+  - `.\\venv\\Scripts\\python.exe src\\unit_tests\\validate_tts_engine.py --engine vibevoice --output voices\\vibevoice\\validation_smoke\\vibevoice_smoke.wav`
+  - Result: fails currently due upstream VibeVoice package import/runtime blockers in `venv` (`infer_api.py` syntax error, DeepSpeed Windows `df` dependency path, and `peft>=0.17.0` requirement while environment had `peft==0.15.2`).
+
 ## 2026-02-17 Documentation Verification Pass 2
 - Inconsistencies found:
   - `README.md` referenced `config\setting.yaml`; actual repo path is `configs/settings.yaml`.

@@ -64,6 +64,28 @@ def generate_with_mytts(tts_engine, sentence, voice_parameters, audio_path):
   - TTS: `load_*` + `generate_*`
   - S2S: `load_*` + `process_*`
 
+## Filesystem Prerequisite (Engine/Voice Folders)
+Create both folders when adding a new engine:
+- `engines/<engine_key>/`
+- `voices/<engine_key>/`
+
+What they do:
+- `engines/<engine_key>/`
+  - Stores engine runtime artifacts (models, tokenizers, indexes, engine configs).
+- `voices/<engine_key>/`
+  - Stores reference voice assets used by that engine.
+  - Typical structure is `voices/<engine_key>/<voice_name>/` with files such as `.wav` and optional `.txt`.
+
+How to add them:
+1. Pick an engine key (example: `mytts`).
+2. Create folders:
+   - `engines/mytts/`
+   - `voices/mytts/`
+3. Point config `folder_path` fields to those folders in `configs/tts_config.json` or `configs/s2s_config.json`.
+4. Place model/runtime files under `engines/mytts/`.
+5. Place voice references under `voices/mytts/<voice_name>/`.
+6. Ensure adapter code reads matching attributes and paths in `src/tts_engines.py` or `src/s2s_engines.py`.
+
 ## Config Schema Reference (Exact Options From `view.py`)
 This is the core reference for what can be configured.
 
@@ -191,6 +213,9 @@ If a `text` upload entry has no `save_path`, it is treated as a naming field (fo
 - Engine appears in the correct config list (`tts_engines` or `s2s_engines`).
 - Parameters use supported `type`.
 - Every runtime field has a stable `attribute`.
+- Required filesystem paths exist for engine and voices (unless intentionally overridden):
+  - `engines/<engine_key>/`
+  - `voices/<engine_key>/`
 
 2. Adapter dispatch:
 - New engine branch added in dispatcher:

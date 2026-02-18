@@ -450,7 +450,7 @@ class AudiobookController:
             return
 
         filepath = self.view.get_open_file_name(
-            "Select File", "", "Text Files (*.txt);PDF Files (*.pdf);;All Files (*)"
+            "Select File", "", "Text Files (*.txt);;PDF Files (*.pdf);;All Files (*)"
         )
         _, file_ext = os.path.splitext(filepath)
             

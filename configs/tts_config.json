@@ -290,6 +290,84 @@
             ]
         },
         {
+            "name": "vibevoice",
+            "upload_params": {
+                "AI Models": [
+
+                ],
+                "Voice Reference File": [
+
+                ]
+            },
+            "parameters": [
+                {
+                    "label":"Model to Use",
+                    "type":"combobox",
+                    "attribute":"vibevoice_model_path",
+                    "function":"get_combobox_items",
+                    "folder_path":"engines/vibevoice",
+                    "look_for":"folders",
+                    "include_none_option":false
+                },
+                {
+                    "label":"Voice to Use",
+                    "type":"combobox",
+                    "attribute":"vibevoice_voice",
+                    "function":"get_combobox_items",
+                    "folder_path":"voices/vibevoice",
+                    "look_for":"folders",
+                    "include_none_option":false
+                },
+                {
+                    "label":"Device",
+                    "type":"combobox",
+                    "attribute":"vibevoice_device",
+                    "function":"get_combobox_items",
+                    "folder_path":"",
+                    "look_for":"custom",
+                    "custom_options":["auto", "cuda", "cpu", "mps"]
+                },
+                {
+                    "label":"DDPM Inference Steps",
+                    "type":"spinbox",
+                    "attribute":"vibevoice_ddpm_steps",
+                    "min":1,
+                    "max":100,
+                    "default":10
+                },
+                {
+                    "label":"Number of Speakers",
+                    "type":"spinbox",
+                    "attribute":"vibevoice_num_speakers",
+                    "min":1,
+                    "max":4,
+                    "default":1
+                },
+                {
+                    "label":"CFG Scale",
+                    "type":"slider",
+                    "attribute":"vibevoice_cfg_scale",
+                    "min":50,
+                    "max":500,
+                    "default":130,
+                    "step":100
+                },
+                {
+                    "label":"Disable Voice Cloning",
+                    "type":"checkbox",
+                    "attribute":"vibevoice_disable_cloning"
+                },
+                {
+                    "label":"Seed (-1 is random)",
+                    "type":"spinbox",
+                    "attribute":"vibevoice_seed",
+                    "min":-1,
+                    "max":9999999,
+                    "default":-1
+                }
+            ]
+        },
+        {
             "name": "F5TTS",
             "upload_params": {
                 "AI Models": [

@@ -45,6 +45,19 @@ def _default_styletts2_params(model_folder_name: str, voice_name: str) -> dict:
     }
 
 
+def _default_vibevoice_params(model_folder_name: str, voice_name: str) -> dict:
+    return {
+        "vibevoice_model_path": model_folder_name,
+        "vibevoice_voice": voice_name,
+        "vibevoice_device": "auto",
+        "vibevoice_ddpm_steps": 10,
+        "vibevoice_num_speakers": 1,
+        "vibevoice_cfg_scale": 130,
+        "vibevoice_disable_cloning": False,
+        "vibevoice_seed": -1,
+    }
+
+
 def _load_json_params(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
         data = json.load(f)
@@ -76,6 +89,16 @@ def main() -> int:
         "--voice-name",
         default="validation_smoke",
         help="Voice folder name to create under voices/styletts for test assets.",
+    )
+    parser.add_argument(
+        "--vibevoice-model-dir",
+        default="engines/vibevoice/1.5v1_base",
+        help="Path to VibeVoice model folder. Basename is used for vibevoice_model_path.",
+    )
+    parser.add_argument(
+        "--vibevoice-voice-name",
+        default="test",
+        help="Voice folder name to read under voices/vibevoice for test assets.",
     )
     parser.add_argument(
         "--output",
@@ -130,10 +153,24 @@ def main() -> int:
                 model_folder_name=model_folder_name,
                 voice_name=args.voice_name,
             )
+        elif engine_name == "vibevoice":
+            model_dir = (repo / args.vibevoice_model_dir).resolve()
+            if not model_dir.exists():
+                raise FileNotFoundError(f"VibeVoice model directory not found: {model_dir}")
+            model_folder_name = model_dir.name
+
+            voice_dir = (repo / "voices" / "vibevoice" / args.vibevoice_voice_name).resolve()
+            if not voice_dir.exists():
+                raise FileNotFoundError(f"VibeVoice voice directory not found: {voice_dir}")
+
+            voice_params = _default_vibevoice_params(
+                model_folder_name=model_folder_name,
+                voice_name=args.vibevoice_voice_name,
+            )
         else:
             raise ValueError(
                 f"Engine '{args.engine}' requires --params-json for now. "
-                "Built-in default setup is currently provided for styletts2."
+                "Built-in default setup is currently provided for styletts2 and vibevoice."
             )
 
         tts_engine = tts_engines.load_tts_engine(engine_name, **voice_params)

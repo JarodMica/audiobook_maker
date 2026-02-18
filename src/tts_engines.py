@@ -38,6 +38,13 @@ except Exception as e:
     print(f"GPT-SoVITS is not available, received error: {e}")
     print("Full traceback:")
     traceback.print_exc()
+try:
+    from vibevoice.infer_api import VibeVoiceInferencer
+except Exception as e:
+    VibeVoiceInferencer = None
+    print(f"VibeVoice is not available, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -53,6 +60,8 @@ def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audi
         return generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path)
     elif tts_engine_name == 'gpt_sovits':
         return generate_with_gpt_sovits(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'vibevoice':
+        return generate_with_vibevoice(tts_engine, sentence, voice_parameters, audio_path)
     else:
         # Handle unknown engine
         return False
@@ -232,6 +241,51 @@ def generate_with_gpt_sovits(tts_engine, sentence, voice_parameters, audio_path)
     sf.write(audio_path, combined_audio, sr)
     
     return audio_path
+
+def generate_with_vibevoice(tts_engine, sentence, voice_parameters, audio_path):
+    tts_settings = load_tts_config()
+    vibevoice_engine_config = find_engine_config("vibevoice", tts_settings)
+
+    voice_name = voice_parameters.get("vibevoice_voice")
+    voice_root_path = next(
+        param.folder_path for param in vibevoice_engine_config.parameters if param.attribute == "vibevoice_voice"
+    )
+    voice_path = os.path.join(voice_root_path, voice_name)
+    if not os.path.isdir(voice_path):
+        raise FileNotFoundError(f"VibeVoice voice folder not found: {voice_path}")
+
+    voice_sample_file = next(
+        (os.path.join(voice_path, file_name) for file_name in os.listdir(voice_path) if file_name.lower().endswith(".wav")),
+        None
+    )
+    if voice_sample_file is None:
+        raise FileNotFoundError(f"No .wav voice sample found in {voice_path}")
+
+    cfg_scale_step = next((param.step for param in vibevoice_engine_config.parameters if param.attribute == "vibevoice_cfg_scale"), 100)
+    cfg_scale = round(voice_parameters.get("vibevoice_cfg_scale", 130) / cfg_scale_step, 2)
+
+    num_speakers = int(voice_parameters.get("vibevoice_num_speakers", 1))
+    disable_cloning = bool(voice_parameters.get("vibevoice_disable_cloning", False))
+    seed = voice_parameters.get("vibevoice_seed", -1)
+
+    audio, sample_rate = tts_engine.generate_tts(
+        script=sentence,
+        voice_sample_path=voice_sample_file,
+        num_speakers=num_speakers,
+        cfg_scale=cfg_scale,
+        disable_cloning=disable_cloning,
+        seed=seed
+    )
+
+    if hasattr(audio, "detach"):
+        waveform = audio.detach().cpu().float().numpy()
+    elif hasattr(audio, "cpu"):
+        waveform = audio.cpu().numpy()
+    else:
+        waveform = np.asarray(audio)
+    waveform = np.squeeze(waveform)
+    sf.write(audio_path, waveform, sample_rate)
+    return audio_path
     
 #################################################
 ############### Loading Functions ###############
@@ -252,6 +306,8 @@ def load_tts_engine(tts_engine_name, **kwargs):
             return load_with_f5tts(**kwargs)
         elif tts_engine_name == 'gpt_sovits':
             return load_with_gpt_sovits(**kwargs)
+        elif tts_engine_name == 'vibevoice':
+            return load_with_vibevoice(**kwargs)
         else:
             # Handle unknown engine
             raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
@@ -415,6 +471,28 @@ def load_with_gpt_sovits(**kwargs):
         pipeline.init_t2s_weights(t2s_ckpt_path)
         pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path, model_version=version)
     return pipeline
+
+def load_with_vibevoice(**kwargs):
+    if VibeVoiceInferencer is None:
+        raise RuntimeError(
+            "VibeVoice import failed. Check the installed vibevoice package in venv and see startup logs for the original traceback."
+        )
+
+    tts_settings = load_tts_config()
+    vibevoice_engine_config = find_engine_config("vibevoice", tts_settings)
+
+    model_root = next(
+        param.folder_path for param in vibevoice_engine_config.parameters if param.attribute == "vibevoice_model_path"
+    )
+    selected_model_folder = kwargs.get("vibevoice_model_path")
+    if selected_model_folder:
+        model_path = os.path.join(model_root, selected_model_folder)
+    else:
+        model_path = model_root
+
+    device = kwargs.get("vibevoice_device", "auto")
+    ddpm_steps = int(kwargs.get("vibevoice_ddpm_steps", 10))
+    return VibeVoiceInferencer(model_path=model_path, device=device, ddpm_steps=ddpm_steps)
 
 #################################################
 ############### Utility Functions ###############

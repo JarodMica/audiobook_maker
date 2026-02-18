@@ -11,7 +11,7 @@ import tempfile
 import yaml
 
 
-QUICK_TEST = True
+QUICK_TEST = False
 if not QUICK_TEST:
     import tts_engines
     import s2s_engines
@@ -402,11 +402,16 @@ class AudiobookModel:
             self.current_speaker_id = speaker_id
             self.current_voice_parameters = kwargs
             return self.tts_engine
-    def load_sentences(self, file_path, no_filter, file_ext):
-        if ".txt" in file_ext:
+    def load_sentences(self, file_path, no_filter, file_ext=None):
+        if not file_ext:
+            _, file_ext = os.path.splitext(file_path)
+        file_ext = (file_ext or "").lower()
+
+        content = ""
+        if file_ext == ".txt":
             with open(file_path, 'r', encoding='utf-8') as file:
                 content = file.read()
-        elif ".pdf" in file_ext:
+        elif file_ext == ".pdf":
             content = self.process_pdf(file_path)
         
         if content:
@@ -416,6 +421,7 @@ class AudiobookModel:
                 filtered_list = self.filter_paragraph(paragraph, no_filter=no_filter)
                 filtered_sentences.extend(filtered_list)
             return filtered_sentences
+        return []
     # def load_settings(self):
     #     global_settings_path = os.path.exists("configs", 'settings.yaml')
     #     if global_settings_path:
@@ -457,7 +463,7 @@ class AudiobookModel:
 
         sentence_list = [s.strip() for s in paragraph.split('*%') if (s.strip()!='.' and s.strip()!='')]
         return sentence_list
-    def process_pdf(self):
+    def process_pdf(self, file_path=None):
         # To be implemented
         pass
         return #text into paragraphs
