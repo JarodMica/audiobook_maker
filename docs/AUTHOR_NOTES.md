@@ -33,3 +33,9 @@ Define strict documentation constraints for `audiobook_maker` so updates stay al
 - Keep project release/history notes in `changelog.md`.
 - Keep AI-generated documentation/session reconciliation notes in `AI_CHANGELOG.md` (do not append those to `changelog.md` unless explicitly requested).
 - Do not modify this file unless explicitly asked to update author notes.
+
+## Issues
+- GPT-SoVITS validation matrix has known inference failures despite successful model load:
+- `all_ko` cases (`v4_all_ko`, `v3_all_ko`, `v2_all_ko`, `v1_all_ko`) fail in runtime Korean processing with `exceptions must derive from BaseException` after `eunjeon` path checks.
+- `v1_all_ja` fails during CUDA inference with `device-side assert triggered` in GPT-SoVITS decode/attention path.
+- Treat these as engine/runtime-path issues for specific version/language combinations, not preflight path/config missing-file issues.

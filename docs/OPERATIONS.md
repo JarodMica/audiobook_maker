@@ -63,6 +63,51 @@ Notes:
 - Run after upstream updates.
 - Recheck engine imports after updates because third-party package changes can affect inference adapters.
 
+## Unit Testing
+Purpose:
+- Define repeatable terminal testing for inference engines using the project venv and pinned defaults.
+
+### Engine Validation
+Key inputs/config:
+- `src/unit_tests/validate_tts_engine.py`: runner for smoke-style TTS testing.
+- `src/unit_tests/engine_validation_defaults.json`: pinned per-engine parameters and GPT-SoVITS matrix values.
+- `configs/tts_config.json`: dynamic source of engine discovery (engines marked `in progress` are expected skip).
+- Runtime interpreter used to launch workers: active Python executable (recommended: `venv\Scripts\python.exe`).
+
+Key outputs/behavior:
+- Produces per-engine (and per-case matrix) JSON results with:
+  - `load_success`
+  - `returned_audio_path`
+  - `output_file_nonempty`
+- Isolates each test case in a fresh subprocess to prevent CUDA/runtime state contamination across engines.
+- Emits status categories per case:
+  - `passed`
+  - `failed`
+  - `timeout`
+  - `crash`
+  - `preflight_failed`
+- In no-argument run-all mode, writes engine-specific output wav files under `output_test/`.
+- In single-engine mode, default output is repo-root `engine_smoke.wav` unless `--output` is provided.
+- Prints live terminal progress while running:
+  - Uses `tqdm` progress bar if available.
+  - Falls back to line-by-line `START`/`DONE` progress messages with rolling counts.
+
+Commands:
+```powershell
+venv\Scripts\python.exe src\unit_tests\validate_tts_engine.py
+```
+
+Optional targeted command:
+```powershell
+venv\Scripts\python.exe src\unit_tests\validate_tts_engine.py --engine styletts2
+```
+
+Operational notes:
+- Run from repo root so relative config/asset paths resolve correctly.
+- Keep `engine_validation_defaults.json` updated whenever engines are added/removed or renamed in config.
+- Use `--timeout-sec` to adjust per-case subprocess timeout for heavier models.
+- Treat failures in a subset of matrix cases as runtime-path issues unless preflight reports missing defaults or files.
+
 ## Documentation Maintenance Rule
 - Keep `docs/MODEL.md`, `docs/VIEW.md`, `docs/CONTROLLER.md`, and `docs/INFERENCE_ENGINES.md` aligned with code changes.
 - Record project release/history notes in `changelog.md`.
@@ -74,5 +119,7 @@ Notes:
 - `src/view.py`
 - `src/tts_engines.py`
 - `src/s2s_engines.py`
+- `src/unit_tests/validate_tts_engine.py`
+- `src/unit_tests/engine_validation_defaults.json`
 - `configs/tts_config.json`
 - `configs/s2s_config.json`

@@ -1,5 +1,35 @@
 # AI Changelog Notes
 
+## 2026-02-18 Documentation Verification Sync
+- Inconsistencies found:
+  - `docs/OPERATIONS.md` described validation outputs as always under `output_test/`, but `src/unit_tests/validate_tts_engine.py` writes to repo-root `engine_smoke.wav` by default in single-engine mode unless `--output` is provided.
+- Documentation updates applied:
+  - Updated `docs/OPERATIONS.md` `Unit Testing -> Engine Validation` output behavior to distinguish no-arg run-all output paths vs single-engine defaults.
+  - Updated `docs/ADDING_INFERENCE_ENGINES.md` unit test expected behavior to include reconciliation summary fields:
+    - `new_in_config`
+    - `stale_in_defaults`
+
+## 2026-02-18 Unit Testing Docs Sync (Subprocess Isolation + Progress)
+- Updated `docs/OPERATIONS.md` (`Unit Testing` -> `Engine Validation`) to document:
+  - subprocess-per-case execution model in `src/unit_tests/validate_tts_engine.py`
+  - per-case status categories: `passed`, `failed`, `timeout`, `crash`, `preflight_failed`
+  - live terminal progress behavior (`tqdm` when installed, fallback line logs otherwise)
+  - `--timeout-sec` usage for heavier model runs
+- Updated `docs/ADDING_INFERENCE_ENGINES.md` unit test checklist to require validating:
+  - isolated per-case execution behavior
+  - live progress output behavior
+  - expanded status-category reporting in JSON summary
+
+## 2026-02-18 Unit Testing Docs Update
+- Updated `docs/OPERATIONS.md` with a new `Unit Testing` area and an `Engine Validation` subsection.
+- Documented no-argument engine test execution using:
+  - `venv\Scripts\python.exe src\unit_tests\validate_tts_engine.py`
+- Added targeted single-engine invocation example and operational notes for pinned defaults maintenance.
+- Updated `docs/ADDING_INFERENCE_ENGINES.md` compatibility checklist to require:
+  - pinned defaults updates in `src/unit_tests/engine_validation_defaults.json`
+  - full validation run through `src/unit_tests/validate_tts_engine.py`
+- No troubleshooting matrix details were added; GPT-SoVITS matrix issue notes remain in `docs/AUTHOR_NOTES.md` as developer-facing notes.
+
 ## 2026-02-18 Add-Engine Folder Section Simplification
 - Simplified `docs/ADDING_INFERENCE_ENGINES.md` folder prerequisite section to remove rationale-heavy text.
 - Kept only:

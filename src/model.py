@@ -372,6 +372,7 @@ class AudiobookModel:
         with open(file_path, 'r', encoding='utf-8') as file:
             return json.load(file)
     def load_pdf(self):
+        # to be implemented pdf processing
         pass
         
     def load_selected_s2s_engine(self, chosen_s2s_engine, speaker_id, **kwargs):

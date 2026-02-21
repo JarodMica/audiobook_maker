@@ -1,6 +1,7 @@
 # Changelog & thoughts
 
 ## 3.7.0
+- Add Vibevoice as a TTS Engine
 - Add AI documentation for the project, outlining key details and necessary implementation details for an "AI" to code from
     - Going to automate key feature adding requests with AI, this makes it very necessary to maintain order
 - New Settings menu added

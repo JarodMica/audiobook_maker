@@ -1,0 +1,110 @@
+{
+  "tts": {
+    "pyttsx3": {
+      "params": {
+        "rate": 150,
+        "volume": 100
+      }
+    },
+    "styletts2": {
+      "params": {
+        "stts_model_path": "base",
+        "stts_voice": "validation_smoke",
+        "stts_reference_audio_file": "test.wav",
+        "stts_seed": -1,
+        "stts_diffusion_steps": 20,
+        "stts_alpha": 70,
+        "stts_beta": 30,
+        "stts_embedding_scale": 50
+      }
+    },
+    "tortoise": {
+      "params": {
+        "autoregressive_model_path": "ram_100.pth",
+        "tokenizer_json_path": "ja_base256_tokenizer.json",
+        "diffusion_model_path": "models/tortoise/diffusion_decoder.pth",
+        "voice": "ram",
+        "tortoise_seed": -1,
+        "sample_size": 2,
+        "tortoise_iterations": 25,
+        "use_deepspeed": false,
+        "use_hifigan": false
+      }
+    },
+    "vibevoice": {
+      "params": {
+        "vibevoice_model_path": "1.5v1_base",
+        "vibevoice_voice": "test",
+        "vibevoice_device": "auto",
+        "vibevoice_ddpm_steps": 10,
+        "vibevoice_num_speakers": 1,
+        "vibevoice_cfg_scale": 130,
+        "vibevoice_disable_cloning": false,
+        "vibevoice_seed": -1
+      }
+    },
+    "f5tts": {
+      "params": {
+        "f5tts_voice": "alma",
+        "f5tts_model": "",
+        "f5tts_tokenizer": "",
+        "f5tts_vocoder": "vocos",
+        "f5tts_duration_model": false,
+        "f5tts_speed": 100,
+        "f5tts_seed": -1
+      }
+    },
+    "gpt_sovits": {
+      "matrix": {
+        "versions": [
+          "v4",
+          "v3",
+          "v2",
+          "v1"
+        ],
+        "languages": [
+          "en",
+          "zh",
+          "ja",
+          "yue",
+          "ko",
+          "all_zh",
+          "all_ja",
+          "all_yue",
+          "all_ko"
+        ]
+      },
+      "base_params": {
+        "gpt_sovits_version": "v4",
+        "gpt_sovits_model": "",
+        "gpt_sovits_vits_model": "",
+        "gpt_sovits_voice": "alma",
+        "gpt_sovits_ref_lang": "en",
+        "gpt_sovits_output_lang": "en",
+        "gpt_sovits_seed": -1,
+        "gpt_sovits_speed": 100,
+        "gpt_sovits_sample_steps": 8,
+        "gpt_sovits_temperature": 70,
+        "gpt_sovits_top_k": 5,
+        "gpt_sovits_top_p": 100
+      }
+    }
+  },
+  "s2s": {
+    "rvc": {
+      "params": {
+        "selected_voice": "me",
+        "f0method": "rmvpe",
+        "index_rate": 0,
+        "f0pitch": 0,
+        "resample_sr": "0:None",
+        "rms_mix_rate": 50,
+        "protect": 33,
+        "filter_radius": 3
+      }
+    }
+  },
+  "expected_skip_tts": [
+    "xtts"
+  ]
+}

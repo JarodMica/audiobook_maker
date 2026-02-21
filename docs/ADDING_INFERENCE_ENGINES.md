@@ -233,6 +233,28 @@ If a `text` upload entry has no `save_path`, it is treated as a naming field (fo
 - Engine works through normal flow:
   - `speaker_settings` -> model loader -> adapter function.
 
+5. Unit testing defaults:
+- Add/update pinned defaults in:
+  - `src/unit_tests/engine_validation_defaults.json`
+- Requirements:
+  - Add a defaults entry for each new runtime engine dispatch key.
+  - If engine has matrix-style testing (for example GPT-SoVITS), define matrix dimensions explicitly.
+  - Ensure referenced model/voice paths and filenames exist in repo assets.
+
+6. Unit test execution:
+- Validate integration from repo root with venv python:
+  - `venv\Scripts\python.exe src\unit_tests\validate_tts_engine.py`
+- Expected behavior:
+  - Dynamic engine discovery from `configs/tts_config.json`
+  - Expected skip handling for `in progress` engines
+  - Per-engine/per-case load + inference + output-file checks in JSON summary
+  - Subprocess isolation per case (one worker process per case) so one engine failure does not poison later runs
+  - Live progress in terminal (`tqdm` when installed, fallback line logs otherwise)
+  - Case status categories include `passed`, `failed`, `timeout`, `crash`, and `preflight_failed`
+  - Summary includes reconciliation fields for config/defaults drift:
+    - `new_in_config`
+    - `stale_in_defaults`
+
 ## Related Files
 - `configs/tts_config.json`
 - `configs/s2s_config.json`
@@ -241,3 +263,5 @@ If a `text` upload entry has no `save_path`, it is treated as a naming field (fo
 - `src/model.py`
 - `src/tts_engines.py`
 - `src/s2s_engines.py`
+- `src/unit_tests/validate_tts_engine.py`
+- `src/unit_tests/engine_validation_defaults.json`
