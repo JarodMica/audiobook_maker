@@ -562,6 +562,74 @@
                     "step": 100
                 }
             ]
+        },
+        {
+            "name": "Camb_AI",
+            "upload_params": {
+                "AI Models": [],
+                "Voice Reference File": [
+                    {
+                        "label": "Voice Name",
+                        "type": "text",
+                        "attribute": "upload_camb_ai_voice_name"
+                    },
+                    {
+                        "label": "Browse Reference Audio",
+                        "type": "file",
+                        "attribute": "upload_camb_ai_voice_ref_path",
+                        "file_filter": "Audio Files (*.wav *.mp3 *.flac *.ogg);;All Files (*)",
+                        "save_path": "voices/camb_ai",
+                        "save_format": "folder"
+                    }
+                ]
+            },
+            "parameters": [
+                {
+                    "label": "API Key",
+                    "type": "text",
+                    "attribute": "camb_ai_api_key"
+                },
+                {
+                    "label": "Speech Model",
+                    "type": "combobox",
+                    "attribute": "camb_ai_speech_model",
+                    "function": "get_combobox_items",
+                    "folder_path": "",
+                    "look_for": "custom",
+                    "custom_options": ["mars-flash", "mars-pro", "mars-instruct"]
+                },
+                {
+                    "label": "Voice ID",
+                    "type": "spinbox",
+                    "attribute": "camb_ai_voice_id",
+                    "min": 0,
+                    "max": 9999999,
+                    "default": 147320
+                },
+                {
+                    "label": "Language",
+                    "type": "combobox",
+                    "attribute": "camb_ai_language",
+                    "function": "get_combobox_items",
+                    "folder_path": "",
+                    "look_for": "custom",
+                    "custom_options": ["en-us", "es-es", "fr-fr", "de-de", "ja-jp", "hi-in", "pt-br", "zh-cn", "ko-kr", "it-it", "nl-nl", "ru-ru", "ar-sa"]
+                },
+                {
+                    "label": "Output Format",
+                    "type": "combobox",
+                    "attribute": "camb_ai_output_format",
+                    "function": "get_combobox_items",
+                    "folder_path": "",
+                    "look_for": "custom",
+                    "custom_options": ["wav", "mp3", "flac"]
+                },
+                {
+                    "label": "Enhance Named Entities",
+                    "type": "checkbox",
+                    "attribute": "camb_ai_enhance_named_entities"
+                }
+            ]
         }
     ]
 }
