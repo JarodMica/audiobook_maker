@@ -38,6 +38,13 @@ except Exception as e:
     print(f"GPT-SoVITS is not available, received error: {e}")
     print("Full traceback:")
     traceback.print_exc()
+try:
+    from camb.client import CambAI, save_stream_to_file
+    from camb.types import StreamTtsOutputConfiguration
+except Exception as e:
+    print(f"Camb AI is not available, received error: {e}")
+    print("Full traceback:")
+    traceback.print_exc()
 
 def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audio_path):
     tts_engine_name = tts_engine_name.lower()
@@ -53,6 +60,8 @@ def generate_audio(tts_engine, sentence, voice_parameters, tts_engine_name, audi
         return generate_with_f5tts(tts_engine, sentence, voice_parameters, audio_path)
     elif tts_engine_name == 'gpt_sovits':
         return generate_with_gpt_sovits(tts_engine, sentence, voice_parameters, audio_path)
+    elif tts_engine_name == 'camb_ai':
+        return generate_with_camb_ai(tts_engine, sentence, voice_parameters, audio_path)
     else:
         # Handle unknown engine
         return False
@@ -232,7 +241,59 @@ def generate_with_gpt_sovits(tts_engine, sentence, voice_parameters, audio_path)
     sf.write(audio_path, combined_audio, sr)
     
     return audio_path
-    
+
+def generate_with_camb_ai(tts_engine, sentence, voice_parameters, audio_path):
+    import requests as camb_requests
+
+    voice_id = int(voice_parameters.get("camb_ai_voice_id", 147320))
+    language = voice_parameters.get("camb_ai_language", "en-us")
+    speech_model = voice_parameters.get("camb_ai_speech_model", "mars-flash")
+    output_format = voice_parameters.get("camb_ai_output_format", "wav")
+    enhance = voice_parameters.get("camb_ai_enhance_named_entities", False)
+    api_key = tts_engine  # load_with_camb_ai now returns the API key string
+
+    print(f"[Camb AI] Generating: '{sentence[:50]}...' voice_id={voice_id} model={speech_model}")
+    try:
+        payload = {
+            "text": sentence,
+            "language": language,
+            "voice_id": voice_id,
+            "speech_model": speech_model,
+            "output_configuration": {"format": output_format},
+            "enhance_named_entities_pronunciation": enhance,
+        }
+        resp = camb_requests.post(
+            "https://client.camb.ai/apis/tts-stream",
+            headers={
+                "x-api-key": api_key,
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            stream=True,
+            timeout=120,
+        )
+        print(f"[Camb AI] Response status: {resp.status_code}")
+        if resp.status_code != 200:
+            print(f"[Camb AI] Error response: {resp.text[:500]}")
+            return False
+
+        total = 0
+        with open(audio_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    total += len(chunk)
+
+        print(f"[Camb AI] Saved {total} bytes to {audio_path}")
+        if total == 0:
+            print("[Camb AI] WARNING: Generated file is empty!")
+            return False
+        return audio_path
+    except Exception as e:
+        print(f"[Camb AI] Error generating audio: {e}")
+        traceback.print_exc()
+        return False
+
 #################################################
 ############### Loading Functions ###############
 #################################################                         
@@ -252,6 +313,8 @@ def load_tts_engine(tts_engine_name, **kwargs):
             return load_with_f5tts(**kwargs)
         elif tts_engine_name == 'gpt_sovits':
             return load_with_gpt_sovits(**kwargs)
+        elif tts_engine_name == 'camb_ai':
+            return load_with_camb_ai(**kwargs)
         else:
             # Handle unknown engine
             raise ValueError(f"Unknown TTS engine: {tts_engine_name}")
@@ -415,6 +478,12 @@ def load_with_gpt_sovits(**kwargs):
         pipeline.init_t2s_weights(t2s_ckpt_path)
         pipeline.init_vits_weights(vits_ckpt_path, vocoder_path=vocoder_path, model_version=version)
     return pipeline
+
+def load_with_camb_ai(**kwargs):
+    api_key = kwargs.get("camb_ai_api_key") or os.environ.get("CAMB_API_KEY")
+    if not api_key:
+        raise ValueError("Camb AI API key not provided. Set CAMB_API_KEY env var or enter in settings.")
+    return api_key
 
 #################################################
 ############### Utility Functions ###############
